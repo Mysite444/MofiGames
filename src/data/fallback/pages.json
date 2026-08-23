@@ -1,0 +1,28 @@
+{
+  "about": {
+    "id": "fallback-about",
+    "slug": "about",
+    "title": "About Us",
+    "content": "\n  <p>MofiGames is a free browser gaming portal. No downloads, no installs — pick a category, click a game, and play straight from your browser on desktop, tablet, or phone.</p>\n  <h2>What we offer</h2>\n  <p>Our catalog spans hundreds of games across dozens of categories, from quick arcade rounds to longer strategy and simulation sessions.</p>\n  <h2>Our mission</h2>\n  <p>Keep casual gaming simple: fast loading pages, a clean catalog, and no clutter between you and the games you want to play.</p>\n",
+    "metaDescription": "",
+    "showInNav": false,
+    "seoTitle": "",
+    "seoCanonicalUrl": null,
+    "seoH1Title": "",
+    "seoIndex": true,
+    "ogImageUrl": null
+  },
+  "contact": {
+    "id": "fallback-contact",
+    "slug": "contact",
+    "title": "Contact Us",
+    "content": "\n  <p>We'd love to hear from you. Fill in the form below or reach out through any of the channels listed here.</p>\n  <ul><li><strong>Email:</strong> support@mofigames.com</li><li><strong>Live chat:</strong> Coming soon</li></ul>\n  <h2>Response time</h2>\n  <p>We typically reply within 1–2 business days.</p>\n",
+    "metaDescription": "",
+    "showInNav": false,
+    "seoTitle": "",
+    "seoCanonicalUrl": null,
+    "seoH1Title": "",
+    "seoIndex": true,
+    "ogImageUrl": null
+  }
+}
