@@ -30,6 +30,16 @@ import { getCacheSettingsServer } from "@/lib/cache-settings-server";
  *     content never changes — safe to treat as immutable at the SW layer
  *     even though the HTTP Cache-Control on some of those buckets is
  *     shorter (see migration 0033's header comment).
+ *   - Exception to the rule above: /favicon.ico and /apple-touch-icon.png
+ *     are never intercepted, cache-first or otherwise. Both are dynamic
+ *     proxy routes (src/app/favicon.ico/route.ts,
+ *     src/app/apple-touch-icon.png/route.ts) whose content changes at a
+ *     fixed URL whenever an admin updates Site Identity — the opposite of
+ *     the "same URL, immutable content" assumption the cache-first image
+ *     rule relies on. Caching them would permanently freeze whichever
+ *     icon was live the moment a visitor's browser first installed this
+ *     worker, with no way for a later upload to ever be seen again on
+ *     that browser.
  *   - Everything else: network, uncached.
  */
 
@@ -101,6 +111,29 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin === self.location.origin && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api"))) {
+    return;
+  }
+
+  // /favicon.ico and /apple-touch-icon.png are dynamic proxy routes (see
+  // src/app/favicon.ico/route.ts and src/app/apple-touch-icon.png/route.ts)
+  // that always serve whatever the admin currently has set in Site
+  // Identity — unlike other images, their content is expected to change
+  // at a fixed URL. The generic cache-first "image" rule below is safe
+  // only because every *uploaded* media asset gets a unique, timestamped
+  // filename (see uploadMediaAsset in admin-content.ts), so the same URL
+  // really is immutable. These two probe URLs are the opposite: same URL,
+  // content changes on every admin save. Caching them cache-first would
+  // permanently freeze whatever icon happened to be live the first time
+  // a visitor's browser installed this worker — including the bundled
+  // default — with no way for an admin's upload to ever be seen again on
+  // that browser. Let these fall through to the network every time; the
+  // route's own Cache-Control header (public, max-age=600,
+  // must-revalidate) already gives the browser's normal HTTP cache a
+  // short, safe TTL.
+  if (
+    url.origin === self.location.origin &&
+    (url.pathname === "/favicon.ico" || url.pathname === "/apple-touch-icon.png")
+  ) {
     return;
   }
 
