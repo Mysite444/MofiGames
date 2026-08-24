@@ -1,0 +1,41 @@
+-- Homepage TTFB audit (see MOFIGAMES_PERFORMANCE_AUDIT.md, Step 5).
+--
+-- getAllRealGames() (src/lib/games-server.ts) — the query that backs the
+-- homepage's full games list — runs exactly this shape:
+--
+--   select * from games
+--   where is_published = true and visibility = 'public'
+--   order by created_at desc
+--
+-- games_published_idx (0003) and games_visibility_idx (0008) each cover
+-- one predicate but not the ORDER BY, so Postgres still needs a bitmap
+-- AND of two indexes followed by a separate sort step. This composite,
+-- ordered index lets it satisfy the filter AND the sort in one index
+-- scan, with no separate sort step, and no query-shape change required.
+--
+-- Not a blind guess: this exact filter+order combination is grep-verified
+-- as the only shape getAllRealGames() uses (games-server.ts:230-234) — no
+-- other homepage query needs a different composite, and no other index is
+-- added here.
+--
+-- Low risk / additive only: this does not touch existing indexes, table
+-- structure, or data, and CONCURRENTLY avoids taking a write lock on the
+-- table while it builds (kept as a `create index` migration but run it
+-- with CONCURRENTLY by hand outside a transaction if the games table is
+-- large in production — see the note at the bottom of this file).
+create index if not exists games_homepage_feed_idx
+  on public.games (is_published, visibility, created_at desc);
+
+-- Rollback:
+--   drop index if exists public.games_homepage_feed_idx;
+
+-- Production note: Supabase's SQL editor and the standard migration
+-- runner wrap each migration in a transaction, and CREATE INDEX
+-- CONCURRENTLY cannot run inside a transaction. For a small/medium games
+-- table this plain CREATE INDEX is fine (a brief, likely sub-second
+-- write lock). If the games table has grown large enough that an
+-- exclusive lock during index creation would be noticeable, run this
+-- statement by hand instead, outside a transaction:
+--
+--   create index concurrently if not exists games_homepage_feed_idx
+--     on public.games (is_published, visibility, created_at desc);

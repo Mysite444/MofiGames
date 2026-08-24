@@ -1,0 +1,405 @@
+"use client";
+
+/**
+ * MobileLandscapePlayer
+ *
+ * Full-screen landscape game overlay for mobile — mirrors the CrazyGames
+ * behaviour where tapping Play immediately locks the experience to landscape
+ * without requiring the user to physically rotate the device.
+ *
+ * Three-layer strategy (each fallback is transparent to the user):
+ *
+ *  Layer 1 — Native fullscreen + orientation lock (Android Chrome / modern
+ *             Chromium browsers):
+ *    requestFullscreen() → then screen.orientation.lock("landscape")
+ *    The browser chrome disappears and the OS rotates its own UI.
+ *
+ *  Layer 2 — CSS rotation fallback (iOS Safari, browsers that don't support
+ *             the Orientation Lock API, or any context that isn't fullscreen):
+ *    The inner game container gets `transform: rotate(90deg)` with swapped
+ *    width/height (100dvh × 100dvw) so it visually fills the screen in
+ *    landscape even though the device is physically portrait.  The iframe
+ *    itself still receives landscape dimensions and plays correctly.
+ *
+ *  Layer 3 — Natural landscape (device is already landscape or the game's
+ *             native orientation is portrait):
+ *    No rotation needed; the overlay just fills the screen as-is.
+ *
+ * Close (✕) button lives *inside* the rotated container so it always appears
+ * in the top-right corner of the game coordinate space regardless of which
+ * layer is active or what the physical device orientation is.
+ *
+ * ── Why this renders through a portal ──────────────────────────────────
+ * Same reason as MobileDrawer / MobileActionSheet: the header is `position:
+ * fixed` + `backdrop-blur`, which on real mobile Safari/Chrome (not desktop
+ * DevTools emulation) gets promoted to its own compositing layer that can
+ * paint above sibling `fixed` elements *regardless of z-index* once it
+ * shares an ancestor stacking context with them. This overlay is rendered
+ * deep inside <main>, a sibling of <Header>, so it was exactly that case —
+ * the header (hamburger/search/notifications/account) kept showing on top
+ * of the "fullscreen" game even though its z-index (9999) was below the
+ * header's (10000) on paper. Portaling straight into <body>, plus using a
+ * z-index above every other fixed layer in the app (header 10000, mobile
+ * drawer/action-sheet 10050), removes it from that stacking context so it
+ * always wins.
+ *
+ * ── Hardware / browser Back button ─────────────────────────────────────
+ * Tapping ✕ or pressing Escape already closed the overlay, but the Back
+ * button (Android hardware/gesture back, iOS edge-swipe, or the browser's
+ * own Back control) did nothing special — it would fall through to normal
+ * history navigation and leave the game running, fullscreen/orientation
+ * lock and all. We push a synthetic history entry while the overlay is
+ * open and listen for `popstate` so Back closes the overlay first (which
+ * unmounts this component and — via the effect below — exits fullscreen
+ * and unlocks the orientation, returning the device to portrait) instead
+ * of navigating the underlying page.
+ */
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { X, RotateCcw } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type OrientationType = "landscape" | "portrait";
+
+interface MobileLandscapePlayerProps {
+  /** The playable URL that goes into the iframe `src`. */
+  playUrl?: string | null;
+  /** Accessible iframe title. */
+  title: string;
+  /**
+   * The game's native orientation (game.orientation from the DB).
+   * - "landscape" (default) → rotate when the device is portrait.
+   * - "portrait" → the game is designed for portrait; skip rotation,
+   *   just open the overlay fullscreen.
+   */
+  orientation?: OrientationType;
+  /**
+   * Called when the user taps the ✕ button, presses Escape, or presses the
+   * hardware/browser Back button (intercepted internally via `popstate`).
+   */
+  onClose: () => void;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** True when the viewport is currently taller than it is wide (portrait). */
+function detectPortrait(): boolean {
+  if (typeof window === "undefined") return true;
+  // visualViewport is more accurate than window.innerWidth/Height on iOS
+  // when the on-screen keyboard is open, but we only care about the
+  // physical orientation here, so innerWidth/Height is fine.
+  return window.innerWidth < window.innerHeight;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function MobileLandscapePlayer({
+  playUrl,
+  title,
+  orientation = "landscape",
+  onClose,
+}: MobileLandscapePlayerProps) {
+  // SSR-safe "can we use document.body yet" guard — same pattern as
+  // MobileDrawer/MobileActionSheet — required before calling createPortal.
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), []);
+
+  // Whether the physical viewport is currently portrait-shaped.
+  const [isPortrait, setIsPortrait] = useState<boolean>(detectPortrait);
+
+  // Only rotate landscape games when the device is in portrait.
+  // Portrait games fill the screen naturally (no rotation needed).
+  const needsRotation = orientation === "landscape" && isPortrait;
+
+  // ── Orientation listener ─────────────────────────────────────────────────
+  useEffect(() => {
+    function sync() {
+      setIsPortrait(detectPortrait());
+    }
+    // "resize" catches everything including orientation changes on desktop.
+    // "orientationchange" is the dedicated mobile event (may fire earlier).
+    window.addEventListener("resize", sync, { passive: true });
+    window.addEventListener("orientationchange", sync, { passive: true });
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("orientationchange", sync);
+    };
+  }, []);
+
+  // ── Native fullscreen + orientation lock (Layer 1) ───────────────────────
+  useEffect(() => {
+    const el = document.documentElement;
+
+    // Attempt native fullscreen. On Android Chrome this hides the address
+    // bar; on iOS it throws and we catch it silently.
+    const fsPromise: Promise<void> =
+      el.requestFullscreen?.() ??
+      // webkit prefix — required on older iOS/macOS Safari
+      (el as HTMLElement & { webkitRequestFullscreen?: () => void })
+        .webkitRequestFullscreen?.() as unknown as Promise<void> ??
+      Promise.resolve();
+
+    // After fullscreen is active (required by the spec before lock() works),
+    // try to lock the OS UI to landscape.  iOS throws NotSupportedError,
+    // everything else that doesn't support it also throws — both caught silently.
+    Promise.resolve(fsPromise)
+      .then(() => {
+        if (orientation === "portrait") return; // portrait games need no lock
+        const so = screen?.orientation as
+          | (ScreenOrientation & {
+              lock?: (type: string) => Promise<void>;
+            })
+          | undefined;
+        return so?.lock?.("landscape");
+      })
+      .catch(() => {
+        // Expected on iOS Safari and on any browser that requires a user
+        // gesture + fullscreen before allowing orientation lock.
+        // CSS rotation (Layer 2) handles the fallback transparently.
+      });
+
+    // Cleanup on close: exit fullscreen and unlock orientation.
+    return () => {
+      const so = screen?.orientation as
+        | (ScreenOrientation & { unlock?: () => void })
+        | undefined;
+      so?.unlock?.();
+
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      } else if (
+        (
+          document as Document & {
+            webkitFullscreenElement?: Element | null;
+            webkitExitFullscreen?: () => void;
+          }
+        ).webkitFullscreenElement
+      ) {
+        (
+          document as Document & { webkitExitFullscreen?: () => void }
+        ).webkitExitFullscreen?.();
+      }
+    };
+  }, [orientation]);
+
+  // ── Body scroll lock ─────────────────────────────────────────────────────
+  // Prevents the page behind the overlay from scrolling while the user
+  // swipes inside the game or drags the joystick area.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevWidth = document.body.style.width;
+    document.body.style.overflow = "hidden";
+    // iOS Safari doesn't honour overflow:hidden on <body> alone; setting
+    // position:fixed stops the bounce-scroll from leaking through.
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+    return () => {
+      document.body.style.overflow = prev;
+      document.body.style.position = prevPosition;
+      document.body.style.width = prevWidth;
+    };
+  }, []);
+
+  // ── Escape key to close ──────────────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // ── Hardware / browser Back button closes the overlay ───────────────────
+  // Kept in a ref so this effect only runs once per mount/unmount of the
+  // overlay itself — it must NOT re-fire on every re-render just because
+  // the caller passed a fresh `onClose` closure (MobileGamePage doesn't
+  // memoize it), or we'd push a new history entry on every render.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    // Push a throwaway history entry the moment the overlay opens. Pressing
+    // Back then pops *this* entry first (firing `popstate` below) instead
+    // of navigating the user off the game page entirely.
+    window.history.pushState({ mobileGameOverlay: true }, "");
+    let poppedByBackButton = false;
+
+    function handlePopState() {
+      poppedByBackButton = true;
+      // Closes the overlay -> unmounts this component -> the fullscreen/
+      // orientation-lock effect's cleanup runs -> device returns to portrait.
+      onCloseRef.current();
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      // If we're unmounting for any other reason (✕ tapped, Escape pressed)
+      // the synthetic entry we pushed is still sitting on top of the
+      // history stack unused. Pop it now so Back doesn't need to be
+      // pressed twice to actually leave the game page afterwards.
+      if (!poppedByBackButton) {
+        window.history.back();
+      }
+    };
+    // Intentionally run once per mount: see onCloseRef note above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── CSS dimensions for the rotated game container (Layer 2) ─────────────
+  //
+  // When needsRotation is true:
+  //   • Set the container's intrinsic size to 100dvh × 100dvw (swapped axes)
+  //   • Translate it so its center aligns with the viewport center
+  //   • Rotate 90° clockwise — the container now fills the viewport in
+  //     landscape even though the OS still thinks it's portrait
+  //
+  // dvh/dvw (dynamic viewport units) account for collapsing browser chrome
+  // on mobile. We fall back to vh/vw if dvh isn't supported (older devices).
+  const gameContainerStyle: React.CSSProperties = needsRotation
+    ? {
+        // Swap the width/height axes so the iframe renders at the correct
+        // landscape dimensions inside the rotated coordinate space.
+        width: "100dvh",
+        height: "100dvw",
+        // Fallback for browsers that don't support dvh/dvw
+        // (overridden by the lines above when supported)
+        // @ts-ignore -- CSS custom fallback via @supports handled in runtime
+        maxWidth: "100vh",
+        maxHeight: "100vw",
+        position: "absolute" as const,
+        top: "50%",
+        left: "50%",
+        // Rotate clockwise: the game's "left edge" is now the device's top.
+        transform: "translate(-50%, -50%) rotate(90deg)",
+        transformOrigin: "center center",
+        // Hint to the compositor to promote this layer, avoiding repaints
+        // while the game is running and the container is static.
+        willChange: "transform",
+        overflow: "hidden",
+      }
+    : {
+        // Already landscape (or portrait game): just fill the overlay.
+        position: "absolute" as const,
+        inset: 0,
+        overflow: "hidden",
+      };
+
+  // Not mounted yet (SSR / first paint) — bail before touching document.body.
+  if (!mounted) return null;
+
+  const overlay = (
+    /*
+     * Root overlay — fixed, covers the entire screen. z-[10060] beats every
+     * other fixed layer in the app (header 10000, mobile drawer/action-sheet
+     * 10050), and rendering through a portal (below) takes it out of the
+     * header's stacking context entirely — see the file-level comment for why
+     * both are needed on real devices.
+     *
+     * `touchAction: "none"` on the root prevents the browser from claiming
+     * any touch events for its own scroll/zoom gestures while the overlay is
+     * open.  We restore `touchAction: "auto"` on the close button so it
+     * receives tap events normally.
+     */
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Playing ${title}`}
+      className="fixed inset-0 z-[10060] bg-black"
+      style={{ touchAction: "none" }}
+    >
+      {/* ── Rotatable game container ───────────────────────────────────── */}
+      <div style={gameContainerStyle}>
+
+        {/* ── Close button ─────────────────────────────────────────────── */}
+        {/*
+         * Placed INSIDE the rotated container so it always appears in the
+         * game's top-right corner regardless of physical device orientation
+         * or which rotation layer is active.
+         */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Exit game"
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm transition-transform active:scale-90"
+          // Restore touch handling just for the button itself.
+          style={{ touchAction: "auto" }}
+        >
+          <X size={18} strokeWidth={2.5} />
+        </button>
+
+        {/* ── Game iframe ──────────────────────────────────────────────── */}
+        {playUrl ? (
+          <iframe
+            src={playUrl}
+            title={title}
+            className="h-full w-full border-0"
+            // Permissions needed by common game frameworks:
+            // gamepad   — controller support
+            // fullscreen — game's own fullscreen button
+            // autoplay  — background music / SFX on load
+            // accelerometer / gyroscope — motion controls
+            // camera / microphone — AR games, voice chat
+            allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
+            allowFullScreen
+          />
+        ) : (
+          // Shown when admin hasn't set a play URL yet.
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
+            <X size={32} className="text-white/20" />
+            <p className="text-sm">No game URL configured.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Rotation hint (Layer 2 only) ───────────────────────────────── */}
+      {/*
+       * A small pill that briefly tells the user they can physically rotate
+       * the device for a "native" feel — optional since the CSS rotation
+       * already makes the game playable without rotating.  Fades out after
+       * 2.5 s so it doesn't obstruct gameplay.
+       */}
+      {needsRotation && <RotationHint />}
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
+// ─── Rotation hint ────────────────────────────────────────────────────────────
+
+function RotationHint() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    // Start fade-out after 1.8 s, remove from DOM after the 0.5 s transition.
+    const fadeTimer = setTimeout(() => setVisible(false), 1800);
+    return () => clearTimeout(fadeTimer);
+  }, []);
+
+  return (
+    <div
+      // This lives OUTSIDE the rotated container so it appears at the
+      // physical bottom of the device (easier for the user to notice on
+      // first glance before they orient themselves).
+      className="pointer-events-none absolute inset-x-0 bottom-10 z-20 flex justify-center"
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: "opacity 0.5s ease",
+      }}
+      aria-hidden="true"
+    >
+      <div className="flex items-center gap-2 rounded-full bg-black/75 px-5 py-2.5 text-xs font-medium text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md">
+        <RotateCcw size={13} className="shrink-0" aria-hidden />
+        Rotate your device for the best experience
+      </div>
+    </div>
+  );
+}
