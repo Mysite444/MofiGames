@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/lib/auth-context";
@@ -20,6 +20,19 @@ import { getSiteIdentity } from "@/lib/site-identity";
 import { getAdSettings } from "@/lib/ad-settings";
 import { SITE_URL, organizationSchema, websiteSchema, applyTitleTemplate } from "@/lib/seo";
 import "./globals.css";
+
+/**
+ * viewport-fit=cover lets position:fixed overlays (MobileLandscapePlayer)
+ * extend to the full physical screen — behind the notch and the home
+ * indicator — so the game iframe fills the entire display.
+ * Without this, inset:0 stops at the OS safe-area boundary on iOS and
+ * env(safe-area-inset-*) always resolves to 0, breaking the edge-UI fix.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const [settings, identity] = await Promise.all([getSeoSettings(), getSiteIdentity()]);
