@@ -438,57 +438,140 @@ export function MobileLandscapePlayer({
         )}
 
         {/* ── Exit / Invite / Mute control panel ───────────────────────────
-         * One black, semi-opaque panel on the LEFT edge holding all three
-         * controls together — matches the reference screenshot's left-side
-         * control cluster. Lives INSIDE the rotated container (same
-         * coordinate space as the iframe) so it lands in the correct
+         * Edge-flush vertical sidebar pinned to the LEFT of the game
+         * container.  Fills the left safe-area strip (camera-notch zone)
+         * with a black background so no gap shows through, then stacks
+         * coloured labelled buttons from top to bottom:
+         *
+         *   ┌──────┐
+         *   │ EXIT │  ← purple (#7c3aed), icon + rotated text label
+         *   ├──────┤
+         *   │ INVT │  ← green  (#16a34a), icon + rotated text label
+         *   ├──────┤
+         *   │      │  ← black spacer fills remaining height
+         *   ├──────┤
+         *   │  🔊  │  ← dark   (#1c1c1e), icon only, bottom-aligned
+         *   └──────┘
+         *
+         * Text uses writingMode:"vertical-lr" + rotate(180deg) so labels
+         * read bottom→top within the narrow strip width.
+         *
+         * Lives INSIDE the rotated container so it lands in the correct
          * on-screen corner regardless of which rotation layer is active.
-         * Root overlay has touchAction:none (to swallow game swipe
-         * gestures), so this wrapper opts back into normal touch handling.
+         * Root overlay has touchAction:none; this wrapper opts back into
+         * normal touch handling so taps register correctly.
          */}
         <div
-          className="absolute left-3 top-3 z-10 flex flex-col items-center gap-1 rounded-2xl bg-black/70 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-sm"
-          style={{ touchAction: "auto" }}
+          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col"
+          style={{ width: 48, touchAction: "auto" }}
         >
+          {/* EXIT — purple */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Exit game"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              padding: "10px 0 8px",
+              backgroundColor: "#7c3aed",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              WebkitTapHighlightColor: "transparent",
+              flexShrink: 0,
+            }}
           >
-            <LogOut size={19} strokeWidth={2.25} />
+            <LogOut size={15} strokeWidth={2.5} />
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.07em",
+                textTransform: "uppercase",
+                writingMode: "vertical-lr",
+                transform: "rotate(180deg)",
+                lineHeight: 1,
+                userSelect: "none",
+              }}
+            >
+              Exit
+            </span>
           </button>
 
-          <div className="h-px w-6 bg-white/15" aria-hidden="true" />
-
+          {/* INVITE — green */}
           <button
             type="button"
             onClick={handleInvite}
             aria-label="Invite a friend"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 4,
+              padding: "10px 0 8px",
+              backgroundColor: "#16a34a",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              WebkitTapHighlightColor: "transparent",
+              flexShrink: 0,
+            }}
           >
             {inviteCopied ? (
-              <Check size={19} strokeWidth={2.25} />
+              <Check size={15} strokeWidth={2.5} />
             ) : (
-              <UserPlus size={19} strokeWidth={2.25} />
+              <UserPlus size={15} strokeWidth={2.5} />
             )}
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: "0.07em",
+                textTransform: "uppercase",
+                writingMode: "vertical-lr",
+                transform: "rotate(180deg)",
+                lineHeight: 1,
+                userSelect: "none",
+              }}
+            >
+              {inviteCopied ? "Copied" : "Invite"}
+            </span>
           </button>
 
-          <div className="h-px w-6 bg-white/15" aria-hidden="true" />
+          {/* Black spacer — fills the rest of the safe-area height */}
+          <div style={{ flex: 1, backgroundColor: "#000" }} />
 
+          {/* VOLUME — dark, bottom-anchored */}
           <button
             type="button"
             onClick={handleMuteToggle}
             aria-label={muted ? "Unmute sound" : "Mute sound"}
             aria-pressed={muted}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "12px 0",
+              backgroundColor: "#1c1c1e",
+              border: "none",
+              color: "#fff",
+              cursor: "pointer",
+              WebkitTapHighlightColor: "transparent",
+              flexShrink: 0,
+            }}
           >
-            {muted ? <VolumeX size={19} strokeWidth={2.25} /> : <Volume2 size={19} strokeWidth={2.25} />}
+            {muted ? <VolumeX size={16} strokeWidth={2.5} /> : <Volume2 size={16} strokeWidth={2.5} />}
           </button>
 
+          {/* "Link copied" tooltip */}
           {inviteCopied && (
             <div
-              className="absolute left-full top-14 ml-2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
+              className="absolute left-full top-20 ml-2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
               aria-hidden="true"
             >
               Link copied

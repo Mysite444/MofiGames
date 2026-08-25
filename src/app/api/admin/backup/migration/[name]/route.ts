@@ -23,7 +23,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
   }
   const { supabase } = auth.ctx;
 
-  const { data, error } = await supabase.storage.from("site-migrations").createSignedUrl(parsedParams.data.name, 60);
+  const { data, error } = await supabase.storage
+    .from("site-migrations")
+    .createSignedUrl(parsedParams.data.name, 60, { download: parsedParams.data.name });
   if (error || !data) {
     return NextResponse.json({ error: "Failed to create download link." }, { status: 500 });
   }
@@ -47,6 +49,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (error) {
     return NextResponse.json({ error: "Failed to delete migration package." }, { status: 500 });
   }
+
+  // Only clear the matching "export" run — "import"/"import_dry_run" rows
+  // are an audit trail of restores, not files in this bucket, and should
+  // stay even after the source package they were built from is deleted.
+  await supabase.from("site_migration_runs").delete().eq("kind", "export").eq("filename", parsedParams.data.name);
 
   await logAdminAction(supabase, user, {
     action: "site_migration_deleted",

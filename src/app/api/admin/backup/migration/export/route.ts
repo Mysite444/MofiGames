@@ -79,7 +79,12 @@ export async function POST(request: Request) {
       metadata: { manifest, warnings },
     });
 
-    const { data: signed } = await supabase.storage.from("site-migrations").createSignedUrl(filename, 60);
+    const { data: signed, error: signedError } = await supabase.storage
+      .from("site-migrations")
+      .createSignedUrl(filename, 60, { download: filename });
+    if (signedError) {
+      warnings.push(`Migration package saved, but the download link could not be created: ${signedError.message}. Download it from the site-migrations storage bucket instead.`);
+    }
 
     return NextResponse.json({
       filename,

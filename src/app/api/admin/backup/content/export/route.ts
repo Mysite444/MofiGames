@@ -75,7 +75,16 @@ export async function POST(request: Request) {
     metadata: { tables: file.manifest.tables, warnings },
   });
 
-  const { data: signed } = await supabase.storage.from("content-backups").createSignedUrl(filename, 60);
+  const { data: signed, error: signedError } = await supabase.storage
+    .from("content-backups")
+    .createSignedUrl(filename, 60, { download: filename });
+  if (signedError) {
+    // The backup itself is safe (already uploaded + logged above) — only
+    // the download link failed. Surface that instead of silently
+    // returning downloadUrl: null, which previously left the button
+    // looking like it did nothing.
+    warnings.push(`Backup saved, but the download link could not be created: ${signedError.message}. Download it from the content-backups storage bucket instead.`);
+  }
 
   return NextResponse.json({
     filename,

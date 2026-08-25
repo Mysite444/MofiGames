@@ -38,7 +38,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
 
   const { data, error } = await supabase.storage
     .from("automation-backups")
-    .createSignedUrl(parsedParams.data.name, 60);
+    .createSignedUrl(parsedParams.data.name, 60, { download: parsedParams.data.name });
 
   if (error || !data) {
     // Previously this returned a generic message with nothing logged

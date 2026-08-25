@@ -11,8 +11,10 @@ import {
   AlertTriangle,
   XCircle,
   Info,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { triggerBrowserDownload } from "@/lib/download-trigger";
 
 interface CatalogResponse {
   tables: { name: string; estimatedRows: number }[];
@@ -91,6 +93,7 @@ export function MigrationSection() {
   const [pendingStorageKey, setPendingStorageKey] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
+  const [deletingFilename, setDeletingFilename] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadCatalog = useCallback(async () => {
@@ -134,7 +137,13 @@ export function MigrationSection() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Migration export failed.");
-      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      if (data.downloadUrl) {
+        triggerBrowserDownload(data.downloadUrl, data.filename);
+      } else if (data.warnings?.length) {
+        setError(data.warnings[data.warnings.length - 1]);
+      } else {
+        setError("Migration package was created but no download link came back — grab it from the site-migrations storage bucket.");
+      }
       setNotice(`Migration package "${data.filename}" created (${formatSize(data.sizeBytes)}).`);
       await loadHistory();
     } catch (err) {
@@ -201,6 +210,22 @@ export function MigrationSection() {
   function cancelPreview() {
     setPreview(null);
     setPendingStorageKey(null);
+  }
+
+  async function deleteExport(filename: string) {
+    if (!window.confirm(`Delete migration package "${filename}"? This can't be undone.`)) return;
+    setDeletingFilename(filename);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/backup/migration/${encodeURIComponent(filename)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete migration package.");
+      setRuns((prev) => (prev ? prev.filter((r) => !(r.kind === "export" && r.filename === filename)) : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete migration package.");
+    } finally {
+      setDeletingFilename(null);
+    }
   }
 
   const lastExport = runs?.find((r) => r.kind === "export" && r.status === "success");
@@ -398,7 +423,7 @@ export function MigrationSection() {
           <p className="mb-2 text-xs font-bold text-white">Migration history</p>
           <div className="flex flex-col gap-1.5">
             {runs.slice(0, 5).map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-xs">
+              <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs">
                 <span className="truncate text-white/80">
                   {r.kind === "export" ? "Exported" : "Restored"} {r.filename ?? ""}
                 </span>
@@ -415,7 +440,18 @@ export function MigrationSection() {
                 >
                   {r.status}
                 </span>
-                <span className="text-text-faint">{new Date(r.started_at).toLocaleString()}</span>
+                <span className="shrink-0 text-text-faint">{new Date(r.started_at).toLocaleString()}</span>
+                {r.kind === "export" && r.filename && (
+                  <button
+                    type="button"
+                    onClick={() => deleteExport(r.filename as string)}
+                    disabled={deletingFilename === r.filename}
+                    aria-label={`Delete migration package ${r.filename}`}
+                    className="shrink-0 text-text-faint hover:text-hot disabled:opacity-40"
+                  >
+                    {deletingFilename === r.filename ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  </button>
+                )}
               </div>
             ))}
           </div>

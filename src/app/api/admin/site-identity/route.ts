@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireAdmin, publicClient } from "@/lib/supabase/route-auth";
 import { siteIdentityUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateFooterFragments, invalidateSiteIdentityFragments } from "@/lib/fragment-cache-invalidation";
@@ -63,5 +64,23 @@ export async function PUT(request: Request) {
 
   invalidateFooterFragments();
   invalidateSiteIdentityFragments();
+
+  // Site Name, Favicon/App Icons, and Logo are all baked into the root
+  // layout's <head> (generateMetadata reads getSiteIdentity()) on every
+  // page. That HTML is cached by Next.js (ISR/static generation — see
+  // next.config.ts's CSP comment) and, unlike the fragment cache above,
+  // doesn't refresh on its own; it only regenerates on a redeploy or an
+  // explicit revalidation. Previously the only thing that ever called
+  // revalidatePath was the "Auto Cache Purge" automation job on its
+  // schedule (src/lib/automation/infra-executors.ts) — which requires an
+  // external scheduler to actually be hitting /api/cron/automation.
+  // Without that wired up, a saved favicon/logo/site name could look like
+  // it "never changes" even though the database (and the underlying
+  // /favicon.ico route, which is fetched fresh) is already correct — the
+  // page shell serving it was just never told to regenerate. Doing it
+  // here means it takes effect the moment an admin clicks Save,
+  // regardless of whether the cron job is running.
+  revalidatePath("/", "layout");
+
   return NextResponse.json({ settings: data });
 }

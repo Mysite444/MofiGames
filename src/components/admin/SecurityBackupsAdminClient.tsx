@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Download, Trash2, RefreshCw, Lock, LockOpen, HardDriveDownload, PlayCircle } from "lucide-react";
+import { triggerBrowserDownload } from "@/lib/download-trigger";
 
 interface BackupRow {
   name: string;
@@ -70,7 +71,7 @@ export function SecurityBackupsAdminClient() {
       const res = await fetch(`/api/admin/security/backups/${encodeURIComponent(name)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create download link.");
-      window.open(data.url, "_blank");
+      triggerBrowserDownload(data.url, name);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to download.");
     } finally {

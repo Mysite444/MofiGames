@@ -12,8 +12,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { triggerBrowserDownload } from "@/lib/download-trigger";
 
 interface CatalogGroup {
   id: string;
@@ -92,6 +94,7 @@ export function ContentBackupSection() {
   const [pendingStorageKey, setPendingStorageKey] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
+  const [deletingFilename, setDeletingFilename] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadCatalog = useCallback(async () => {
@@ -130,7 +133,13 @@ export function ContentBackupSection() {
       const res = await fetch("/api/admin/backup/content/export", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Backup failed.");
-      if (data.downloadUrl) window.open(data.downloadUrl, "_blank");
+      if (data.downloadUrl) {
+        triggerBrowserDownload(data.downloadUrl, data.filename);
+      } else if (data.warnings?.length) {
+        setError(data.warnings[data.warnings.length - 1]);
+      } else {
+        setError("Backup was created but no download link came back — grab it from the content-backups storage bucket.");
+      }
       setNotice(`Backup "${data.filename}" created (${formatSize(data.sizeBytes)}, ${data.tables.length} tables).`);
       await loadHistory();
     } catch (err) {
@@ -197,6 +206,22 @@ export function ContentBackupSection() {
   function cancelPreview() {
     setPreview(null);
     setPendingStorageKey(null);
+  }
+
+  async function deleteExport(filename: string) {
+    if (!window.confirm(`Delete backup "${filename}"? This can't be undone.`)) return;
+    setDeletingFilename(filename);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/backup/content/${encodeURIComponent(filename)}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete backup.");
+      setExports((prev) => (prev ? prev.filter((e) => e.filename !== filename) : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete backup.");
+    } finally {
+      setDeletingFilename(null);
+    }
   }
 
   const totalTables = catalog?.groups.reduce((n, g) => n + g.tables.filter((t) => t.existsInSchema).length, 0) ?? 0;
@@ -399,8 +424,32 @@ export function ContentBackupSection() {
       )}
 
       {/* History */}
-      {restores && restores.length > 0 && (
+      {exports && exports.length > 0 && (
         <div className="mt-2">
+          <p className="mb-2 text-xs font-bold text-white">Export history</p>
+          <div className="flex flex-col gap-1.5">
+            {exports.slice(0, 10).map((e) => (
+              <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs">
+                <span className="truncate text-white/80">{e.filename}</span>
+                <span className="shrink-0 text-text-faint">{formatSize(e.size_bytes)}</span>
+                <span className="shrink-0 text-text-faint">{new Date(e.created_at).toLocaleString()}</span>
+                <button
+                  type="button"
+                  onClick={() => deleteExport(e.filename)}
+                  disabled={deletingFilename === e.filename}
+                  aria-label={`Delete backup ${e.filename}`}
+                  className="shrink-0 text-text-faint hover:text-hot disabled:opacity-40"
+                >
+                  {deletingFilename === e.filename ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {restores && restores.length > 0 && (
+        <div className="mt-4">
           <p className="mb-2 text-xs font-bold text-white">Restore history</p>
           <div className="flex flex-col gap-1.5">
             {restores.slice(0, 5).map((r) => (

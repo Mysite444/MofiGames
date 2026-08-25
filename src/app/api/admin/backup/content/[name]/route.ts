@@ -23,7 +23,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ nam
   }
   const { supabase } = auth.ctx;
 
-  const { data, error } = await supabase.storage.from("content-backups").createSignedUrl(parsedParams.data.name, 60);
+  const { data, error } = await supabase.storage
+    .from("content-backups")
+    .createSignedUrl(parsedParams.data.name, 60, { download: parsedParams.data.name });
   if (error || !data) {
     return NextResponse.json({ error: "Failed to create download link." }, { status: 500 });
   }
@@ -47,6 +49,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (error) {
     return NextResponse.json({ error: "Failed to delete backup." }, { status: 500 });
   }
+
+  // The file is gone from storage — also drop its history row, otherwise
+  // "Last backup" stats and the export list keep pointing at a file that
+  // no longer exists (a re-download attempt would just 404).
+  await supabase.from("content_backup_exports").delete().eq("filename", parsedParams.data.name);
 
   await logAdminAction(supabase, user, {
     action: "content_backup_deleted",
