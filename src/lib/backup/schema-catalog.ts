@@ -30,7 +30,12 @@ export interface CatalogTable {
 export async function getTableCatalog(supabase: SupabaseClient): Promise<CatalogTable[]> {
   const { data, error } = await supabase.rpc("admin_table_catalog");
   if (error) {
-    throw new Error(`Could not read the database schema catalog: ${error.message}`);
+    // Postgres errors raised with `USING DETAIL = ...` / `HINT = ...` carry
+    // that in error.details / error.hint — surface it when present so a
+    // future mismatch here is diagnosable from the error text alone
+    // instead of requiring a code-level investigation like this one.
+    const extra = [error.details, error.hint].filter(Boolean).join(" — ");
+    throw new Error(`Could not read the database schema catalog: ${error.message}${extra ? ` (${extra})` : ""}`);
   }
   return (data ?? []).map(
     (row: {

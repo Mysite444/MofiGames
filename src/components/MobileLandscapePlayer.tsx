@@ -3,22 +3,47 @@
 /**
  * MobileLandscapePlayer
  *
- * Full-screen landscape game overlay for mobile.  No wrapper chrome is
- * rendered on top of the game — no close button, no overlay controls.
- * The game runs with its own native UI (Exit, Invite, Sound, etc.) fully
- * visible, exactly as shown in the reference screenshot.
+ * Full-screen landscape game overlay for mobile.  A small host-rendered
+ * control column (Exit / Invite / Mute) sits along the LEFT edge of the
+ * game — same position as the native UI shown in the reference screenshot
+ * (Paint To Hide's own Exit/Invite/Sound icons) — because we can't rely on
+ * every embedded game (third-party embed OR uploaded bundle) shipping its
+ * own working controls, and even when a game *does* draw its own Exit
+ * button, it has no way to reach through the iframe boundary and close our
+ * overlay unless it happens to speak our postMessage convention. Building
+ * our own guarantees Exit/Invite/Mute always work, for every game.
  *
  * ── How the player is closed ─────────────────────────────────────────────
- * Three paths, all of which unmount this component and return the user to
- * the game-page UI:
- *   1. The game's own "Exit" button — the iframe posts a postMessage or the
- *      user simply uses the in-game control.  Because the overlay has no
- *      close button of its own, the game dictates when to exit.
- *   2. Hardware / browser Back (Android gesture, iOS edge-swipe, browser
+ * Four paths, all of which unmount this component and return the user to
+ * the game-page UI (portrait, out of fullscreen):
+ *   1. Our own "Exit" button (left control column) — calls onClose()
+ *      directly.
+ *   2. The embedded game itself, IF it opts into our exit convention by
+ *      posting `{ type: "mofigames:exit" }` (or a bare `"exit"` string) to
+ *      the parent window — see the message listener below. Best-effort:
+ *      most embeds won't send this, which is exactly why (1) exists.
+ *   3. Hardware / browser Back (Android gesture, iOS edge-swipe, browser
  *      chrome ← button) — intercepted via a synthetic `history.pushState`
  *      + `popstate` listener so Back closes the overlay first instead of
  *      navigating off the game page.
- *   3. Keyboard Escape — developer convenience on desktop.
+ *   4. Keyboard Escape — developer convenience on desktop.
+ *
+ * ── Mute ──────────────────────────────────────────────────────────────────
+ * A cross-origin iframe's audio can't be forced silent from the parent
+ * page — there's no DOM API for it (unlike <video>/<audio>, iframes have
+ * no `.muted`). The Sound button therefore does two things: (a) always
+ * flips its own icon/state immediately, so the control itself never feels
+ * broken, and (b) posts `{ type: "mofigames:mute", muted }` into the
+ * iframe on a best-effort basis, so any game bundle that chooses to listen
+ * for it (our own uploads can; third-party embeds may not) actually goes
+ * quiet. This mirrors how CrazyGames/Poki-style portals solve the same
+ * constraint — the host defines the contract, the game opts in.
+ *
+ * ── Invite ────────────────────────────────────────────────────────────────
+ * We have no visibility into the embedded game's session/room state (it's
+ * sandboxed behind the iframe), so "Invite" shares the current game page's
+ * URL via the native share sheet (falling back to clipboard) rather than a
+ * game-specific room code — the same mechanism as the desktop Share button.
  *
  * ── Three-layer rotation strategy ────────────────────────────────────────
  *  Layer 1 — Native fullscreen + orientation lock (Android Chrome / modern
@@ -70,7 +95,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, LogOut, UserPlus, Volume2, VolumeX, Check } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,8 +113,9 @@ interface MobileLandscapePlayerProps {
    */
   orientation?: OrientationType;
   /**
-   * Called when the user presses the hardware/browser Back button or Escape.
-   * There is no on-screen close button — the game provides its own Exit UI.
+   * Called when the user taps the on-screen Exit button, presses the
+   * hardware/browser Back button, presses Escape, or the embedded game
+   * itself opts into our exit postMessage convention.
    */
   onClose: () => void;
 }
@@ -168,6 +194,46 @@ export function MobileLandscapePlayer({
 
   // Only CSS-rotate landscape games when the device is physically portrait.
   const needsRotation = orientation === "landscape" && isPortrait;
+
+  // ── Exit / Invite / Mute control column ──────────────────────────────────
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [muted, setMuted] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
+  function handleMuteToggle() {
+    const next = !muted;
+    setMuted(next);
+    // Best-effort — see file-level "Mute" note. No-op if the embedded game
+    // doesn't listen for it; the icon itself has already reflected the
+    // change either way so the control never looks unresponsive.
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "mofigames:mute", muted: next },
+      "*"
+    );
+  }
+
+  async function handleInvite() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const shareData = { title: `Play ${title}`, text: `Come play ${title} with me!`, url };
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled the native share sheet — nothing to do.
+        return;
+      }
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard && url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setInviteCopied(true);
+        setTimeout(() => setInviteCopied(false), 1600);
+      } catch {
+        // Clipboard permission denied — silently ignore, nothing more we can do.
+      }
+    }
+  }
 
   // ── Screen Wake Lock ─────────────────────────────────────────────────────
   // Keeps the display on while the game runs.  iframe touch events don't
@@ -268,6 +334,23 @@ export function MobileLandscapePlayer({
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+  // Listen for the embedded game opting into our exit convention (see
+  // file-level "How the player is closed", path 2). Purely additive: our
+  // own Exit button (in the control column below) is the guaranteed path
+  // regardless of whether any given game sends this.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      const isExit =
+        data === "exit" ||
+        (data && typeof data === "object" &&
+          (data.type === "mofigames:exit" || data.type === "exit"));
+      if (isExit) onCloseRef.current();
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   useEffect(() => {
     window.history.pushState({ mobileGameOverlay: true }, "");
     let poppedByBack = false;
@@ -339,6 +422,7 @@ export function MobileLandscapePlayer({
         {/* ── Game iframe ──────────────────────────────────────────────── */}
         {playUrl ? (
           <iframe
+            ref={iframeRef}
             src={playUrl}
             title={title}
             // Fill the entire container — the container's size and rotation
@@ -352,6 +436,65 @@ export function MobileLandscapePlayer({
             <p className="text-sm">No game URL configured.</p>
           </div>
         )}
+
+        {/* ── Exit / Invite / Mute control panel ───────────────────────────
+         * One black, semi-opaque panel on the LEFT edge holding all three
+         * controls together — matches the reference screenshot's left-side
+         * control cluster. Lives INSIDE the rotated container (same
+         * coordinate space as the iframe) so it lands in the correct
+         * on-screen corner regardless of which rotation layer is active.
+         * Root overlay has touchAction:none (to swallow game swipe
+         * gestures), so this wrapper opts back into normal touch handling.
+         */}
+        <div
+          className="absolute left-3 top-3 z-10 flex flex-col items-center gap-1 rounded-2xl bg-black/70 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-sm"
+          style={{ touchAction: "auto" }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Exit game"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+          >
+            <LogOut size={19} strokeWidth={2.25} />
+          </button>
+
+          <div className="h-px w-6 bg-white/15" aria-hidden="true" />
+
+          <button
+            type="button"
+            onClick={handleInvite}
+            aria-label="Invite a friend"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+          >
+            {inviteCopied ? (
+              <Check size={19} strokeWidth={2.25} />
+            ) : (
+              <UserPlus size={19} strokeWidth={2.25} />
+            )}
+          </button>
+
+          <div className="h-px w-6 bg-white/15" aria-hidden="true" />
+
+          <button
+            type="button"
+            onClick={handleMuteToggle}
+            aria-label={muted ? "Unmute sound" : "Mute sound"}
+            aria-pressed={muted}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition-transform active:scale-90"
+          >
+            {muted ? <VolumeX size={19} strokeWidth={2.25} /> : <Volume2 size={19} strokeWidth={2.25} />}
+          </button>
+
+          {inviteCopied && (
+            <div
+              className="absolute left-full top-14 ml-2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
+              aria-hidden="true"
+            >
+              Link copied
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Rotation hint (Layer 2 only, fades after 1.8 s) ───────────── */}
