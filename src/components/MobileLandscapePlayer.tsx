@@ -36,16 +36,27 @@
  * even reading into the iframe's DOM throws a cross-origin SecurityError.
  * The Sound button therefore does two things: (a) always flips its own
  * icon/state immediately, so the control itself never feels broken, and
- * (b) broadcasts several postMessage shapes into the iframe on a
- * best-effort basis — our own `{ type: "mofigames:mute", muted }`
- * convention plus a few common alternates — repeated on a short retry and
- * again once the iframe's `load` event fires, so a game whose own
+ * (b) broadcasts our own uniquely-namespaced `{ type: "mofigames:mute",
+ * muted }` postMessage on a best-effort basis, repeated on a short retry
+ * and again once the iframe's `load` event fires, so a game whose own
  * listener attaches partway through its startup still catches it. This
  * mirrors how CrazyGames/Poki-style portals solve the same constraint —
  * the host defines the contract, the game opts in — but a given embed
- * only actually goes quiet if it happens to implement one of these; that
- * ceiling is a browser platform limitation, not something fixable from
- * the parent page.
+ * only actually goes quiet if it happens to implement this exact
+ * convention; that ceiling is a browser platform limitation, not
+ * something fixable from the parent page.
+ *
+ * We deliberately do NOT also guess at generic message shapes a game
+ * might recognise (bare "mute" strings, `{ command: "mute" }`, etc.).
+ * That was tried and caused real damage: many third-party HTML5 games
+ * (anything built against the GameDistribution SDK, for instance) wire
+ * "mute" and "pause" to the same internal handler, and generic shapes are
+ * exactly the kind a game's own listener might coincidentally match —
+ * so broadcasting several guesses per tap could double-trigger a game's
+ * own combined pause/mute toggle and drift it out of sync with our icon
+ * (reported as "the third tap acts like a pause button"). Only our own
+ * uniquely-namespaced message is sent now — nothing else lives inside
+ * someone else's embed under that exact string, so it can't collide.
  *
  * ── Invite ────────────────────────────────────────────────────────────────
  * We have no visibility into the embedded game's session/room state (it's
@@ -297,32 +308,53 @@ export function MobileLandscapePlayer({
   >(null);
 
   /**
-   * Posts the mute state into the iframe using every message shape we've
-   * seen embedded HTML5 games listen for. This is inherently best-effort:
-   * a cross-origin iframe's audio cannot be force-silenced from the parent
-   * page (no DOM API for it, unlike <video>/<audio>) — see the file-level
-   * "Mute" note. A game only actually goes quiet if its own code chooses
-   * to listen for one of these. Broadcasting several conventions costs
-   * nothing (games that don't recognise a shape just ignore it) and
-   * measurably raises the odds of hitting whatever convention a given
-   * embed does support.
+   * Posts the mute state into the iframe.
+   *
+   * REAL ROOT CAUSE OF "3rd tap behaves like Pause" (found after on-device
+   * testing showed the button itself was toggling fine, but a THIRD-PARTY
+   * embedded game started pausing instead of muting) ─────────────────────
+   *
+   * This used to broadcast FIVE different guessed message shapes on every
+   * tap — our own `{ type: "mofigames:mute" }` plus generic ones we hoped
+   * some embed might recognise: bare `"mute"`/`"unmute"` strings,
+   * `{ type: "mute" }`, `{ command: "mute" }`, `{ eventName: "mute" }` —
+   * each repeated three times (immediately, +400ms, +1500ms). That's up to
+   * 15 postMessage calls per tap, into a game whose actual protocol we
+   * don't control or know.
+   *
+   * That's not a safe way to talk to arbitrary third-party content.
+   * GameDistribution — one of the largest HTML5 game embed networks —
+   * explicitly tells every game built on it to wire "pause" and "mute"
+   * to the SAME combined handler (their SDK_GAME_PAUSE event mutes AND
+   * pauses in one call, since background audio isn't allowed to keep
+   * playing under a video ad). Countless individual games follow that
+   * exact pattern internally, and many game-listing sites also send
+   * plain, generic postMessage commands like the ones above to embedded
+   * games for autoplay/viewport pausing. Our generic shapes were common
+   * enough to plausibly be recognised by a game's own combined pause+mute
+   * listener — and since we were sending several different guesses per
+   * tap, a game could register more than one "toggle" per user tap,
+   * drifting further out of sync with our own icon every time. By the
+   * third tap the embedded game's own state had likely cycled into
+   * "paused" — which is exactly what got reported.
+   *
+   * FIX: only ever send our own uniquely-namespaced message. No real
+   * game's own internal protocol will ever coincidentally match the
+   * string "mofigames:mute", so this cannot collide with a pause handler
+   * or anything else living inside someone else's embed. This remains
+   * best-effort — a cross-origin iframe's audio can't be forced silent
+   * from the parent page (no DOM API for it, unlike <video>/<audio>) — a
+   * game only goes quiet if it happens to specifically listen for this
+   * exact convention. But best-effort-and-safe beats best-effort-and-
+   * sometimes-pauses-someone-else's-game.
    */
   function postMuteState(next: boolean) {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
-    const payloads: unknown[] = [
-      { type: "mofigames:mute", muted: next },
-      { type: next ? "mute" : "unmute" },
-      { command: next ? "mute" : "unmute" },
-      { eventName: next ? "mute" : "unmute" },
-      next ? "mute" : "unmute",
-    ];
-    for (const payload of payloads) {
-      try {
-        win.postMessage(payload, "*");
-      } catch {
-        // Ignore — a hostile or torn-down iframe shouldn't break the UI.
-      }
+    try {
+      win.postMessage({ type: "mofigames:mute", muted: next }, "*");
+    } catch {
+      // Ignore — a hostile or torn-down iframe shouldn't break the UI.
     }
   }
 
