@@ -147,74 +147,68 @@ interface MobileLandscapePlayerProps {
 const CONTROL_STRIP_WIDTH = 56;
 
 /**
- * Diameter (CSS px) of each round control-strip button. Sized to sit
+ * Diameter (CSS px) of each control-strip button. Sized to sit
  * comfortably inside CONTROL_STRIP_WIDTH with a few px of breathing room
  * on either side.
  */
-const BUTTON_DIAMETER = 44;
+const BUTTON_DIAMETER = 40;
 
 /**
- * Builds an inline style object that makes a control-strip button look
- * like a real, physical, domed arcade button — layered to simulate an
- * actual light-struck convex surface:
+ * Builds an inline style object matching the muted, low-key HUD icon
+ * badges shown in the reference screenshot (the game's own gear-shift /
+ * tyre icons bottom-right): a small dark rounded-square badge, NOT a
+ * bright glossy circle. Restrained in colour on purpose — the accent
+ * colour only shows as a thin ring/edge when a button is in an "active"
+ * state (e.g. muted), everything else stays a neutral graphite tone so
+ * the strip doesn't compete with the game for attention.
  *
- *   - radial gradient face: bright specular highlight at upper-left (the
- *     "dome" apex) fading through the mid-tone body to a dark underside —
- *     far more spherical than a simple top→bottom linear gradient
- *   - per-button coloured ambient glow via box-shadow so each button reads
- *     as its own light source in the dark strip
- *   - a solid colour ridge beneath it for visible thickness / keycap depth
- *   - a crisp inset specular line along the top rim
- *   - a hairline border (slightly translucent white) so it reads crisply
- *     against the dark panel
+ * Still a genuine 3D button, just a subtler one:
+ *   - soft diagonal gradient face (dark graphite, faint highlight top-left)
+ *   - a thin solid "wall" beneath it for keycap thickness
+ *   - a crisp 1px inset highlight along the top edge
+ *   - a hairline border, brighter only when `active`
  *
- * `pressed` collapses the ridge, inverts the glow (no outer glow, heavy
- * inner shadow), and nudges the button down + slightly scales it — the
- * physical sensation of actually pushing a physical button — driven by
- * onPointerDown/Up so it tracks touch, mouse, and pen alike.
+ * `pressed` flattens the wall, inverts to an inner shadow, and nudges the
+ * button down slightly — driven by onPointerDown/Up so it tracks touch,
+ * mouse, and pen. This is purely cosmetic; it never gates the action
+ * itself (see the Mute button below for why that separation matters).
  *
- * @param colorTop   Brightest specular tint (dome apex highlight)
- * @param colorMid   Main body / mid-tone
- * @param colorBase  Darkest undersurface tint
- * @param ridgeColor Solid colour below the button face (keycap "wall")
- * @param glowColor  Ambient rgba() glow for this button's accent colour
- * @param pressed    Whether the button is currently held down
+ * @param accent  This button's low-opacity accent colour (used only for
+ *                the active-state ring/glow, kept subtle everywhere else)
+ * @param pressed Whether the button is currently held down
+ * @param active  Whether the button is in a toggled-on state (e.g. muted)
  */
 function button3DStyle(
-  colorTop: string,
-  colorMid: string,
-  colorBase: string,
-  ridgeColor: string,
-  glowColor: string,
-  pressed: boolean
+  accent: string,
+  pressed: boolean,
+  active: boolean = false
 ): React.CSSProperties {
   return {
     width: BUTTON_DIAMETER,
     height: BUTTON_DIAMETER,
-    borderRadius: "50%",
-    // Radial gradient gives the dome/sphere look: the highlight sits at
-    // the upper-left (where light would hit a convex surface), and the
-    // shadow wraps around to the lower-right.
+    borderRadius: 11,
     background: pressed
-      ? `radial-gradient(circle at 50% 70%, ${colorMid} 0%, ${colorBase} 100%)`
-      : `radial-gradient(circle at 38% 28%, ${colorTop} 0%, ${colorMid} 52%, ${colorBase} 100%)`,
-    border: "1.5px solid rgba(255,255,255,0.18)",
+      ? "linear-gradient(180deg, #202126 0%, #17181c 100%)"
+      : "linear-gradient(160deg, #3a3c44 0%, #26272d 55%, #1b1c21 100%)",
+    border: active
+      ? `1.5px solid ${accent}`
+      : "1px solid rgba(255,255,255,0.09)",
     boxShadow: pressed
       ? [
-          `0 1px 0 ${ridgeColor}`,
-          "0 2px 8px rgba(0,0,0,0.75)",
-          "inset 0 3px 7px rgba(0,0,0,0.60)",
-          "inset 0 -1px 2px rgba(255,255,255,0.07)",
+          "0 1px 0 rgba(0,0,0,0.55)",
+          "0 1px 3px rgba(0,0,0,0.5)",
+          "inset 0 2px 4px rgba(0,0,0,0.55)",
+          "inset 0 -1px 1px rgba(255,255,255,0.05)",
         ].join(", ")
       : [
-          `0 5px 0 ${ridgeColor}`,
-          "0 8px 20px rgba(0,0,0,0.60)",
-          `0 0 18px 4px ${glowColor}`,
-          "inset 0 2px 3px rgba(255,255,255,0.70)",
-          "inset 0 -5px 9px rgba(0,0,0,0.30)",
+          "0 2px 0 rgba(0,0,0,0.5)",
+          "0 3px 6px rgba(0,0,0,0.45)",
+          active ? `0 0 0 3px ${accent}26` : "0 0 0 0 transparent",
+          "inset 0 1px 0 rgba(255,255,255,0.16)",
+          "inset 0 -3px 5px rgba(0,0,0,0.28)",
         ].join(", "),
-    transform: pressed ? "translateY(5px) scale(0.95)" : "translateY(0) scale(1)",
-    transition: "transform 80ms ease, box-shadow 80ms ease",
+    transform: pressed ? "translateY(2px) scale(0.96)" : "translateY(0) scale(1)",
+    transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
   };
 }
 
@@ -340,20 +334,40 @@ export function MobileLandscapePlayer({
     }
   }
 
+  /**
+   * BUGFIX — this was the actual cause of "mute works once, then never
+   * again": the old version read `const next = !muted;` out of the
+   * render's closure and passed that fixed value straight into
+   * `setMuted(next)`. Any stale copy of this function still floating
+   * around (an unreleased pointer-capture retry, a delayed synthetic
+   * mouse "click" firing after a pointerdown-based toggle, a memoised
+   * ancestor, etc.) would keep computing `next` from whatever `muted`
+   * was at the time THAT closure was created — so a second, stale
+   * invocation could silently set state back to the same value the
+   * first tap already produced, making every tap after the first a
+   * no-op from the user's point of view.
+   *
+   * Using the functional updater form removes the closure dependency
+   * entirely: React always hands the updater the true current state at
+   * the moment it actually runs, so every tap toggles correctly no
+   * matter what else queued the call or when it fires.
+   */
   function handleMuteToggle() {
-    const next = !muted;
-    setMuted(next);
-    // Send now, then twice more shortly after — some games only attach
-    // their message listener partway through their own startup sequence,
-    // so a single message fired the instant the icon flips can arrive
-    // before anyone is listening. Re-sending covers that race without
-    // needing to know a given game's exact init timing.
-    postMuteState(next);
-    const t1 = setTimeout(() => postMuteState(mutedRef.current), 400);
-    const t2 = setTimeout(() => postMuteState(mutedRef.current), 1500);
-    // Best-effort cleanup if the player unmounts before the timers fire.
-    setTimeout(() => clearTimeout(t1), 2000);
-    setTimeout(() => clearTimeout(t2), 2000);
+    setMuted((prev) => {
+      const next = !prev;
+      // Send now, then twice more shortly after — some games only attach
+      // their message listener partway through their own startup sequence,
+      // so a single message fired the instant the icon flips can arrive
+      // before anyone is listening. Re-sending covers that race without
+      // needing to know a given game's exact init timing.
+      postMuteState(next);
+      const t1 = setTimeout(() => postMuteState(mutedRef.current), 400);
+      const t2 = setTimeout(() => postMuteState(mutedRef.current), 1500);
+      // Best-effort cleanup if the player unmounts before the timers fire.
+      setTimeout(() => clearTimeout(t1), 2000);
+      setTimeout(() => clearTimeout(t2), 2000);
+      return next;
+    });
   }
 
   /**
@@ -619,42 +633,39 @@ export function MobileLandscapePlayer({
          *
          *   ┌──────┐
          *   │      │  ← black, flexes to fill space above the cluster
-         *   │  ⏻  │  ← Exit,   purple, round 3D button
-         *   │  ➕  │  ← Invite, green,  round 3D button
-         *   │  🔊  │  ← Mute,   dark,   round 3D button
+         *   │  ⏻  │  ← Exit,   dark graphite rounded-square badge
+         *   │  ➕  │  ← Invite, dark graphite rounded-square badge
+         *   │  🔊  │  ← Mute,   dark graphite, thin red ring when muted
          *   │      │  ← black, flexes to fill space below the cluster
          *   └──────┘
          *
-         * Each button is round with a physical 3D bevel — gradient face,
-         * ridge shadow, glossy inset highlight (see button3DStyle) — that
-         * flattens and nudges down on press. Labels were dropped in favour
-         * of icon + aria-label: at this diameter a caption would crowd the
-         * circle, and round icon-only controls read more like a polished
-         * game HUD (Poki/CrazyGames-style) than the old flush rectangles.
+         * Restyled to match the reference screenshot's own in-game HUD
+         * icons (the small dark gear-shift / tyre badges bottom-right of
+         * the reference image) rather than looking like bright arcade
+         * buttons: small rounded-square badges, low-saturation graphite
+         * body, a subtle 3D bevel (gradient face + thin keycap "wall" +
+         * inset top highlight — see button3DStyle) that flattens and
+         * nudges down on press. Colour is used sparingly — only as a thin
+         * accent ring on a button's active state (currently just Mute)
+         * — so the strip stays visually quiet and doesn't compete with
+         * the game itself. Labels were dropped in favour of icon +
+         * aria-label: at this diameter a caption would crowd the badge.
          *
          * Lives INSIDE the rotated container so it lands in the correct
          * on-screen corner regardless of which rotation layer is active.
          * Root overlay has touchAction:none; this wrapper opts back into
          * normal touch handling so taps register correctly.
-         */}
-        {/*
-         * ── Control panel ────────────────────────────────────────────────
-         * Dark glass-like sidebar, CONTROL_STRIP_WIDTH px wide.  The game
-         * area is already inset by that amount so nothing overlaps.
          *
-         * Three premium 3D dome buttons — Exit / Invite / Volume — are
-         * centred as a tight vertical cluster.  Each button uses a radial
-         * gradient (dome highlight at upper-left) + per-button coloured
-         * ambient glow to look like a backlit arcade keycap.
-         *
-         * Volume button specifics:
-         *   • Uses onPointerDown as the primary action trigger (no 300 ms
-         *     click delay on mobile) alongside onClick for accessibility.
-         *   • e.stopPropagation() on both handlers prevents the overlay's
-         *     touchAction:none from absorbing the event.
-         *   • touchAction:"manipulation" on the button itself opts it back
-         *     into instant-tap behaviour independently of any ancestor.
-         *   • When muted the button turns red so the state is unmissable.
+         * Volume button specifics (see the full note further down):
+         *   • onClick is the ONLY thing that toggles mute state — same
+         *     proven pattern as Exit/Invite. touchAction:"manipulation"
+         *     (set on every button here) is what actually removes the
+         *     old 300ms mobile tap delay, so this is not a slower path —
+         *     it's the one that reliably fires exactly once per tap.
+         *   • onPointerDown/Up/Leave/Cancel are purely cosmetic — they
+         *     only drive the pressed-in 3D look, never the action.
+         *   • When muted, only the icon tints red and a thin red ring
+         *     appears — the badge itself stays graphite, unlike before.
          */}
         <div
           className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center"
@@ -669,7 +680,7 @@ export function MobileLandscapePlayer({
           {/* Spacer above the cluster */}
           <div style={{ flex: 1 }} />
 
-          <div className="flex flex-col items-center" style={{ gap: 20 }}>
+          <div className="flex flex-col items-center" style={{ gap: 14 }}>
             {/* ── EXIT — violet/purple dome ───────────────────────────── */}
             <button
               type="button"
@@ -690,14 +701,7 @@ export function MobileLandscapePlayer({
                 touchAction: "manipulation",
                 userSelect: "none",
                 flexShrink: 0,
-                ...button3DStyle(
-                  "#e4bbff", // apex specular highlight
-                  "#a855f7", // body mid-tone
-                  "#6d28d9", // underside
-                  "#3b0764", // keycap wall / ridge
-                  "rgba(168,85,247,0.45)", // violet ambient glow
-                  pressedButton === "exit"
-                ),
+                ...button3DStyle("#a855f7", pressedButton === "exit"),
               }}
             >
               <LogOut size={19} strokeWidth={2.2} />
@@ -724,14 +728,7 @@ export function MobileLandscapePlayer({
                   touchAction: "manipulation",
                   userSelect: "none",
                   flexShrink: 0,
-                  ...button3DStyle(
-                    "#a7f3d0", // apex specular highlight
-                    "#10b981", // body mid-tone
-                    "#065f46", // underside
-                    "#022c22", // keycap wall / ridge
-                    "rgba(16,185,129,0.40)", // emerald ambient glow
-                    pressedButton === "invite"
-                  ),
+                  ...button3DStyle("#10b981", pressedButton === "invite"),
                 }}
               >
                 {inviteCopied ? (
@@ -752,24 +749,36 @@ export function MobileLandscapePlayer({
               )}
             </div>
 
-            {/* ── VOLUME — blue dome (red when muted) ─────────────────────
-             *  FIX: onPointerDown fires the toggle immediately — no 300 ms
-             *  click delay.  onClick is kept as an a11y fallback.
-             *  e.stopPropagation() prevents the overlay's touchAction:none
-             *  from eating the event on certain iOS builds.
-             *  touchAction:"manipulation" opts the button into instant-tap
-             *  regardless of the ancestor chain.
-             *  When muted the button switches to warm red so the state is
-             *  always obvious at a glance.
+            {/* ── VOLUME — neutral graphite badge, thin red ring when muted
+             *
+             *  ROOT CAUSE OF "works once, then stops" ───────────────────
+             *  The previous version fired the actual toggle from
+             *  onPointerDown instead of onClick (to dodge a legacy 300ms
+             *  tap delay), while Exit/Invite correctly kept onClick as the
+             *  action and onPointerDown as *only* the cosmetic "pressed"
+             *  state. onPointerDown does NOT have the same one-tap-one-
+             *  event guarantee onClick has: pointer capture, a
+             *  pointerleave fired mid-press by the button's own
+             *  translateY/scale press animation shifting it out from under
+             *  the finger, or a delayed compatibility mouse/click event
+             *  the browser still sends after a touch — any of these can
+             *  fire (or fail to fire) independently of a real second tap,
+             *  which is exactly what made the button feel "stuck" after
+             *  the first press.
+             *
+             *  FIX: back to the same proven pattern as Exit/Invite — onClick
+             *  is the ONLY thing that toggles state, so every tap maps to
+             *  exactly one toggle, forever. This isn't slower: the strip
+             *  already sets touchAction:"manipulation" on every button,
+             *  which is what actually removes the old 300ms delay on every
+             *  modern mobile browser — the click fires within a frame of
+             *  the tap. onPointerDown/Up/Leave/Cancel are kept, but now do
+             *  nothing except drive the visual "pressed" dome effect.
              */}
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                setPressedButton("mute");
-                handleMuteToggle();
-              }}
+              onClick={(e) => { e.stopPropagation(); handleMuteToggle(); }}
+              onPointerDown={(e) => { e.stopPropagation(); setPressedButton("mute"); }}
               onPointerUp={() => setPressedButton(null)}
               onPointerLeave={() => setPressedButton(null)}
               onPointerCancel={() => setPressedButton(null)}
@@ -780,33 +789,20 @@ export function MobileLandscapePlayer({
                 alignItems: "center",
                 justifyContent: "center",
                 padding: 0,
-                color: "#fff",
+                color: muted ? "#f87171" : "#e7e7ea",
                 cursor: "pointer",
                 WebkitTapHighlightColor: "transparent",
                 touchAction: "manipulation",
                 userSelect: "none",
                 flexShrink: 0,
-                // Red when muted so state is unmissable; blue when active.
-                ...(muted
-                  ? button3DStyle(
-                      "#fca5a5", // apex specular highlight
-                      "#ef4444", // body mid-tone
-                      "#991b1b", // underside
-                      "#450a0a", // keycap wall / ridge
-                      "rgba(239,68,68,0.45)", // red ambient glow
-                      pressedButton === "mute"
-                    )
-                  : button3DStyle(
-                      "#bae6fd", // apex specular highlight
-                      "#3b82f6", // body mid-tone
-                      "#1d4ed8", // underside
-                      "#1e1b4b", // keycap wall / ridge
-                      "rgba(59,130,246,0.42)", // blue ambient glow
-                      pressedButton === "mute"
-                    )),
+                // Same neutral graphite body as Exit/Invite at all times —
+                // only a thin red ring (the `active` state) and the icon's
+                // own colour communicate "muted", instead of flipping the
+                // whole button to a loud solid red.
+                ...button3DStyle("#ef4444", pressedButton === "mute", muted),
               }}
             >
-              {muted ? <VolumeX size={19} strokeWidth={2.2} /> : <Volume2 size={19} strokeWidth={2.2} />}
+              {muted ? <VolumeX size={18} strokeWidth={2.2} /> : <Volume2 size={18} strokeWidth={2.2} />}
             </button>
           </div>
 
