@@ -31,13 +31,21 @@
  * ── Mute ──────────────────────────────────────────────────────────────────
  * A cross-origin iframe's audio can't be forced silent from the parent
  * page — there's no DOM API for it (unlike <video>/<audio>, iframes have
- * no `.muted`). The Sound button therefore does two things: (a) always
- * flips its own icon/state immediately, so the control itself never feels
- * broken, and (b) posts `{ type: "mofigames:mute", muted }` into the
- * iframe on a best-effort basis, so any game bundle that chooses to listen
- * for it (our own uploads can; third-party embeds may not) actually goes
- * quiet. This mirrors how CrazyGames/Poki-style portals solve the same
- * constraint — the host defines the contract, the game opts in.
+ * no `.muted`), and every game here (both third-party embeds and our own
+ * Vercel-Blob-hosted uploads) genuinely lives on a different origin, so
+ * even reading into the iframe's DOM throws a cross-origin SecurityError.
+ * The Sound button therefore does two things: (a) always flips its own
+ * icon/state immediately, so the control itself never feels broken, and
+ * (b) broadcasts several postMessage shapes into the iframe on a
+ * best-effort basis — our own `{ type: "mofigames:mute", muted }`
+ * convention plus a few common alternates — repeated on a short retry and
+ * again once the iframe's `load` event fires, so a game whose own
+ * listener attaches partway through its startup still catches it. This
+ * mirrors how CrazyGames/Poki-style portals solve the same constraint —
+ * the host defines the contract, the game opts in — but a given embed
+ * only actually goes quiet if it happens to implement one of these; that
+ * ceiling is a browser platform limitation, not something fixable from
+ * the parent page.
  *
  * ── Invite ────────────────────────────────────────────────────────────────
  * We have no visibility into the embedded game's session/room state (it's
@@ -139,13 +147,27 @@ interface MobileLandscapePlayerProps {
 const CONTROL_STRIP_WIDTH = 40;
 
 /**
- * Builds an inline style object that gives a control-strip button a raised,
- * physical "3D" button look — a vertical gradient for the lit/shaded faces,
- * a solid "ridge" shadow standing in for the button's side wall, a soft
- * drop shadow for ambient depth, and an inset top highlight for a glossy
- * top edge. `pressed` flattens the ridge and nudges the button down/in,
- * simulating it being physically pushed — driven by onPointerDown/Up so it
- * works uniformly for touch, mouse, and pen.
+ * Diameter (CSS px) of each round control-strip button. Sized to sit
+ * comfortably inside CONTROL_STRIP_WIDTH with a few px of breathing room
+ * on either side.
+ */
+const BUTTON_DIAMETER = 32;
+
+/**
+ * Builds an inline style object that makes a control-strip button look
+ * like a real, physical, glossy 3D button (think: a chunky game-console
+ * keycap) — layered like an actual light-struck object rather than a flat
+ * gradient chip:
+ *   - a vertical gradient face (lit top → shaded bottom)
+ *   - a solid colour "ridge" beneath it standing in for the button's side
+ *     wall, giving it visible thickness
+ *   - a soft ambient drop shadow so it visibly floats off the black strip
+ *   - an inset glossy highlight along the top edge
+ *   - an inset shadow along the bottom edge to round off the underside
+ *   - a hairline border so it reads crisply against the dark background
+ * `pressed` collapses the ridge, dims the gloss, and nudges the button
+ * down — simulating it being physically pushed — driven by
+ * onPointerDown/Up so it tracks touch, mouse, and pen alike.
  */
 function button3DStyle(
   colorTop: string,
@@ -154,12 +176,21 @@ function button3DStyle(
   pressed: boolean
 ): React.CSSProperties {
   return {
-    background: `linear-gradient(180deg, ${colorTop} 0%, ${colorBottom} 100%)`,
+    width: BUTTON_DIAMETER,
+    height: BUTTON_DIAMETER,
+    borderRadius: "50%",
+    background: `linear-gradient(165deg, ${colorTop} 0%, ${colorBottom} 100%)`,
+    border: "1px solid rgba(255,255,255,0.12)",
     boxShadow: pressed
-      ? `0 1px 0 ${ridgeColor}, inset 0 1px 3px rgba(0,0,0,0.45)`
-      : `0 3px 0 ${ridgeColor}, 0 5px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.35)`,
-    transform: pressed ? "translateY(2px)" : "translateY(0)",
-    transition: "transform 90ms ease, box-shadow 90ms ease",
+      ? `0 1px 0 ${ridgeColor}, 0 1px 2px rgba(0,0,0,0.5), inset 0 2px 4px rgba(0,0,0,0.5)`
+      : [
+          `0 3px 0 ${ridgeColor}`,
+          "0 6px 10px rgba(0,0,0,0.45)",
+          "inset 0 1.5px 1px rgba(255,255,255,0.55)",
+          "inset 0 -4px 6px rgba(0,0,0,0.28)",
+        ].join(", "),
+    transform: pressed ? "translateY(3px)" : "translateY(0)",
+    transition: "transform 100ms ease, box-shadow 100ms ease",
   };
 }
 
@@ -247,16 +278,68 @@ export function MobileLandscapePlayer({
     "exit" | "invite" | "mute" | null
   >(null);
 
+  // Always-current mirror of `muted` for closures that outlive a single
+  // render (the iframe's onLoad handler, retry timers) without having to
+  // re-bind them on every toggle.
+  const mutedRef = useRef(muted);
+  useEffect(() => {
+    mutedRef.current = muted;
+  }, [muted]);
+
+  /**
+   * Posts the mute state into the iframe using every message shape we've
+   * seen embedded HTML5 games listen for. This is inherently best-effort:
+   * a cross-origin iframe's audio cannot be force-silenced from the parent
+   * page (no DOM API for it, unlike <video>/<audio>) — see the file-level
+   * "Mute" note. A game only actually goes quiet if its own code chooses
+   * to listen for one of these. Broadcasting several conventions costs
+   * nothing (games that don't recognise a shape just ignore it) and
+   * measurably raises the odds of hitting whatever convention a given
+   * embed does support.
+   */
+  function postMuteState(next: boolean) {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+    const payloads: unknown[] = [
+      { type: "mofigames:mute", muted: next },
+      { type: next ? "mute" : "unmute" },
+      { command: next ? "mute" : "unmute" },
+      { eventName: next ? "mute" : "unmute" },
+      next ? "mute" : "unmute",
+    ];
+    for (const payload of payloads) {
+      try {
+        win.postMessage(payload, "*");
+      } catch {
+        // Ignore — a hostile or torn-down iframe shouldn't break the UI.
+      }
+    }
+  }
+
   function handleMuteToggle() {
     const next = !muted;
     setMuted(next);
-    // Best-effort — see file-level "Mute" note. No-op if the embedded game
-    // doesn't listen for it; the icon itself has already reflected the
-    // change either way so the control never looks unresponsive.
-    iframeRef.current?.contentWindow?.postMessage(
-      { type: "mofigames:mute", muted: next },
-      "*"
-    );
+    // Send now, then twice more shortly after — some games only attach
+    // their message listener partway through their own startup sequence,
+    // so a single message fired the instant the icon flips can arrive
+    // before anyone is listening. Re-sending covers that race without
+    // needing to know a given game's exact init timing.
+    postMuteState(next);
+    const t1 = setTimeout(() => postMuteState(mutedRef.current), 400);
+    const t2 = setTimeout(() => postMuteState(mutedRef.current), 1500);
+    // Best-effort cleanup if the player unmounts before the timers fire.
+    setTimeout(() => clearTimeout(t1), 2000);
+    setTimeout(() => clearTimeout(t2), 2000);
+  }
+
+  /**
+   * Re-broadcasts the current mute state once the iframe finishes loading.
+   * Covers the common case where the player taps Mute *before* the game
+   * has finished initialising — the very first postMuteState() call above
+   * would have had no listener to catch it yet.
+   */
+  function handleIframeLoad() {
+    if (mutedRef.current) postMuteState(true);
   }
 
   async function handleInvite() {
@@ -488,6 +571,7 @@ export function MobileLandscapePlayer({
               className="h-full w-full border-0"
               allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
               allowFullScreen
+              onLoad={handleIframeLoad}
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
@@ -501,24 +585,28 @@ export function MobileLandscapePlayer({
          * container, CONTROL_STRIP_WIDTH px wide — the game area above is
          * inset by that same amount, so the strip sits beside the game,
          * never on top of it. Fills the left safe-area strip (camera-notch
-         * zone) with a black background so no gap shows through, then
-         * stacks coloured labelled buttons from top to bottom, each with a
-         * raised "physical button" bevel (gradient face + ridge shadow +
-         * glossy inset highlight, see button3DStyle) that flattens and
-         * nudges down on press:
+         * zone) with a solid black background top-to-bottom so no gap
+         * shows through, but the three buttons themselves are grouped into
+         * one tight cluster, vertically centred in the middle of the
+         * strip — NOT one pinned to the extreme top edge and another to
+         * the extreme bottom edge, which on a real device put Exit right
+         * under the camera notch and Mute right against the home-indicator
+         * zone, with a large dead gap between them:
          *
          *   ┌──────┐
-         *   │ EXIT │  ← purple (#7c3aed), icon + rotated text label
-         *   ├──────┤
-         *   │ INVT │  ← green  (#16a34a), icon + rotated text label
-         *   ├──────┤
-         *   │      │  ← black spacer fills remaining height
-         *   ├──────┤
-         *   │  🔊  │  ← dark   (#1c1c1e), icon only, bottom-aligned
+         *   │      │  ← black, flexes to fill space above the cluster
+         *   │  ⏻  │  ← Exit,   purple, round 3D button
+         *   │  ➕  │  ← Invite, green,  round 3D button
+         *   │  🔊  │  ← Mute,   dark,   round 3D button
+         *   │      │  ← black, flexes to fill space below the cluster
          *   └──────┘
          *
-         * Text uses writingMode:"vertical-lr" + rotate(180deg) so labels
-         * read bottom→top within the narrow strip width.
+         * Each button is round with a physical 3D bevel — gradient face,
+         * ridge shadow, glossy inset highlight (see button3DStyle) — that
+         * flattens and nudges down on press. Labels were dropped in favour
+         * of icon + aria-label: at this diameter a caption would crowd the
+         * circle, and round icon-only controls read more like a polished
+         * game HUD (Poki/CrazyGames-style) than the old flush rectangles.
          *
          * Lives INSIDE the rotated container so it lands in the correct
          * on-screen corner regardless of which rotation layer is active.
@@ -526,139 +614,108 @@ export function MobileLandscapePlayer({
          * normal touch handling so taps register correctly.
          */}
         <div
-          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col"
+          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center bg-black"
           style={{ width: CONTROL_STRIP_WIDTH, touchAction: "auto" }}
         >
-          {/* EXIT — purple */}
-          <button
-            type="button"
-            onClick={onClose}
-            onPointerDown={() => setPressedButton("exit")}
-            onPointerUp={() => setPressedButton(null)}
-            onPointerLeave={() => setPressedButton(null)}
-            onPointerCancel={() => setPressedButton(null)}
-            aria-label="Exit game"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              padding: "10px 0 8px",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              WebkitTapHighlightColor: "transparent",
-              flexShrink: 0,
-              position: "relative",
-              zIndex: 1,
-              ...button3DStyle("#9061f5", "#6d28d9", "#4c1d95", pressedButton === "exit"),
-            }}
-          >
-            <LogOut size={15} strokeWidth={2.5} />
-            <span
+          {/* Spacer above the cluster — shares the leftover height evenly
+           * with the spacer below, so the group sits centred rather than
+           * pinned to either edge. */}
+          <div style={{ flex: 1 }} />
+
+          <div className="flex flex-col items-center" style={{ gap: 18 }}>
+            {/* EXIT — purple */}
+            <button
+              type="button"
+              onClick={onClose}
+              onPointerDown={() => setPressedButton("exit")}
+              onPointerUp={() => setPressedButton(null)}
+              onPointerLeave={() => setPressedButton(null)}
+              onPointerCancel={() => setPressedButton(null)}
+              aria-label="Exit game"
               style={{
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.07em",
-                textTransform: "uppercase",
-                writingMode: "vertical-lr",
-                transform: "rotate(180deg)",
-                lineHeight: 1,
-                userSelect: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                color: "#fff",
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+                ...button3DStyle("#9f75f7", "#6d28d9", "#4c1d95", pressedButton === "exit"),
               }}
             >
-              Exit
-            </span>
-          </button>
+              <LogOut size={15} strokeWidth={2.5} />
+            </button>
 
-          {/* INVITE — green */}
-          <button
-            type="button"
-            onClick={handleInvite}
-            onPointerDown={() => setPressedButton("invite")}
-            onPointerUp={() => setPressedButton(null)}
-            onPointerLeave={() => setPressedButton(null)}
-            onPointerCancel={() => setPressedButton(null)}
-            aria-label="Invite a friend"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              padding: "10px 0 8px",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              WebkitTapHighlightColor: "transparent",
-              flexShrink: 0,
-              position: "relative",
-              zIndex: 1,
-              ...button3DStyle("#22c55e", "#15803d", "#14532d", pressedButton === "invite"),
-            }}
-          >
-            {inviteCopied ? (
-              <Check size={15} strokeWidth={2.5} />
-            ) : (
-              <UserPlus size={15} strokeWidth={2.5} />
-            )}
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: "0.07em",
-                textTransform: "uppercase",
-                writingMode: "vertical-lr",
-                transform: "rotate(180deg)",
-                lineHeight: 1,
-                userSelect: "none",
-              }}
-            >
-              {inviteCopied ? "Copied" : "Invite"}
-            </span>
-          </button>
+            {/* INVITE — green */}
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={handleInvite}
+                onPointerDown={() => setPressedButton("invite")}
+                onPointerUp={() => setPressedButton(null)}
+                onPointerLeave={() => setPressedButton(null)}
+                onPointerCancel={() => setPressedButton(null)}
+                aria-label="Invite a friend"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  color: "#fff",
+                  cursor: "pointer",
+                  WebkitTapHighlightColor: "transparent",
+                  flexShrink: 0,
+                  ...button3DStyle("#34d972", "#15803d", "#14532d", pressedButton === "invite"),
+                }}
+              >
+                {inviteCopied ? (
+                  <Check size={15} strokeWidth={2.5} />
+                ) : (
+                  <UserPlus size={15} strokeWidth={2.5} />
+                )}
+              </button>
 
-          {/* Black spacer — fills the rest of the safe-area height */}
-          <div style={{ flex: 1, backgroundColor: "#000" }} />
-
-          {/* VOLUME — dark, bottom-anchored */}
-          <button
-            type="button"
-            onClick={handleMuteToggle}
-            onPointerDown={() => setPressedButton("mute")}
-            onPointerUp={() => setPressedButton(null)}
-            onPointerLeave={() => setPressedButton(null)}
-            onPointerCancel={() => setPressedButton(null)}
-            aria-label={muted ? "Unmute sound" : "Mute sound"}
-            aria-pressed={muted}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "12px 0",
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              WebkitTapHighlightColor: "transparent",
-              flexShrink: 0,
-              position: "relative",
-              zIndex: 1,
-              ...button3DStyle("#3a3a3d", "#1c1c1e", "#000000", pressedButton === "mute"),
-            }}
-          >
-            {muted ? <VolumeX size={16} strokeWidth={2.5} /> : <Volume2 size={16} strokeWidth={2.5} />}
-          </button>
-
-          {/* "Link copied" tooltip */}
-          {inviteCopied && (
-            <div
-              className="absolute left-full top-20 ml-2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
-              aria-hidden="true"
-            >
-              Link copied
+              {/* "Link copied" tooltip — anchored to the Invite button
+               * itself so it stays correctly placed no matter where the
+               * cluster sits in the strip. */}
+              {inviteCopied && (
+                <div
+                  className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
+                  aria-hidden="true"
+                >
+                  Link copied
+                </div>
+              )}
             </div>
-          )}
+
+            {/* VOLUME — dark */}
+            <button
+              type="button"
+              onClick={handleMuteToggle}
+              onPointerDown={() => setPressedButton("mute")}
+              onPointerUp={() => setPressedButton(null)}
+              onPointerLeave={() => setPressedButton(null)}
+              onPointerCancel={() => setPressedButton(null)}
+              aria-label={muted ? "Unmute sound" : "Mute sound"}
+              aria-pressed={muted}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                color: "#fff",
+                cursor: "pointer",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+                ...button3DStyle("#57575c", "#1c1c1e", "#000000", pressedButton === "mute"),
+              }}
+            >
+              {muted ? <VolumeX size={15} strokeWidth={2.5} /> : <Volume2 size={15} strokeWidth={2.5} />}
+            </button>
+          </div>
+
+          <div style={{ flex: 1 }} />
         </div>
       </div>
 
