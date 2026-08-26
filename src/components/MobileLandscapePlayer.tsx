@@ -122,6 +122,47 @@ interface MobileLandscapePlayerProps {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Width of the Exit / Invite / Mute control strip, in CSS px.
+ *
+ * Was 48 — wide enough that on real devices it sat on top of the embedded
+ * game's own left-edge UI (horn button, turn-signal arrows, etc.) instead of
+ * beside it, since the strip was absolutely positioned *over* a full-width
+ * iframe. Two changes fix that together:
+ *   1. This value is trimmed down to the minimum that still comfortably
+ *      fits the 15–16px icon + rotated text label with tappable padding.
+ *   2. The iframe is no longer full-width underneath the strip — it's
+ *      inset by exactly this many pixels (see the game-area wrapper below),
+ *      so the game's own canvas literally starts where this strip ends
+ *      instead of being covered by it.
+ */
+const CONTROL_STRIP_WIDTH = 40;
+
+/**
+ * Builds an inline style object that gives a control-strip button a raised,
+ * physical "3D" button look — a vertical gradient for the lit/shaded faces,
+ * a solid "ridge" shadow standing in for the button's side wall, a soft
+ * drop shadow for ambient depth, and an inset top highlight for a glossy
+ * top edge. `pressed` flattens the ridge and nudges the button down/in,
+ * simulating it being physically pushed — driven by onPointerDown/Up so it
+ * works uniformly for touch, mouse, and pen.
+ */
+function button3DStyle(
+  colorTop: string,
+  colorBottom: string,
+  ridgeColor: string,
+  pressed: boolean
+): React.CSSProperties {
+  return {
+    background: `linear-gradient(180deg, ${colorTop} 0%, ${colorBottom} 100%)`,
+    boxShadow: pressed
+      ? `0 1px 0 ${ridgeColor}, inset 0 1px 3px rgba(0,0,0,0.45)`
+      : `0 3px 0 ${ridgeColor}, 0 5px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.35)`,
+    transform: pressed ? "translateY(2px)" : "translateY(0)",
+    transition: "transform 90ms ease, box-shadow 90ms ease",
+  };
+}
+
 /** True when the current viewport is taller than it is wide (portrait). */
 function detectPortrait(): boolean {
   if (typeof window === "undefined") return true;
@@ -199,6 +240,12 @@ export function MobileLandscapePlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [muted, setMuted] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+  // Which strip button is currently being physically pressed, for the 3D
+  // "pushed in" state. Pointer events (not click) so the depressed look
+  // tracks the finger/cursor in real time on touch, mouse, and pen alike.
+  const [pressedButton, setPressedButton] = useState<
+    "exit" | "invite" | "mute" | null
+  >(null);
 
   function handleMuteToggle() {
     const next = !muted;
@@ -419,29 +466,46 @@ export function MobileLandscapePlayer({
       {/* ── Rotatable game container (Layers 2 & 3) ───────────────────── */}
       <div style={gameContainerStyle}>
 
-        {/* ── Game iframe ──────────────────────────────────────────────── */}
-        {playUrl ? (
-          <iframe
-            ref={iframeRef}
-            src={playUrl}
-            title={title}
-            // Fill the entire container — the container's size and rotation
-            // handle all the layout math; the iframe just fills 100 × 100.
-            className="h-full w-full border-0"
-            allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
-            allowFullScreen
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
-            <p className="text-sm">No game URL configured.</p>
-          </div>
-        )}
+        {/* ── Game area ─────────────────────────────────────────────────
+         * Inset from the left by exactly CONTROL_STRIP_WIDTH so the game's
+         * own canvas starts precisely where the control strip ends, rather
+         * than running full-width underneath it. Previously the iframe
+         * filled the whole container and the strip sat on top as an
+         * overlay, which meant every game's own left-edge UI (horn button,
+         * turn-signal arrows, etc.) was partially hidden behind the strip.
+         * With this inset, nothing is covered — the strip and the game
+         * occupy separate, adjacent regions.
+         */}
+        <div
+          className="absolute bottom-0 right-0 top-0"
+          style={{ left: CONTROL_STRIP_WIDTH }}
+        >
+          {playUrl ? (
+            <iframe
+              ref={iframeRef}
+              src={playUrl}
+              title={title}
+              className="h-full w-full border-0"
+              allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
+              allowFullScreen
+            />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
+              <p className="text-sm">No game URL configured.</p>
+            </div>
+          )}
+        </div>
 
         {/* ── Exit / Invite / Mute control panel ───────────────────────────
          * Edge-flush vertical sidebar pinned to the LEFT of the game
-         * container.  Fills the left safe-area strip (camera-notch zone)
-         * with a black background so no gap shows through, then stacks
-         * coloured labelled buttons from top to bottom:
+         * container, CONTROL_STRIP_WIDTH px wide — the game area above is
+         * inset by that same amount, so the strip sits beside the game,
+         * never on top of it. Fills the left safe-area strip (camera-notch
+         * zone) with a black background so no gap shows through, then
+         * stacks coloured labelled buttons from top to bottom, each with a
+         * raised "physical button" bevel (gradient face + ridge shadow +
+         * glossy inset highlight, see button3DStyle) that flattens and
+         * nudges down on press:
          *
          *   ┌──────┐
          *   │ EXIT │  ← purple (#7c3aed), icon + rotated text label
@@ -463,12 +527,16 @@ export function MobileLandscapePlayer({
          */}
         <div
           className="absolute bottom-0 left-0 top-0 z-10 flex flex-col"
-          style={{ width: 48, touchAction: "auto" }}
+          style={{ width: CONTROL_STRIP_WIDTH, touchAction: "auto" }}
         >
           {/* EXIT — purple */}
           <button
             type="button"
             onClick={onClose}
+            onPointerDown={() => setPressedButton("exit")}
+            onPointerUp={() => setPressedButton(null)}
+            onPointerLeave={() => setPressedButton(null)}
+            onPointerCancel={() => setPressedButton(null)}
             aria-label="Exit game"
             style={{
               display: "flex",
@@ -477,12 +545,14 @@ export function MobileLandscapePlayer({
               justifyContent: "center",
               gap: 4,
               padding: "10px 0 8px",
-              backgroundColor: "#7c3aed",
               border: "none",
               color: "#fff",
               cursor: "pointer",
               WebkitTapHighlightColor: "transparent",
               flexShrink: 0,
+              position: "relative",
+              zIndex: 1,
+              ...button3DStyle("#9061f5", "#6d28d9", "#4c1d95", pressedButton === "exit"),
             }}
           >
             <LogOut size={15} strokeWidth={2.5} />
@@ -506,6 +576,10 @@ export function MobileLandscapePlayer({
           <button
             type="button"
             onClick={handleInvite}
+            onPointerDown={() => setPressedButton("invite")}
+            onPointerUp={() => setPressedButton(null)}
+            onPointerLeave={() => setPressedButton(null)}
+            onPointerCancel={() => setPressedButton(null)}
             aria-label="Invite a friend"
             style={{
               display: "flex",
@@ -514,12 +588,14 @@ export function MobileLandscapePlayer({
               justifyContent: "center",
               gap: 4,
               padding: "10px 0 8px",
-              backgroundColor: "#16a34a",
               border: "none",
               color: "#fff",
               cursor: "pointer",
               WebkitTapHighlightColor: "transparent",
               flexShrink: 0,
+              position: "relative",
+              zIndex: 1,
+              ...button3DStyle("#22c55e", "#15803d", "#14532d", pressedButton === "invite"),
             }}
           >
             {inviteCopied ? (
@@ -550,6 +626,10 @@ export function MobileLandscapePlayer({
           <button
             type="button"
             onClick={handleMuteToggle}
+            onPointerDown={() => setPressedButton("mute")}
+            onPointerUp={() => setPressedButton(null)}
+            onPointerLeave={() => setPressedButton(null)}
+            onPointerCancel={() => setPressedButton(null)}
             aria-label={muted ? "Unmute sound" : "Mute sound"}
             aria-pressed={muted}
             style={{
@@ -557,12 +637,14 @@ export function MobileLandscapePlayer({
               alignItems: "center",
               justifyContent: "center",
               padding: "12px 0",
-              backgroundColor: "#1c1c1e",
               border: "none",
               color: "#fff",
               cursor: "pointer",
               WebkitTapHighlightColor: "transparent",
               flexShrink: 0,
+              position: "relative",
+              zIndex: 1,
+              ...button3DStyle("#3a3a3d", "#1c1c1e", "#000000", pressedButton === "mute"),
             }}
           >
             {muted ? <VolumeX size={16} strokeWidth={2.5} /> : <Volume2 size={16} strokeWidth={2.5} />}
