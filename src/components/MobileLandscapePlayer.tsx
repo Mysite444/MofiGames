@@ -296,14 +296,6 @@ export function MobileLandscapePlayer({
     "exit" | "invite" | "mute" | null
   >(null);
 
-  // Always-current mirror of `muted` for closures that outlive a single
-  // render (the iframe's onLoad handler, retry timers) without having to
-  // re-bind them on every toggle.
-  const mutedRef = useRef(muted);
-  useEffect(() => {
-    mutedRef.current = muted;
-  }, [muted]);
-
   /**
    * Posts the mute state into the iframe using every message shape we've
    * seen embedded HTML5 games listen for. This is inherently best-effort:
@@ -335,49 +327,83 @@ export function MobileLandscapePlayer({
   }
 
   /**
-   * BUGFIX — this was the actual cause of "mute works once, then never
-   * again": the old version read `const next = !muted;` out of the
-   * render's closure and passed that fixed value straight into
-   * `setMuted(next)`. Any stale copy of this function still floating
-   * around (an unreleased pointer-capture retry, a delayed synthetic
-   * mouse "click" firing after a pointerdown-based toggle, a memoised
-   * ancestor, etc.) would keep computing `next` from whatever `muted`
-   * was at the time THAT closure was created — so a second, stale
-   * invocation could silently set state back to the same value the
-   * first tap already produced, making every tap after the first a
-   * no-op from the user's point of view.
+   * REAL BUGFIX (the previous "functional updater" pass did NOT fix this —
+   * confirmed by re-testing on device: the button still froze after the
+   * first tap).
    *
-   * Using the functional updater form removes the closure dependency
-   * entirely: React always hands the updater the true current state at
-   * the moment it actually runs, so every tap toggles correctly no
-   * matter what else queued the call or when it fires.
+   * ROOT CAUSE: the broadcast side effects — postMessage calls AND
+   * setTimeout scheduling — were happening *inside* the setMuted updater
+   * function itself:
+   *
+   *   setMuted((prev) => {
+   *     const next = !prev;
+   *     postMuteState(next);        // ← side effect during render
+   *     setTimeout(...)             // ← side effect during render
+   *     return next;
+   *   });
+   *
+   * React updater functions are expected to be pure and are explicitly
+   * allowed to run MORE THAN ONCE per state change — React re-invokes them
+   * to verify purity, and can call them again if a render is interrupted
+   * or replayed (Strict Mode's double-invoke in development is the most
+   * visible case, but it isn't the only one). Every extra invocation fired
+   * another full round of postMessage calls and another pair of retry
+   * timers, all racing each other. On a real device, the second tap's
+   * updater call could run while the FIRST tap's retry timers (400ms /
+   * 1500ms out) were still pending, so the outgoing messages no longer
+   * matched what the button was actually showing — from the outside this
+   * reads as "the button doesn't respond anymore," even though `muted`
+   * itself never actually got stuck.
+   *
+   * FIX: the click handler now ONLY updates state — no side effects live
+   * inside it or inside the updater. Broadcasting moved into a proper
+   * `useEffect` keyed on `muted` below, which is guaranteed to run exactly
+   * once per committed change and cleans up its own timers if `muted`
+   * flips again before they fire. This is the correct place for this kind
+   * of side effect in React, and it removes the double-invoke hazard
+   * entirely.
    */
   function handleMuteToggle() {
-    setMuted((prev) => {
-      const next = !prev;
-      // Send now, then twice more shortly after — some games only attach
-      // their message listener partway through their own startup sequence,
-      // so a single message fired the instant the icon flips can arrive
-      // before anyone is listening. Re-sending covers that race without
-      // needing to know a given game's exact init timing.
-      postMuteState(next);
-      const t1 = setTimeout(() => postMuteState(mutedRef.current), 400);
-      const t2 = setTimeout(() => postMuteState(mutedRef.current), 1500);
-      // Best-effort cleanup if the player unmounts before the timers fire.
-      setTimeout(() => clearTimeout(t1), 2000);
-      setTimeout(() => clearTimeout(t2), 2000);
-      return next;
-    });
+    setMuted((prev) => !prev);
   }
+
+  // Broadcasts the current mute state into the iframe whenever it changes.
+  // Runs once per actual committed `muted` change (not per click, not per
+  // render) — see the note on handleMuteToggle above for why the broadcast
+  // used to live inside the state updater instead, and why that was wrong.
+  // Skips the very first run (mount) since there's nothing to announce yet.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    postMuteState(muted);
+    // Some games only attach their message listener partway through their
+    // own startup sequence, so a single message fired the instant the icon
+    // flips can arrive before anyone is listening. Re-sending covers that
+    // race without needing to know a given game's exact init timing. If
+    // `muted` flips again before these fire, the cleanup below cancels
+    // them so a stale value is never sent.
+    const t1 = setTimeout(() => postMuteState(muted), 400);
+    const t2 = setTimeout(() => postMuteState(muted), 1500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [muted]);
 
   /**
    * Re-broadcasts the current mute state once the iframe finishes loading.
    * Covers the common case where the player taps Mute *before* the game
    * has finished initialising — the very first postMuteState() call above
-   * would have had no listener to catch it yet.
+   * would have had no listener to catch it yet. Reads `muted` directly
+   * (not a ref) — this function is recreated every render with the
+   * current value, and only the browser's real "load" event ever invokes
+   * it, so there's no stale-closure risk here.
    */
   function handleIframeLoad() {
-    if (mutedRef.current) postMuteState(true);
+    if (muted) postMuteState(true);
   }
 
   async function handleInvite() {
