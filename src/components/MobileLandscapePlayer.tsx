@@ -144,53 +144,77 @@ interface MobileLandscapePlayerProps {
  *      so the game's own canvas literally starts where this strip ends
  *      instead of being covered by it.
  */
-const CONTROL_STRIP_WIDTH = 40;
+const CONTROL_STRIP_WIDTH = 56;
 
 /**
  * Diameter (CSS px) of each round control-strip button. Sized to sit
  * comfortably inside CONTROL_STRIP_WIDTH with a few px of breathing room
  * on either side.
  */
-const BUTTON_DIAMETER = 32;
+const BUTTON_DIAMETER = 44;
 
 /**
  * Builds an inline style object that makes a control-strip button look
- * like a real, physical, glossy 3D button (think: a chunky game-console
- * keycap) — layered like an actual light-struck object rather than a flat
- * gradient chip:
- *   - a vertical gradient face (lit top → shaded bottom)
- *   - a solid colour "ridge" beneath it standing in for the button's side
- *     wall, giving it visible thickness
- *   - a soft ambient drop shadow so it visibly floats off the black strip
- *   - an inset glossy highlight along the top edge
- *   - an inset shadow along the bottom edge to round off the underside
- *   - a hairline border so it reads crisply against the dark background
- * `pressed` collapses the ridge, dims the gloss, and nudges the button
- * down — simulating it being physically pushed — driven by
+ * like a real, physical, domed arcade button — layered to simulate an
+ * actual light-struck convex surface:
+ *
+ *   - radial gradient face: bright specular highlight at upper-left (the
+ *     "dome" apex) fading through the mid-tone body to a dark underside —
+ *     far more spherical than a simple top→bottom linear gradient
+ *   - per-button coloured ambient glow via box-shadow so each button reads
+ *     as its own light source in the dark strip
+ *   - a solid colour ridge beneath it for visible thickness / keycap depth
+ *   - a crisp inset specular line along the top rim
+ *   - a hairline border (slightly translucent white) so it reads crisply
+ *     against the dark panel
+ *
+ * `pressed` collapses the ridge, inverts the glow (no outer glow, heavy
+ * inner shadow), and nudges the button down + slightly scales it — the
+ * physical sensation of actually pushing a physical button — driven by
  * onPointerDown/Up so it tracks touch, mouse, and pen alike.
+ *
+ * @param colorTop   Brightest specular tint (dome apex highlight)
+ * @param colorMid   Main body / mid-tone
+ * @param colorBase  Darkest undersurface tint
+ * @param ridgeColor Solid colour below the button face (keycap "wall")
+ * @param glowColor  Ambient rgba() glow for this button's accent colour
+ * @param pressed    Whether the button is currently held down
  */
 function button3DStyle(
   colorTop: string,
-  colorBottom: string,
+  colorMid: string,
+  colorBase: string,
   ridgeColor: string,
+  glowColor: string,
   pressed: boolean
 ): React.CSSProperties {
   return {
     width: BUTTON_DIAMETER,
     height: BUTTON_DIAMETER,
     borderRadius: "50%",
-    background: `linear-gradient(165deg, ${colorTop} 0%, ${colorBottom} 100%)`,
-    border: "1px solid rgba(255,255,255,0.12)",
+    // Radial gradient gives the dome/sphere look: the highlight sits at
+    // the upper-left (where light would hit a convex surface), and the
+    // shadow wraps around to the lower-right.
+    background: pressed
+      ? `radial-gradient(circle at 50% 70%, ${colorMid} 0%, ${colorBase} 100%)`
+      : `radial-gradient(circle at 38% 28%, ${colorTop} 0%, ${colorMid} 52%, ${colorBase} 100%)`,
+    border: "1.5px solid rgba(255,255,255,0.18)",
     boxShadow: pressed
-      ? `0 1px 0 ${ridgeColor}, 0 1px 2px rgba(0,0,0,0.5), inset 0 2px 4px rgba(0,0,0,0.5)`
+      ? [
+          `0 1px 0 ${ridgeColor}`,
+          "0 2px 8px rgba(0,0,0,0.75)",
+          "inset 0 3px 7px rgba(0,0,0,0.60)",
+          "inset 0 -1px 2px rgba(255,255,255,0.07)",
+        ].join(", ")
       : [
-          `0 3px 0 ${ridgeColor}`,
-          "0 6px 10px rgba(0,0,0,0.45)",
-          "inset 0 1.5px 1px rgba(255,255,255,0.55)",
-          "inset 0 -4px 6px rgba(0,0,0,0.28)",
+          `0 5px 0 ${ridgeColor}`,
+          "0 8px 20px rgba(0,0,0,0.60)",
+          `0 0 18px 4px ${glowColor}`,
+          "inset 0 2px 3px rgba(255,255,255,0.70)",
+          "inset 0 -5px 9px rgba(0,0,0,0.30)",
         ].join(", "),
-    transform: pressed ? "translateY(3px)" : "translateY(0)",
-    transition: "transform 100ms ease, box-shadow 100ms ease",
+    transform: pressed ? "translateY(5px) scale(0.95)" : "translateY(0) scale(1)",
+    transition: "transform 80ms ease, box-shadow 80ms ease",
   };
 }
 
@@ -613,21 +637,44 @@ export function MobileLandscapePlayer({
          * Root overlay has touchAction:none; this wrapper opts back into
          * normal touch handling so taps register correctly.
          */}
+        {/*
+         * ── Control panel ────────────────────────────────────────────────
+         * Dark glass-like sidebar, CONTROL_STRIP_WIDTH px wide.  The game
+         * area is already inset by that amount so nothing overlaps.
+         *
+         * Three premium 3D dome buttons — Exit / Invite / Volume — are
+         * centred as a tight vertical cluster.  Each button uses a radial
+         * gradient (dome highlight at upper-left) + per-button coloured
+         * ambient glow to look like a backlit arcade keycap.
+         *
+         * Volume button specifics:
+         *   • Uses onPointerDown as the primary action trigger (no 300 ms
+         *     click delay on mobile) alongside onClick for accessibility.
+         *   • e.stopPropagation() on both handlers prevents the overlay's
+         *     touchAction:none from absorbing the event.
+         *   • touchAction:"manipulation" on the button itself opts it back
+         *     into instant-tap behaviour independently of any ancestor.
+         *   • When muted the button turns red so the state is unmissable.
+         */}
         <div
-          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center bg-black"
-          style={{ width: CONTROL_STRIP_WIDTH, touchAction: "auto" }}
+          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center"
+          style={{
+            width: CONTROL_STRIP_WIDTH,
+            touchAction: "auto",
+            background: "linear-gradient(180deg, #0c0c14 0%, #141420 40%, #141420 60%, #0c0c14 100%)",
+            borderRight: "1px solid rgba(255,255,255,0.07)",
+            boxShadow: "3px 0 14px rgba(0,0,0,0.55)",
+          }}
         >
-          {/* Spacer above the cluster — shares the leftover height evenly
-           * with the spacer below, so the group sits centred rather than
-           * pinned to either edge. */}
+          {/* Spacer above the cluster */}
           <div style={{ flex: 1 }} />
 
-          <div className="flex flex-col items-center" style={{ gap: 18 }}>
-            {/* EXIT — purple */}
+          <div className="flex flex-col items-center" style={{ gap: 20 }}>
+            {/* ── EXIT — violet/purple dome ───────────────────────────── */}
             <button
               type="button"
-              onClick={onClose}
-              onPointerDown={() => setPressedButton("exit")}
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              onPointerDown={(e) => { e.stopPropagation(); setPressedButton("exit"); }}
               onPointerUp={() => setPressedButton(null)}
               onPointerLeave={() => setPressedButton(null)}
               onPointerCancel={() => setPressedButton(null)}
@@ -640,19 +687,28 @@ export function MobileLandscapePlayer({
                 color: "#fff",
                 cursor: "pointer",
                 WebkitTapHighlightColor: "transparent",
+                touchAction: "manipulation",
+                userSelect: "none",
                 flexShrink: 0,
-                ...button3DStyle("#9f75f7", "#6d28d9", "#4c1d95", pressedButton === "exit"),
+                ...button3DStyle(
+                  "#e4bbff", // apex specular highlight
+                  "#a855f7", // body mid-tone
+                  "#6d28d9", // underside
+                  "#3b0764", // keycap wall / ridge
+                  "rgba(168,85,247,0.45)", // violet ambient glow
+                  pressedButton === "exit"
+                ),
               }}
             >
-              <LogOut size={15} strokeWidth={2.5} />
+              <LogOut size={19} strokeWidth={2.2} />
             </button>
 
-            {/* INVITE — green */}
+            {/* ── INVITE — cyan/teal dome ─────────────────────────────── */}
             <div style={{ position: "relative" }}>
               <button
                 type="button"
-                onClick={handleInvite}
-                onPointerDown={() => setPressedButton("invite")}
+                onClick={(e) => { e.stopPropagation(); handleInvite(); }}
+                onPointerDown={(e) => { e.stopPropagation(); setPressedButton("invite"); }}
                 onPointerUp={() => setPressedButton(null)}
                 onPointerLeave={() => setPressedButton(null)}
                 onPointerCancel={() => setPressedButton(null)}
@@ -665,20 +721,27 @@ export function MobileLandscapePlayer({
                   color: "#fff",
                   cursor: "pointer",
                   WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                  userSelect: "none",
                   flexShrink: 0,
-                  ...button3DStyle("#34d972", "#15803d", "#14532d", pressedButton === "invite"),
+                  ...button3DStyle(
+                    "#a7f3d0", // apex specular highlight
+                    "#10b981", // body mid-tone
+                    "#065f46", // underside
+                    "#022c22", // keycap wall / ridge
+                    "rgba(16,185,129,0.40)", // emerald ambient glow
+                    pressedButton === "invite"
+                  ),
                 }}
               >
                 {inviteCopied ? (
-                  <Check size={15} strokeWidth={2.5} />
+                  <Check size={19} strokeWidth={2.2} />
                 ) : (
-                  <UserPlus size={15} strokeWidth={2.5} />
+                  <UserPlus size={19} strokeWidth={2.2} />
                 )}
               </button>
 
-              {/* "Link copied" tooltip — anchored to the Invite button
-               * itself so it stays correctly placed no matter where the
-               * cluster sits in the strip. */}
+              {/* "Link copied" tooltip */}
               {inviteCopied && (
                 <div
                   className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
@@ -689,11 +752,24 @@ export function MobileLandscapePlayer({
               )}
             </div>
 
-            {/* VOLUME — dark */}
+            {/* ── VOLUME — blue dome (red when muted) ─────────────────────
+             *  FIX: onPointerDown fires the toggle immediately — no 300 ms
+             *  click delay.  onClick is kept as an a11y fallback.
+             *  e.stopPropagation() prevents the overlay's touchAction:none
+             *  from eating the event on certain iOS builds.
+             *  touchAction:"manipulation" opts the button into instant-tap
+             *  regardless of the ancestor chain.
+             *  When muted the button switches to warm red so the state is
+             *  always obvious at a glance.
+             */}
             <button
               type="button"
-              onClick={handleMuteToggle}
-              onPointerDown={() => setPressedButton("mute")}
+              onClick={(e) => { e.stopPropagation(); }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                setPressedButton("mute");
+                handleMuteToggle();
+              }}
               onPointerUp={() => setPressedButton(null)}
               onPointerLeave={() => setPressedButton(null)}
               onPointerCancel={() => setPressedButton(null)}
@@ -707,11 +783,30 @@ export function MobileLandscapePlayer({
                 color: "#fff",
                 cursor: "pointer",
                 WebkitTapHighlightColor: "transparent",
+                touchAction: "manipulation",
+                userSelect: "none",
                 flexShrink: 0,
-                ...button3DStyle("#57575c", "#1c1c1e", "#000000", pressedButton === "mute"),
+                // Red when muted so state is unmissable; blue when active.
+                ...(muted
+                  ? button3DStyle(
+                      "#fca5a5", // apex specular highlight
+                      "#ef4444", // body mid-tone
+                      "#991b1b", // underside
+                      "#450a0a", // keycap wall / ridge
+                      "rgba(239,68,68,0.45)", // red ambient glow
+                      pressedButton === "mute"
+                    )
+                  : button3DStyle(
+                      "#bae6fd", // apex specular highlight
+                      "#3b82f6", // body mid-tone
+                      "#1d4ed8", // underside
+                      "#1e1b4b", // keycap wall / ridge
+                      "rgba(59,130,246,0.42)", // blue ambient glow
+                      pressedButton === "mute"
+                    )),
               }}
             >
-              {muted ? <VolumeX size={15} strokeWidth={2.5} /> : <Volume2 size={15} strokeWidth={2.5} />}
+              {muted ? <VolumeX size={19} strokeWidth={2.2} /> : <Volume2 size={19} strokeWidth={2.2} />}
             </button>
           </div>
 
