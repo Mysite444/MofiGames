@@ -53,7 +53,7 @@ export function Header({
     // so the hamburger button remains tappable even while a page transition
     // is in progress. Previously z-30 caused the overlay to block the button.
     <header
-      className="fixed inset-x-0 top-0 z-[10000] border-b border-white/10 bg-black lg:border-b lg:border-white/10 lg:bg-[var(--color-menu-bg)]"
+      className="fixed inset-x-0 top-0 z-[10000] border-b border-white/10 bg-black lg:border-b-0 lg:bg-[var(--color-menu-bg)]"
     >
       {/* Desktop/laptop: flush top-left toggle button, same 60px footprint as
           the collapsed sidebar rail below it (CrazyGames-style) — sits right
@@ -64,7 +64,7 @@ export function Header({
         onClick={onToggleSidebar}
         aria-label={sidebarHidden ? "Show menu" : "Hide menu"}
         aria-expanded={!sidebarHidden}
-        className="absolute left-0 top-0 hidden h-14 w-[60px] items-center justify-center border-b border-r border-white/10 text-white transition-colors hover:bg-white/10 lg:flex"
+        className="absolute left-0 top-0 hidden h-14 w-[60px] items-center justify-center border-r border-white/10 text-white transition-colors hover:bg-white/10 lg:flex"
       >
         <SidebarToggleIcon pointingRight={sidebarHidden} size={26} />
       </button>
@@ -204,7 +204,7 @@ export function Header({
                   onClick={() => setAuthMenuOpen((v) => !v)}
                   aria-haspopup="menu"
                   aria-expanded={authMenuOpen}
-                  className="glow-yellow-button flex items-center gap-1.5 rounded-full bg-[var(--color-menu-bg)] px-3.5 py-2 text-sm font-bold text-white active:scale-[0.98]"
+                  className="login-cta-glow flex items-center gap-1.5 rounded-full bg-[var(--color-menu-bg)] px-3.5 py-2 text-sm font-bold text-white active:scale-[0.98]"
                 >
                   <LogIn size={16} />
                   Log In

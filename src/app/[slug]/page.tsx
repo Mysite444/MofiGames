@@ -37,7 +37,6 @@ import { GamePlayerPanel } from "@/components/GamePlayerPanel";
 import { HorizontalAdSlot } from "@/components/HorizontalAdSlot";
 import { GameDetailsSection } from "@/components/GameDetailsSection";
 import { CommentsSection } from "@/components/CommentsSection";
-import { ReviewsSection } from "@/components/ReviewsSection";
 import { DesktopBackToGameButton } from "@/components/DesktopBackToGameButton";
 import { MobileGamePage } from "@/components/MobileGamePage";
 import { SidebarAdSlot } from "@/components/SidebarAdSlot";
@@ -347,8 +346,6 @@ async function GamePageLayout({
               adsenseClientId={adSettings.adsense_client_id}
               adsenseReady={adsenseReady}
             />
-
-            <ReviewsSection game={game} />
 
             <CommentsSection game={game} />
           </div>

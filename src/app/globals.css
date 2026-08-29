@@ -15,8 +15,8 @@
      restyles native popups from color-scheme alone.) */
   color-scheme: dark;
 
-  /* Purple-black base — Twitch/esports direction */
-  --color-base: #120a1a;
+  /* Jet black base (was a blue/purple-tinted black, #120a1a) */
+  --color-base: #000000;
 
   /* Glass surfaces — translucent white over black */
   --color-surface: rgba(255, 255, 255, 0.05);
@@ -37,8 +37,14 @@
      (#000000), replacing the previous purple (#9146ff) — kept the original
      variable name to avoid touching every file that already references it.
      Applies to both mobile and desktop, since it's the single site-wide
-     accent used for buttons, highlights, and glows everywhere. */
-  --color-menu-bg: #170e22;
+     accent used for buttons, highlights, and glows everywhere.
+
+     --color-menu-bg (Header/Sidebar on desktop, MobileDrawer/MobileActionSheet
+     on mobile) was also a blue/purple-tinted black (#170e22) — now a neutral
+     near-black, kept one shade above --color-base so header/sidebar/drawer
+     surfaces still read as a distinct, slightly-elevated layer over the page
+     instead of flattening into pure #000. */
+  --color-menu-bg: #0d0d0d;
   --color-menu-yellow: #000000;
   --color-menu-blue: #3da9fc;
 
@@ -587,6 +593,42 @@ h1, h2, h3, h4, .font-display {
 .glow-yellow-button:active {
   transform: scale(0.97);
   filter: brightness(1.0);
+}
+
+/* Desktop header "Log In" button only. Its border used to come from
+   --color-menu-yellow (via .glow-yellow-button) — now jet black — sitting on
+   the header's own near-black background, so the button had no visible edge
+   at all. Gives it its own crisp white ring plus a slow "breathing" pulse so
+   it reads as the header's one interactive highlight instead of disappearing
+   into the bar. (prefers-reduced-motion is already handled globally above,
+   which zeroes this animation's duration for anyone who's opted out.) */
+.login-cta-glow {
+  position: relative;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease,
+    transform 0.15s ease;
+  animation: login-cta-pulse 2.6s ease-in-out infinite;
+}
+.login-cta-glow:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.14), 0 4px 16px rgba(255, 255, 255, 0.12);
+  animation-play-state: paused;
+  transform: translateY(-1px);
+}
+.login-cta-glow:active {
+  transform: translateY(0) scale(0.97);
+}
+@keyframes login-cta-pulse {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.26);
+  }
+  50% {
+    border-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+  }
 }
 
 /* ── Primary CTA pill button (.btn-cta) ──────────────────────────────────────

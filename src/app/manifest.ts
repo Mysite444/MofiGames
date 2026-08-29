@@ -38,8 +38,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     description: identity.siteTagline,
     start_url: "/",
     display: "standalone",
-    background_color: "#170e22",
-    theme_color: "#170e22",
+    background_color: "#0d0d0d",
+    theme_color: "#0d0d0d",
     icons,
   };
 }

@@ -20,7 +20,6 @@ import { GameThumbnail } from "./GameThumbnail";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
 import { CommentsSection } from "./CommentsSection";
-import { ReviewsSection } from "./ReviewsSection";
 import { GamePostAdSlot } from "./GamePostAdSlot";
 import { formatPlays } from "@/lib/format-plays";
 import { iconMap } from "@/lib/icon-map";
@@ -312,8 +311,6 @@ export function MobileGamePage({
           <h2 className="mb-3 font-display text-base font-bold text-text">More {category.name}</h2>
           <MobileRelatedGrid games={related} />
         </section>
-
-        <ReviewsSection game={game} />
 
         <CommentsSection game={game} />
       </div>
