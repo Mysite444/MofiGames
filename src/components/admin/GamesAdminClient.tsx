@@ -53,6 +53,7 @@ import {
   type GamesBulkActionInput,
 } from "@/lib/supabase/admin-content";
 import { slugify } from "@/lib/prng";
+import { RichTextEditor } from "./RichTextEditor";
 
 const TAGS = ["TOP", "HOT", "NEW", "UPDATED"] as const;
 const PAGE_SIZE = 20;
@@ -96,6 +97,7 @@ const emptyForm: GameInput = {
   category_slug: "",
   description: "",
   instructions: "",
+  content: "",
   controls: "",
 
   thumbnail_url: null,
@@ -466,6 +468,7 @@ export function GamesAdminClient() {
       category_slug: game.category_slug,
       description: game.description,
       instructions: game.instructions,
+      content: game.content,
       controls: game.controls,
       thumbnail_url: game.thumbnail_url,
       cover_image_url: game.cover_image_url,
@@ -1445,6 +1448,21 @@ export function GamesAdminClient() {
                   rows={3}
                   placeholder="How to play — objective, tips, win condition…"
                   className="admin-input resize-none"
+                />
+              </Field>
+
+              <Field label="Content">
+                <p className="mb-1.5 -mt-1 text-[11px] text-text-faint">
+                  The full arranged article shown below the game info — How to Play, Tips, Features,
+                  FAQ, and so on. Use Heading/Subheading for section titles and bullet lists for tips
+                  and feature lists, the same way you would on a Page or Blog post — the game page
+                  renders this with matching headings, paragraphs, and lists instead of one long
+                  paragraph.
+                </p>
+                <RichTextEditor
+                  value={form.content}
+                  onChange={(html) => setForm((f) => ({ ...f, content: html }))}
+                  placeholder="How to Play MR RACER&#10;&#10;Start a race and take control of your car…"
                 />
               </Field>
 

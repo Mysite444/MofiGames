@@ -78,6 +78,12 @@ export const gameInputSchema = z
     title: z.string().trim().min(1, "Title is required").max(120),
     description: z.string().trim().max(4000).default(""),
     instructions: z.string().trim().max(4000).default(""),
+    // Sanitized HTML from the admin's RichTextEditor (headings/paragraphs/
+    // lists) — the "arranged content" section. Larger cap than the plain
+    // text fields above since markup adds overhead for the same amount of
+    // reader-visible copy; sanitizeContentHtml() strips scripts/handlers
+    // server-side before it's ever rendered.
+    content: z.string().trim().max(20000).default(""),
     controls: z.string().trim().max(4000).default(""),
 
     category_slug: z.string().trim().min(1, "Category is required"),

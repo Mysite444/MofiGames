@@ -21,6 +21,7 @@ import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
 import { CommentsSection } from "./CommentsSection";
 import { GamePostAdSlot } from "./GamePostAdSlot";
+import { GameContentSection } from "./GameContentSection";
 import { formatPlays } from "@/lib/format-plays";
 import { iconMap } from "@/lib/icon-map";
 import { recordPlayed, toggleFavorite, useIsFavorited, usePlayTimeTracking } from "@/lib/game-library";
@@ -305,6 +306,31 @@ export function MobileGamePage({
             {game.publisher ? <Row label="Publisher" value={game.publisher} /> : null}
             {game.version ? <Row label="Version" value={game.version} /> : null}
           </div>
+        )}
+
+        {/* About this game — same arranged content as the desktop page
+            (GameDetailsSection): short intro blurb, then the long-form
+            How to Play / Tips / Features / FAQ article authored in the
+            admin's "Content" field, rendered with real headings,
+            paragraphs, and lists instead of one flat paragraph. This
+            section was previously missing entirely on mobile. */}
+        {((game.description && game.description.trim().length > 0) ||
+          (game.content && game.content.trim().length > 0) ||
+          (game.instructions && game.instructions.trim().length > 0)) && (
+          <section className="flex flex-col gap-4">
+            {game.description && game.description.trim().length > 0 && (
+              <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
+            )}
+
+            <GameContentSection html={game.content} />
+
+            {game.instructions && game.instructions.trim().length > 0 && (
+              <div>
+                <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+                <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+              </div>
+            )}
+          </section>
         )}
 
         <section>

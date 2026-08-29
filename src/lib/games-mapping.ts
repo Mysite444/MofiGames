@@ -19,6 +19,7 @@ export interface DbGameRow {
   category_slug: string;
   description: string;
   instructions?: string | null;
+  content?: string | null;
   controls?: string | null;
   thumbnail_url: string | null;
   cover_image_url?: string | null;
@@ -155,6 +156,7 @@ export function mapDbGameRow(row: DbGameRow, gameFilesBaseUrl: string): Game {
     playUrl: resolvePlayUrl(row, gameFilesBaseUrl),
     description: row.description,
     instructions: row.instructions ?? "",
+    content: row.content ?? "",
     controls: row.controls ?? "",
     developer: row.developer ?? "",
     publisher: row.publisher ?? "",

@@ -68,6 +68,10 @@ export interface AdminGame {
   category_slug: string;
   description: string;
   instructions: string;
+  /** Long-form "arranged content" section — sanitized HTML from
+   * RichTextEditor (headings, paragraphs, bullet/numbered lists). See
+   * migration 0072. */
+  content: string;
   controls: string;
   thumbnail_url: string | null;
   cover_image_url: string | null;

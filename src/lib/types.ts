@@ -104,6 +104,13 @@ export interface Game {
   playUrl?: string;
   description?: string;
   instructions?: string;
+  /** Long-form "arranged content" section — sanitized HTML from the admin
+   * panel's RichTextEditor (headings, paragraphs, bullet/numbered lists),
+   * rendered below the game info on both desktop (GameDetailsSection) and
+   * mobile (MobileGamePage) via GameContentSection. Distinct from
+   * `description` (short blurb, also used as the SEO meta description
+   * fallback in lib/seo.ts — never HTML). */
+  content?: string;
   /** Free-text controls list, one control per line (e.g. "WASD = move"). */
   controls?: string;
   developer?: string;

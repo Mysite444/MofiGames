@@ -5,6 +5,7 @@ import { Share2, ChevronRight, Bookmark } from "lucide-react";
 import { getGameMeta } from "@/lib/gameMeta";
 import { useGamesByCategory } from "@/lib/games-merged";
 import { getControlsList } from "@/lib/game-controls";
+import { GameContentSection } from "./GameContentSection";
 import { RatingStars } from "./RatingStars";
 import { GamePostAdSlot } from "./GamePostAdSlot";
 import type { AdPlacementConfig } from "./AdUnit";
@@ -146,6 +147,12 @@ export function GameDetailsSection({
           </>
         )}
       </p>
+
+      {/* Long-form arranged content — How to Play / Tips / Features / FAQ,
+          authored in the admin's "Content" field (RichTextEditor). Renders
+          real headings/paragraphs/lists instead of a flat paragraph;
+          renders nothing for games that don't have it authored yet. */}
+      <GameContentSection html={game.content} />
 
       {game.instructions && game.instructions.trim().length > 0 && (
         <div>
