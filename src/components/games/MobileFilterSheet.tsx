@@ -22,7 +22,7 @@ function ChipToggle({ active, onClick, children }: { active: boolean; onClick: (
       style={{ touchAction: "manipulation" }}
       className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors ${
         active
-          ? "border-[var(--color-menu-yellow)] bg-[rgba(145,70,255,0.22)] text-white"
+          ? "border-[var(--color-menu-yellow)] bg-[rgba(0,0,0,0.22)] text-white"
           : "border-white/12 bg-white/5 text-text-muted"
       }`}
     >

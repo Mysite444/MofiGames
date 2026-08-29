@@ -34,7 +34,7 @@ function MiniTile({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-[rgba(145,70,255,0.5)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(145,70,255,0.5)] active:scale-[0.97]"
+      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(0,0,0,0.5)] active:scale-[0.97]"
     >
       <GameThumbnail
         category={category}

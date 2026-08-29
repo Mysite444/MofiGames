@@ -16,7 +16,7 @@ export function SortIconRow({ value, onChange }: { value: SortValue; onChange: (
             aria-pressed={active}
             className={`lighting-card group flex flex-col items-center gap-2.5 rounded-2xl border px-4 py-5 transition-all duration-200 ${
               active
-                ? "border-[var(--color-menu-yellow)] bg-[rgba(145,70,255,0.16)] shadow-[0_6px_22px_rgba(145,70,255,0.28)]"
+                ? "border-[var(--color-menu-yellow)] bg-[rgba(0,0,0,0.16)] shadow-[0_6px_22px_rgba(0,0,0,0.28)]"
                 : "glass border-white/10 hover:border-white/25"
             }`}
           >

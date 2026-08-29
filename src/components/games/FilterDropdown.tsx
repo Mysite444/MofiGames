@@ -49,7 +49,7 @@ export function FilterDropdown({
         aria-haspopup="listbox"
         className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
           active
-            ? "border-[var(--color-menu-yellow)] bg-[rgba(145,70,255,0.16)] text-white"
+            ? "border-[var(--color-menu-yellow)] bg-[rgba(0,0,0,0.16)] text-white"
             : "border-white/10 bg-[var(--color-surface-2)] text-white hover:border-white/25 hover:bg-white/[0.14]"
         }`}
       >

@@ -29,7 +29,7 @@ function PortraitCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block aspect-[2/3] w-[128px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] hover:scale-[1.02] hover:ring-2 hover:ring-[rgba(145,70,255,0.5)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      className="tile-shine group relative block aspect-[2/3] w-[128px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] hover:scale-[1.02] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
     >
       {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element

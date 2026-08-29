@@ -63,7 +63,7 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[rgba(145,70,255,0.5)] group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(145,70,255,0.5)] group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[rgba(0,0,0,0.5)] group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(0,0,0,0.5)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />

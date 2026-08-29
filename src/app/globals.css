@@ -33,11 +33,13 @@
   --color-gold: #ffc857;
 
   /* Desktop ("PC/laptop") menu-only accents — mobile/iOS/Android are untouched.
-     --color-menu-yellow now holds the site's purple accent (#9146ff, Twitch-
-     style) — kept the original variable name to avoid touching every file
-     that already references it. */
+     --color-menu-yellow now holds the site's primary accent — jet black
+     (#000000), replacing the previous purple (#9146ff) — kept the original
+     variable name to avoid touching every file that already references it.
+     Applies to both mobile and desktop, since it's the single site-wide
+     accent used for buttons, highlights, and glows everywhere. */
   --color-menu-bg: #170e22;
-  --color-menu-yellow: #9146ff;
+  --color-menu-yellow: #000000;
   --color-menu-blue: #3da9fc;
 
   /* Fonts */
@@ -330,12 +332,12 @@ h1, h2, h3, h4, .font-display {
   filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.28));
 }
 
-/* Purple elevation accents — desktop menu hover/focus only */
+/* Accent elevation shadows — desktop menu hover/focus only */
 .glow-yellow-sm {
-  box-shadow: 0 4px 14px rgba(145, 70, 255, 0.22);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
 .glow-yellow-md {
-  box-shadow: 0 6px 22px rgba(145, 70, 255, 0.28);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
 }
 
 /* Scrollbar for the desktop hover-menu — completely hidden while collapsed,
@@ -373,8 +375,8 @@ h1, h2, h3, h4, .font-display {
 }
 .menu-item:hover,
 .menu-item:active {
-  background: linear-gradient(90deg, rgba(145, 70, 255, 0.22), rgba(145, 70, 255, 0.05));
-  box-shadow: inset 0 0 0 1px rgba(145, 70, 255, 0.25);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.05));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
   transform: translateX(2px);
 }
 .menu-item-active {
@@ -574,11 +576,11 @@ h1, h2, h3, h4, .font-display {
 /* Standalone CTA buttons — thicker purple border, clean elevation on hover */
 .glow-yellow-button {
   border: 2.5px solid var(--color-menu-yellow);
-  box-shadow: 0 4px 18px rgba(145, 70, 255, 0.2), 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.35);
   transition: box-shadow 0.22s ease, filter 0.18s ease, transform 0.15s ease;
 }
 .glow-yellow-button:hover {
-  box-shadow: 0 6px 24px rgba(145, 70, 255, 0.32), 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.32), 0 4px 12px rgba(0, 0, 0, 0.4);
   filter: brightness(1.08);
   transform: translateY(-1px) scale(0.99);
 }
@@ -594,16 +596,16 @@ h1, h2, h3, h4, .font-display {
    at the call-site so full-width mobile variants can override freely.
    ──────────────────────────────────────────────────────────────────────────── */
 .btn-cta {
-  background: var(--color-menu-yellow);   /* solid purple #9146ff */
+  background: var(--color-menu-yellow);   /* solid jet black */
   color: #ffffff;
   font-weight: 700;
   border-radius: 9999px;
-  box-shadow: 0 4px 20px rgba(145, 70, 255, 0.32), 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: box-shadow 0.22s ease, filter 0.18s ease, transform 0.15s ease;
 }
 .btn-cta:hover {
   filter: brightness(1.12);
-  box-shadow: 0 6px 28px rgba(145, 70, 255, 0.48), 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.48), 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 .btn-cta:active {
   transform: scale(0.97);
@@ -634,13 +636,13 @@ h1, h2, h3, h4, .font-display {
     transform 0.15s ease,
     backdrop-filter 0s;      /* instant — don't animate blur removal */
 }
-/* Hover: kill the blur so solid purple shows, clean elevation shadow */
+/* Hover: kill the blur so solid black shows, clean elevation shadow */
 .pagination-btn:hover {
   background: var(--color-menu-yellow);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-color: var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(145, 70, 255, 0.38);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
@@ -648,11 +650,11 @@ h1, h2, h3, h4, .font-display {
   transform: scale(0.96);
 }
 
-/* Active (current page): always solid purple — same token as btn-cta */
+/* Active (current page): always solid black — same token as btn-cta */
 .pagination-btn-active {
   background: var(--color-menu-yellow);
   border: 1px solid var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(145, 70, 255, 0.38);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
@@ -678,21 +680,21 @@ h1, h2, h3, h4, .font-display {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-color: var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(145, 70, 255, 0.38);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
 .pagination-arrow:active:not(:disabled) {
   transform: scale(0.96);
 }
-/* Next arrow: always solid purple (primary CTA direction) */
+/* Next arrow: always solid black (primary CTA direction) */
 .pagination-arrow-next {
   background: var(--color-menu-yellow);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border: 1px solid var(--color-menu-yellow);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(145, 70, 255, 0.32);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
   transition:
     box-shadow 0.18s ease,
     transform 0.15s ease,
@@ -700,7 +702,7 @@ h1, h2, h3, h4, .font-display {
 }
 .pagination-arrow-next:hover:not(:disabled) {
   filter: brightness(1.12);
-  box-shadow: 0 6px 22px rgba(145, 70, 255, 0.5);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
   transform: scale(1.1);
 }
 .pagination-arrow-next:active:not(:disabled) {
@@ -728,7 +730,7 @@ h1, h2, h3, h4, .font-display {
   background: linear-gradient(
     100deg,
     transparent,
-    rgba(145, 70, 255, 0.12) 45%,
+    rgba(0, 0, 0, 0.12) 45%,
     rgba(255, 255, 255, 0.12) 55%,
     transparent
   );
@@ -737,7 +739,7 @@ h1, h2, h3, h4, .font-display {
 }
 .lighting-card:hover,
 .lighting-card:active {
-  border-color: rgba(145, 70, 255, 0.4);
+  border-color: rgba(0, 0, 0, 0.4);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
 }
 .lighting-card:hover::before,

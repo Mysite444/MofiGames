@@ -53,7 +53,7 @@ export function Header({
     // so the hamburger button remains tappable even while a page transition
     // is in progress. Previously z-30 caused the overlay to block the button.
     <header
-      className="fixed inset-x-0 top-0 z-[10000] border-b border-white/10 bg-white/5 backdrop-blur-xl backdrop-saturate-150 lg:border-b lg:border-white/10 lg:bg-[var(--color-menu-bg)]"
+      className="fixed inset-x-0 top-0 z-[10000] border-b border-white/10 bg-black lg:border-b lg:border-white/10 lg:bg-[var(--color-menu-bg)]"
     >
       {/* Desktop/laptop: flush top-left toggle button, same 60px footprint as
           the collapsed sidebar rail below it (CrazyGames-style) — sits right

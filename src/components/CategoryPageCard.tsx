@@ -84,7 +84,7 @@ export function CategoryPageCard({ game }: { game: Game }) {
       {/* ── Thumbnail ── 16:9, fills the column. With the 17px grid gap this
           computes to ~195px wide on a 1366px-viewport window — the exact
           column width measured off the CrazyGames reference screenshot.  */}
-      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[rgba(145,70,255,0.5)] group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(145,70,255,0.5)] group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[rgba(0,0,0,0.5)] group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(0,0,0,0.5)] group-active:scale-[0.97]">
 
         {/* Static thumbnail or generated placeholder */}
         {imageSrc ? (

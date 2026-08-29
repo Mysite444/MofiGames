@@ -36,7 +36,7 @@ export function FeaturedBanner({
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.015] hover:ring-2 hover:ring-[rgba(145,70,255,0.5)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.99]"
+      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.015] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.99]"
     >
       <div
         className="absolute inset-0"
