@@ -394,9 +394,9 @@ function UserDetailDrawer({
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass-opaque flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-[var(--color-surface-border)] p-5"
+        className="glass-opaque flex h-full w-full max-w-lg flex-col border-l border-[var(--color-surface-border)]"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-surface-border)] px-5 pb-4 pt-5">
           <h2 className="font-display text-lg font-bold text-white">{user.name}</h2>
           <button
             type="button"
@@ -408,7 +408,7 @@ function UserDetailDrawer({
           </button>
         </div>
 
-        <div className="mb-4 flex gap-1 rounded-full bg-white/5 p-1">
+        <div className="flex shrink-0 gap-1 rounded-full bg-white/5 p-1 mx-5 mt-4">
           {(["overview", "permissions", "activity"] as const).map((t) => (
             <button
               key={t}
@@ -423,6 +423,7 @@ function UserDetailDrawer({
           ))}
         </div>
 
+        <div className="flex-1 overflow-y-auto p-5">
         {tab === "overview" && (
           <OverviewTab
             user={user}
@@ -439,6 +440,7 @@ function UserDetailDrawer({
           <PermissionsTab userId={user.id} canManageRoles={capabilities.canManageRoles} onChanged={onChanged} />
         )}
         {tab === "activity" && <ActivityTab userId={user.id} />}
+        </div>
       </div>
     </div>
   );

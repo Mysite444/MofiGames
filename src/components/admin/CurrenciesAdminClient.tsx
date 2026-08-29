@@ -277,9 +277,9 @@ export function CurrenciesAdminClient() {
           <form
             onSubmit={handleSave}
             onClick={(e) => e.stopPropagation()}
-            className="glass-opaque flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-[var(--color-surface-border)] p-5"
+            className="glass-opaque flex h-full w-full max-w-md flex-col border-l border-[var(--color-surface-border)]"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-surface-border)] px-5 pb-4 pt-5">
               <h2 className="font-display text-lg font-bold text-white">Add currency</h2>
               <button
                 type="button"
@@ -291,6 +291,7 @@ export function CurrenciesAdminClient() {
               </button>
             </div>
 
+            <div className="flex-1 overflow-y-auto p-5">
             {formError && (
               <p className="mb-4 rounded-lg bg-hot/15 px-3 py-2 text-xs font-medium text-hot">{formError}</p>
             )}
@@ -394,7 +395,9 @@ export function CurrenciesAdminClient() {
               </label>
             </div>
 
-            <div className="mt-6 flex gap-2">
+            </div>
+
+            <div className="flex shrink-0 gap-2 border-t border-[var(--color-surface-border)] bg-[var(--color-menu-bg)] p-4">
               <button
                 type="submit"
                 disabled={saving}

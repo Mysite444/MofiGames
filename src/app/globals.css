@@ -99,6 +99,137 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ============================================================================
+   ADMIN CMS THEME — scoped to .admin-shell (wraps everything under /admin)
+   ============================================================================
+   The public site uses a purple/glass "Twitch-style" theme (--color-base,
+   --color-surface, --color-menu-yellow, etc. above). The admin panel needs
+   its own professional black/near-black CMS look with white primary buttons,
+   entirely separate from that — this block re-declares the same custom
+   properties inside .admin-shell only, so the override never leaks onto the
+   public pages.
+
+   This is a pure CSS-variable + selector override: every existing admin
+   screen already consumes these tokens (bg-surface, text-text-muted, .glass,
+   .glow-yellow-button, .admin-input, .pagination-btn, etc.), so redefining
+   them here re-skins every admin page at once without editing each of the
+   ~80 admin components individually.
+   ========================================================================= */
+.admin-shell {
+  color-scheme: dark;
+
+  /* Page background: near-black */
+  --color-base: #0a0a0b;
+
+  /* Cards/panels/tables: dark charcoal (one step up from the page bg) */
+  --color-surface: rgba(255, 255, 255, 0.045);
+  --color-surface-2: rgba(255, 255, 255, 0.075);
+  --color-surface-border: rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --color-text: #f5f5f6;
+  --color-text-muted: rgba(245, 245, 246, 0.64);
+  --color-text-faint: rgba(245, 245, 246, 0.42);
+
+  /* Status accents — kept clearly red/amber, tuned for a CMS rather than a
+     gaming site */
+  --color-hot: #f0453c;
+  --color-gold: #f2b73f;
+
+  /* Sidebar: true black, distinct from the charcoal cards above it */
+  --color-menu-bg: #050506;
+  /* Primary accent becomes white/near-white instead of purple — this is what
+     turns "primary button borders", pagination active states, focus rings,
+     etc. from purple to white throughout the whole admin panel */
+  --color-menu-yellow: #ffffff;
+  --color-menu-blue: #5aa9ff;
+
+  background: var(--color-base);
+  color: var(--color-text);
+  min-height: 100vh;
+}
+
+/* Primary CMS action buttons: solid white pill with dark text, per the
+   "white/light buttons for important actions" requirement — overrides the
+   public site's purple-bordered glow button look. */
+.admin-shell .glow-yellow-button,
+.admin-shell .btn-cta {
+  background: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.admin-shell .glow-yellow-button,
+.admin-shell .glow-yellow-button *,
+.admin-shell .btn-cta,
+.admin-shell .btn-cta * {
+  color: #111114 !important;
+}
+.admin-shell .glow-yellow-button:hover,
+.admin-shell .btn-cta:hover {
+  background: #e7e7ea;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.admin-shell .glow-yellow-button:disabled,
+.admin-shell .btn-cta:disabled {
+  background: #ffffff;
+  opacity: 0.5;
+}
+
+/* Pagination active/hover states follow the same white accent (also strips
+   the site's hardcoded purple glow shadow, which isn't driven by a variable) */
+.admin-shell .pagination-btn:hover,
+.admin-shell .pagination-btn-active,
+.admin-shell .pagination-arrow:hover:not(:disabled),
+.admin-shell .pagination-arrow-next {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111114 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+.admin-shell .pagination-arrow-next:hover:not(:disabled) {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+/* Flatten glassmorphism into solid, layered CMS surfaces. A serious admin
+   tool reads as flat panels with clear elevation, not blurred glass — so
+   cards, the sidebar rail, and modals each get a distinct solid tone instead
+   of a backdrop blur. */
+.admin-shell .glass {
+  background: #131316;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.admin-shell .glass-strong {
+  background: #18181c;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+.admin-shell .glass-opaque {
+  background: #101013;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+}
+
+/* Inputs: charcoal fill, white focus ring (via --color-menu-yellow above) */
+.admin-shell .admin-input option {
+  background: #18181c;
+  color: #f5f5f6;
+}
+
+/* Scrollbar to match the black CMS chrome */
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+.admin-shell ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 /* CrazyGames-style page navigation loading: darkens the REAL page content
    behind the spinner (a CSS filter on the actual page, not a translucent
    panel layered on top of it) and makes it briefly inert so nothing

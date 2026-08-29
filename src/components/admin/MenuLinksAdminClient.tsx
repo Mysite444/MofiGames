@@ -244,9 +244,9 @@ export function MenuLinksAdminClient() {
           <form
             onSubmit={handleSave}
             onClick={(e) => e.stopPropagation()}
-            className="glass-opaque flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-[var(--color-surface-border)] p-5"
+            className="glass-opaque flex h-full w-full max-w-md flex-col border-l border-[var(--color-surface-border)]"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-surface-border)] px-5 pb-4 pt-5">
               <h2 className="font-display text-lg font-bold text-white">
                 {editingId ? "Edit Link" : "Add Link"}
               </h2>
@@ -260,6 +260,7 @@ export function MenuLinksAdminClient() {
               </button>
             </div>
 
+            <div className="flex-1 overflow-y-auto p-5">
             {formError && (
               <p className="mb-4 rounded-lg bg-hot/15 px-3 py-2 text-xs font-medium text-hot">{formError}</p>
             )}
@@ -305,15 +306,25 @@ export function MenuLinksAdminClient() {
                 Active (shown in the menu)
               </label>
             </div>
+            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="glow-yellow-button mt-6 flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-menu-bg)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={15} className="animate-spin" /> : null}
-              {editingId ? "Save changes" : "Add link"}
-            </button>
+            <div className="flex shrink-0 gap-2 border-t border-[var(--color-surface-border)] bg-[var(--color-menu-bg)] p-4">
+              <button
+                type="submit"
+                disabled={saving}
+                className="glow-yellow-button flex flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--color-menu-bg)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {saving ? <Loader2 size={15} className="animate-spin" /> : null}
+                {editingId ? "Save changes" : "Add link"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="glass rounded-full px-5 py-2.5 text-sm font-semibold text-white/80 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
