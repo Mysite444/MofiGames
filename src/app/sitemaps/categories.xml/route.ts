@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public-client";
 import { categories as builtInCategories } from "@/lib/categories";
 import { getSeoSettings } from "@/lib/seo-settings";
 import { getFeedCacheSettingsServer } from "@/lib/feed-cache-settings-server";
@@ -16,7 +16,7 @@ export async function GET() {
     return new Response(buildUrlSetXml([]), { headers });
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("categories").select("slug, seo_index");
 
   const realSlugs = new Set((data ?? []).filter((c) => c.seo_index !== false).map((c) => c.slug));

@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { getOrSetFragment } from "./fragment-cache";
 import { DEFAULT_DNS_PREFETCH_SETTINGS, mapDnsPrefetchRow, type DnsPrefetchSettings } from "./dns-prefetch-settings";
 
@@ -20,7 +20,7 @@ import { DEFAULT_DNS_PREFETCH_SETTINGS, mapDnsPrefetchRow, type DnsPrefetchSetti
 export async function getDnsPrefetchSettingsServer(): Promise<DnsPrefetchSettings> {
   return getOrSetFragment("dns-prefetch-hints", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data } = await supabase.from("dns_prefetch_settings").select("*").eq("id", true).maybeSingle();
       return mapDnsPrefetchRow(data ?? null);
     } catch {

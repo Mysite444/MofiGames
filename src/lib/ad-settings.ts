@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import type { AdminAdSettings } from "./supabase/admin-content";
 import { getOrSetFragment } from "./fragment-cache";
 
@@ -74,7 +74,7 @@ export const DEFAULT_AD_SETTINGS: AdminAdSettings = {
 export const getAdSettings = cache(async (): Promise<AdminAdSettings> => {
   return getOrSetFragment("ad-settings", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await supabase.from("ad_settings").select("*").eq("id", true).maybeSingle();
       if (error || !data) return DEFAULT_AD_SETTINGS;
       return data as AdminAdSettings;

@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { withTimeout, isNextControlFlowError, DEFAULT_SUPABASE_TIMEOUT_MS } from "./supabase/timeout-fetch";
 import { getOrSetMetadataCache } from "./metadata-cache";
 import { fallbackPageBySlug } from "./static-fallback";
@@ -65,7 +65,7 @@ export interface PublicPost {
  * file itself is somehow missing too. */
 export async function getPageBySlug(slug: string): Promise<PublicPage | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await withTimeout(
       supabase.from("pages").select("*").eq("slug", slug).maybeSingle(),
       DEFAULT_SUPABASE_TIMEOUT_MS,
@@ -93,11 +93,9 @@ export async function getPageBySlug(slug: string): Promise<PublicPage | null> {
   }
 }
 
-async function attachTags(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  postIds: string[]
-): Promise<Map<string, PublicTag[]>> {
+async function attachTags(postIds: string[]): Promise<Map<string, PublicTag[]>> {
   if (postIds.length === 0) return new Map();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("post_tags")
     .select("post_id, tags(id, slug, name, color)")
@@ -120,7 +118,7 @@ async function attachTags(
  * degrades to "no posts shown" instead of an unhandled rejection. */
 export async function getPublishedPosts(limit = 30): Promise<PublicPost[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await withTimeout(
       supabase.from("posts").select("*").eq("is_published", true).is("deleted_at", null).order("published_at", { ascending: false }).limit(limit),
       DEFAULT_SUPABASE_TIMEOUT_MS,
@@ -128,7 +126,7 @@ export async function getPublishedPosts(limit = 30): Promise<PublicPost[]> {
     );
     if (error || !data) throw error ?? new Error("posts: empty response");
 
-    const tagsByPost = await attachTags(supabase, data.map((p) => p.id));
+    const tagsByPost = await attachTags(data.map((p) => p.id));
 
     return data.map((row) => ({
       id: row.id,
@@ -186,7 +184,7 @@ export async function getTagBySlug(slug: string): Promise<PublicTagDetail | null
 }
 
 export async function fetchTagBySlugLive(slug: string): Promise<PublicTagDetail | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await withTimeout(
     supabase.from("tags").select("*").eq("slug", slug).maybeSingle(),
     DEFAULT_SUPABASE_TIMEOUT_MS,
@@ -211,7 +209,7 @@ export async function fetchTagBySlugLive(slug: string): Promise<PublicTagDetail 
  * are included there, see src/app/sitemaps/tags.xml/route.ts). */
 export async function getPostsByTag(tagSlug: string): Promise<PublicPost[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data: tag } = await supabase.from("tags").select("id").eq("slug", tagSlug).maybeSingle();
     if (!tag) return [];
 
@@ -226,7 +224,7 @@ export async function getPostsByTag(tagSlug: string): Promise<PublicPost[]> {
     );
     if (error || !data) throw error ?? new Error("posts by tag: empty response");
 
-    const tagsByPost = await attachTags(supabase, data.map((p) => p.id));
+    const tagsByPost = await attachTags(data.map((p) => p.id));
 
     return data.map((row) => ({
       id: row.id,
@@ -260,7 +258,7 @@ export async function getPostsByTag(tagSlug: string): Promise<PublicPost[]> {
 
 export async function getPostBySlug(slug: string): Promise<PublicPost | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data, error } = await withTimeout(
       supabase.from("posts").select("*").eq("slug", slug).eq("is_published", true).is("deleted_at", null).maybeSingle(),
       DEFAULT_SUPABASE_TIMEOUT_MS,
@@ -269,7 +267,7 @@ export async function getPostBySlug(slug: string): Promise<PublicPost | null> {
     if (error) throw error;
     if (!data) return null;
 
-    const tagsByPost = await attachTags(supabase, [data.id]);
+    const tagsByPost = await attachTags([data.id]);
 
     return {
       id: data.id,

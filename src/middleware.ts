@@ -214,27 +214,54 @@ export async function middleware(request: NextRequest) {
 
   // Touches the session so expired/near-expiry tokens get refreshed.
   //
-  // This is the single most important try/catch in the app: this
-  // middleware runs on almost every request (see the matcher below), so
-  // an unhandled rejection here previously meant one Supabase outage
-  // (network blip, DNS failure, an auth-service 5xx) took down every
-  // page on the site — including pages with no database dependency at
-  // all — instead of just degrading auth-dependent features. Failing
-  // open here means: if Supabase's auth endpoint can't be reached, the
-  // visitor is treated as signed-out for that request (existing session
-  // cookies aren't cleared, just not refreshed) and the request
-  // continues normally. A real user with an expired token during an
-  // outage gets asked to sign in again next time they do something that
-  // needs auth — which is a far better failure mode than a 500 for
-  // every visitor, signed in or not.
-  try {
-    await timed("middleware:auth.getUser", () => supabase.auth.getUser());
-  } catch (err) {
-    console.error("[middleware] Supabase session refresh failed — continuing without it:", err);
+  // ANONYMOUS VISITOR SHORT-CIRCUIT:
+  //   Supabase's @supabase/ssr auth.getUser() validates the access token
+  //   against the Supabase Auth API — a real network round-trip that
+  //   adds 100-300ms to EVERY request, even when there is no session to
+  //   refresh. For the majority of traffic (anonymous visitors with no
+  //   auth cookies), this network call produces no result and can be
+  //   skipped entirely. We detect this by checking for the presence of
+  //   any Supabase session cookie (sb-*-auth-token, or chunked variants
+  //   sb-*-auth-token.0 / .1 / etc.) before deciding whether to call
+  //   auth.getUser() at all. If there's no token cookie, there's nothing
+  //   to validate or refresh, and we skip the round-trip completely.
+  //
+  // SAFETY:
+  //   - Anonymous visitors are still anonymous after this: no cookies are
+  //     written and no session is created (same as before this change).
+  //   - Signed-in users still have their session refreshed on every
+  //     request (the if-branch below runs for them as before).
+  //   - The supabase SSR client's setAll() still writes new cookies to the
+  //     response when the branch runs and getUser() refreshes a token —
+  //     the response object reference is correctly captured.
+  //
+  // This is the single highest-ROI change in this entire file.
+  const hasAuthCookies = request.cookies.getAll().some(
+    (c) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
+  );
+  if (hasAuthCookies) {
+    // Signed-in visitor (or a returning user with a near-expiry token).
+    // Validate + refresh the session as before. Fail open so a Supabase
+    // Auth outage treats the visitor as signed-out for this request rather
+    // than crashing every page on the site.
+    try {
+      await timed("middleware:auth.getUser", () => supabase.auth.getUser());
+    } catch (err) {
+      console.error("[middleware] Supabase session refresh failed — continuing without it:", err);
+    }
   }
 
-  await timed("middleware:applyDnsPrefetchControlHeader", () => applyDnsPrefetchControlHeader(request, response));
-  await timed("middleware:applySecurityCacheHeaders", () => applySecurityCacheHeaders(request, response));
+  // applyDnsPrefetchControlHeader and applySecurityCacheHeaders are
+  // completely independent — they both read their own in-process caches
+  // and write distinct headers onto `response`. Running them in parallel
+  // saves one sequential async step on every request; the saving is
+  // small on cache-warm paths (both finish in <1ms from the module-level
+  // caches above) but meaningful on cache-cold paths where each may hit
+  // Supabase (~50-150ms each).
+  await Promise.all([
+    timed("middleware:applyDnsPrefetchControlHeader", () => applyDnsPrefetchControlHeader(request, response)),
+    timed("middleware:applySecurityCacheHeaders", () => applySecurityCacheHeaders(request, response)),
+  ]);
 
   if (process.env.PERF_DEBUG_TTFB === "1") {
     console.log(`[perf] middleware:total: ${(performance.now() - __middlewareStart).toFixed(1)}ms`);

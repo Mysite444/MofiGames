@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import {
   createTimeoutFetch,
   withTimeout,
@@ -210,7 +211,7 @@ export async function getRealGameBySlug(
 export async function getRealGamesByCategory(categorySlug: string): Promise<Game[]> {
   return getOrSetFragment("related-games", categorySlug, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await withTimeout(
         supabase
           .from("games")
@@ -254,7 +255,10 @@ export async function getRealGamesByCategory(categorySlug: string): Promise<Game
 export async function getAllRealGames(): Promise<Game[]> {
   return getOrSetFragment("game-cards", "all-games", async () => {
     try {
-      const supabase = await createClient();
+      // Public client: games is publicly readable via RLS, no session needed.
+      // Eliminates the cookies() call from this hot path so Next.js can
+      // statically render pages that only depend on this data.
+      const supabase = createPublicClient();
       const { data, error } = await withTimeout(
         supabase
           .from("games")
@@ -318,7 +322,7 @@ export const isCurrentUserAdmin = cache(async (): Promise<boolean> => {
 export async function getAllRealCategories(): Promise<Category[]> {
   return getOrSetFragment("game-cards", "all-categories", async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await withTimeout(
         supabase.from("categories").select("*"),
         DEFAULT_SUPABASE_TIMEOUT_MS,

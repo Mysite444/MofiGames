@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { withTimeout, isNextControlFlowError, DEFAULT_SUPABASE_TIMEOUT_MS } from "./supabase/timeout-fetch";
 import { ALL_REGISTRY_SECTIONS } from "./homepage-section-registry";
 import { getOrSetFragment } from "./fragment-cache";
@@ -36,7 +36,7 @@ export async function getHomepageSectionOverrides(): Promise<Map<string, Section
     }
 
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await withTimeout(
         supabase.from("homepage_sections").select("section_key, label, position, is_visible"),
         DEFAULT_SUPABASE_TIMEOUT_MS,
@@ -74,7 +74,7 @@ export async function getHomepageSectionPinnedGameIds(): Promise<Map<string, str
   return getOrSetFragment("homepage-sections", "pinned-game-ids", async () => {
     const map = new Map<string, string[]>();
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await withTimeout(
         supabase.from("homepage_section_games").select("section_key, game_id").order("position", { ascending: true }),
         DEFAULT_SUPABASE_TIMEOUT_MS,

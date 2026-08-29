@@ -123,6 +123,9 @@ const resolveSlug = cache(async (slug: string): Promise<SlugResolution> => {
   return { type: "not-found" };
 });
 
+// ISR: all public data — see homepage for rationale.
+export const revalidate = 300;
+
 // ---------------------------------------------------------------------------
 // Static params — pre-render all published games + all known categories.
 // Tags and CMS pages are SSR-on-demand (dynamicParams = true by default).

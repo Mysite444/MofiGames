@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { getOrSetFragment } from "./fragment-cache";
 import { DEFAULT_RESOURCE_HINT_SETTINGS, mapResourceHintRow, type ResourceHintSettings } from "./resource-hint-settings";
 
@@ -13,7 +13,7 @@ import { DEFAULT_RESOURCE_HINT_SETTINGS, mapResourceHintRow, type ResourceHintSe
 export async function getResourceHintSettingsServer(): Promise<ResourceHintSettings> {
   return getOrSetFragment("resource-hints", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data } = await supabase.from("resource_hint_settings").select("*").eq("id", true).maybeSingle();
       return mapResourceHintRow(data ?? null);
     } catch {

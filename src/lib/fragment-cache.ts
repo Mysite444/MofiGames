@@ -2,16 +2,17 @@ import { getFragmentCacheSettingsServer } from "./fragment-cache-settings-server
 import type { FragmentCacheSettings } from "./fragment-cache-settings";
 import { isNextControlFlowError } from "./supabase/timeout-fetch";
 
-// Server-only — pulls in fragment-cache-settings-server.ts, which itself
-// pulls in next/headers via the Supabase server client. Never import this
-// from a "use client" component; use the /api/admin/cache/fragment/*
-// routes instead.
+// Server-only. No longer pulls in next/headers — fragment-cache-settings-
+// server.ts now uses the cookie-free public client (createPublicClient),
+// so pages whose only Supabase reads go through getOrSetFragment() are
+// free to be statically generated or ISR-cached. Never import from a
+// "use client" component; use the /api/admin/cache/fragment/* routes instead.
 //
 // The real engine behind Admin → Cache → Fragment Cache. An in-process
 // TTL + LRU key/value store used to memoize the output of expensive page
 // sections (trending games, related games, nav menu, …) across requests
 // within one running server instance — see games-server.ts,
-// homepage-layout-server.ts, src/app/page.tsx, src/app/game/[slug]/page.tsx,
+// homepage-layout-server.ts, src/app/page.tsx, src/app/[slug]/page.tsx,
 // and the /api/fragments/** routes for the call sites that actually use
 // this.
 //

@@ -26,10 +26,25 @@ import { ALL_REGISTRY_SECTIONS, categorySectionKey } from "@/lib/homepage-sectio
 import { getSeoSettings } from "@/lib/seo-settings";
 import { getSiteIdentity } from "@/lib/site-identity";
 import { applyTitleTemplate } from "@/lib/seo";
-import { clientCountryFromHeaders, countryNameFromCode } from "@/lib/request-ip";
+// clientCountryFromHeaders (headers() call) was removed from the server
+// render path so this page qualifies for ISR / static generation.
+// Country-name personalisation ("Top Picks for You in France") was cosmetic;
+// TopPicksRow renders "Top Picks for You" with country=null, which is fine.
 import { timed } from "@/lib/perf-instrumentation";
 import type { Game } from "@/lib/types";
 import type { Metadata } from "next";
+
+// ISR: the homepage contains only public, non-user-specific data (game
+// lists, categories, SEO settings). All database reads now go through
+// the public (cookie-free) Supabase client, so no dynamic function
+// (cookies() / headers()) is called in this render path. Next.js can
+// therefore statically pre-render this page and serve it from the CDN
+// edge, revalidating in the background every 60 seconds. The result is
+// near-zero TTFB for the vast majority of homepage traffic. Admin-triggered
+// content changes (new game published, homepage row reordered) are
+// picked up within the next revalidation window, or immediately if
+// the admin purges the relevant fragment-cache key from the cache panel.
+export const revalidate = 60;
 
 // Home Page SEO (Advanced SEO Module) — title/description/OG override from
 // Admin → SEO Management → Global Settings; Organization/WebSite JSON-LD
@@ -92,19 +107,22 @@ export default async function HomePage() {
   // only thing that can still reject is a Next.js control-flow signal
   // (redirect/notFound/DYNAMIC_SERVER_USAGE), which Promise.all propagates
   // immediately, same as a sequential await chain would have.
-  const [realGames, realCategories, identity, countryCode, sectionOverrides, pinnedGameIds] = await timed(
-    "homepage:batch1(games+categories+identity+country+sections+pinned)",
+  const [realGames, realCategories, identity, sectionOverrides, pinnedGameIds] = await timed(
+    "homepage:batch1(games+categories+identity+sections+pinned)",
     () =>
       Promise.all([
         getAllRealGames(),
         getAllRealCategories(),
         getSiteIdentity(),
-        clientCountryFromHeaders(),
         getHomepageSectionOverrides(),
         getHomepageSectionPinnedGameIds(),
       ])
   );
-  const topPicksCountry = countryNameFromCode(countryCode);
+  // country=null → TopPicksRow/MobileHome renders "Top Picks for You" (no
+  // country name). Previously read from headers() on every request, but
+  // that prevented ISR. Country personalisation is cosmetic — the trade-off
+  // is strongly in favour of ISR for the overwhelming majority of visitors.
+  const topPicksCountry = null;
   const realGamesById = new Map(realGames.map((g) => [g.id, g]));
 
   function pinnedGamesFor(key: string): Game[] {

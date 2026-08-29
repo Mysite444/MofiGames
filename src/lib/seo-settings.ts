@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { fallbackSeoSettings } from "./static-fallback";
 import { isNextControlFlowError } from "./supabase/timeout-fetch";
 import { getOrSetFragment } from "./fragment-cache";
@@ -138,7 +138,7 @@ export function mapSeoSettingsRow(row: any): SeoSettings {
 export async function getSeoSettings(): Promise<SeoSettings> {
   return getOrSetFragment("seo-settings", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await supabase.from("seo_settings").select("*").eq("id", true).maybeSingle();
       if (error || !data) throw error ?? new Error("seo_settings: no row");
       return mapSeoSettingsRow(data);

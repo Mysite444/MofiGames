@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public-client";
 import { getSeoSettings } from "@/lib/seo-settings";
 import { getFeedCacheSettingsServer } from "@/lib/feed-cache-settings-server";
 import { SITE_URL } from "@/lib/seo";
@@ -15,7 +15,7 @@ export async function GET() {
     return new Response(buildUrlSetXml([]), { headers });
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("tags").select("slug, seo_index").eq("seo_index", true);
 
   const entries: SitemapUrlEntry[] = (data ?? []).map((t) => ({

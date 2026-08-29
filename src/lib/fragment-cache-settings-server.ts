@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import {
   DEFAULT_FRAGMENT_CACHE_SETTINGS,
   mapFragmentCacheRow,
@@ -12,11 +12,15 @@ import {
  * is enabled and what its TTL is). Fails soft to defaults so a broken
  * settings read degrades to "cache at the default TTL", not a full outage.
  *
- * Import only from server code — pulls in next/headers via the Supabase
- * server client. See cache-settings-server.ts for the sibling pattern. */
+ * Uses the public (cookie-free) client — fragment_cache_settings has a
+ * "publicly readable" RLS policy (migration 0039) and carries no per-user
+ * data, so a session cookie adds nothing here. Switching away from the
+ * cookie-aware createClient() removes the cookies() call from the hot
+ * path of every getOrSetFragment() call, which is the single most
+ * frequently executed code in this codebase. */
 export async function getFragmentCacheSettingsServer(): Promise<FragmentCacheSettings> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data } = await supabase.from("fragment_cache_settings").select("*").eq("id", true).maybeSingle();
     return mapFragmentCacheRow(data ?? null);
   } catch {

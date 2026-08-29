@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { getPublishedPosts } from "./content-server";
 import { SITE_URL } from "./seo";
 import type { FeedItem } from "./feed-helpers";
@@ -37,7 +37,7 @@ export async function getFeedItems(
   }
 
   if (settings.feedIncludeNewGames) {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data } = await supabase
       .from("games")
       .select("slug, title, description, thumbnail_url, cover_image_url, created_at")

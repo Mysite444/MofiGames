@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public-client";
 import { getSeoSettings } from "@/lib/seo-settings";
 import { getFeedCacheSettingsServer } from "@/lib/feed-cache-settings-server";
 import { SITE_URL } from "@/lib/seo";
@@ -18,7 +18,7 @@ export async function GET() {
     return new Response(buildUrlSetXml([]), { headers });
   }
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("games")
     .select("slug, updated_at, thumbnail_url, cover_image_url, title")

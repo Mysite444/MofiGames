@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { fallbackSiteIdentity } from "./static-fallback";
 import { isNextControlFlowError } from "./supabase/timeout-fetch";
 import { getOrSetFragment } from "./fragment-cache";
@@ -84,7 +84,7 @@ export function mapSiteIdentityRow(row: any): SiteIdentity {
 export async function getSiteIdentity(): Promise<SiteIdentity> {
   return getOrSetFragment("site-identity", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await supabase.from("site_identity").select("*").eq("id", true).maybeSingle();
       if (error || !data) throw error ?? new Error("site_identity: no row");
       return mapSiteIdentityRow(data);

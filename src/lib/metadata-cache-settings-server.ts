@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import {
   DEFAULT_METADATA_CACHE_SETTINGS,
   mapMetadataCacheRow,
@@ -15,11 +15,13 @@ import {
  * metadata caching down entirely. Mirrors
  * fragment-cache-settings-server.ts exactly.
  *
- * Import only from server code — it pulls in next/headers via the
- * Supabase server client. */
+ * Uses the public (cookie-free) client — metadata_cache_settings is
+ * admin-configured read-only config with no per-user data. Removing the
+ * cookies() dependency eliminates a dynamic-function opt-in from the
+ * game-page render path. */
 export async function getMetadataCacheSettingsServer(): Promise<MetadataCacheSettings> {
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data } = await supabase.from("metadata_cache_settings").select("*").eq("id", true).maybeSingle();
     return mapMetadataCacheRow(data ?? null);
   } catch {

@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { getOrSetFragment } from "./fragment-cache";
 
 export interface AnalyticsSettings {
@@ -40,7 +40,7 @@ function mapRow(row: any): AnalyticsSettings {
 export const getAnalyticsSettings = cache(async (): Promise<AnalyticsSettings> => {
   return getOrSetFragment("analytics-settings", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data, error } = await supabase
         .from("analytics_settings")
         .select("*")

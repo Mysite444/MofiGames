@@ -1,4 +1,4 @@
-import { createClient } from "./supabase/server";
+import { createPublicClient } from "./supabase/public-client";
 import { getOrSetFragment } from "./fragment-cache";
 import {
   DEFAULT_SPECULATIVE_LOADING_SETTINGS,
@@ -18,7 +18,7 @@ import {
 export async function getSpeculativeLoadingSettingsServer(): Promise<SpeculativeLoadingSettings> {
   return getOrSetFragment("speculative-loading", undefined, async () => {
     try {
-      const supabase = await createClient();
+      const supabase = createPublicClient();
       const { data } = await supabase.from("speculative_loading_settings").select("*").eq("id", true).maybeSingle();
       return mapSpeculativeLoadingRow(data ?? null);
     } catch {
