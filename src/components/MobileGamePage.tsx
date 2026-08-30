@@ -17,13 +17,13 @@ import {
 } from "lucide-react";
 import { PlayFrame } from "./PlayFrame";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
-import { GameThumbnail } from "./GameThumbnail";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
 import { CommentsSection } from "./CommentsSection";
 import { GamePostAdSlot } from "./GamePostAdSlot";
 import { GameContentSection } from "./GameContentSection";
 import { formatPlays } from "@/lib/format-plays";
+import { getGameCover } from "@/lib/game-cover";
 import { iconMap } from "@/lib/icon-map";
 import { recordPlayed, toggleFavorite, useIsFavorited, usePlayTimeTracking } from "@/lib/game-library";
 import type { AdPlacementConfig } from "./AdUnit";
@@ -126,7 +126,9 @@ export function MobileGamePage({
         />
       )}
 
-      {/* Hero — always shows the thumbnail preview.
+      {/* Hero — always shows the game's real cover art (or the category
+          gradient/icon placeholder when no art is uploaded yet) with a
+          centered CrazyGames-style Play button on top.
           PlayFrame is kept here for its preview-video background and the
           in-frame Play button tap (which also calls handlePlay).
           We never pass `playing={true}` here: the iframe lives exclusively
@@ -140,6 +142,7 @@ export function MobileGamePage({
           playing={false}
           onPlay={handlePlay}
           previewVideoUrl={game.previewVideoUrl}
+          coverImageUrl={getGameCover(game, "landscape")}
           orientation={game.orientation}
           title={game.title}
         />
@@ -148,17 +151,6 @@ export function MobileGamePage({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[var(--color-base)] to-transparent"
         />
-
-        {!playing && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="relative w-56 overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">
-              <GameThumbnail category={category} variant={game.variant} className="aspect-video w-full" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pt-7 pb-2">
-                <span className="block truncate text-sm font-bold text-white">{game.title}</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-4 px-4">

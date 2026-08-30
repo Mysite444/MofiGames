@@ -6,6 +6,7 @@ import { PlayFrame } from "./PlayFrame";
 import { ProgressNoticeBar } from "./ProgressNoticeBar";
 import { PlayerActionBar } from "./PlayerActionBar";
 import { InGameInterstitial } from "./InGameInterstitial";
+import { getGameCover } from "@/lib/game-cover";
 import { recordPlayed, usePlayTimeTracking } from "@/lib/game-library";
 import { shouldShowInGameAd } from "@/lib/ingame-ad-frequency";
 import { useAuth } from "@/lib/auth-context";
@@ -134,6 +135,7 @@ export function GamePlayerPanel({
           onPlay={handlePlay}
           playUrl={game.playUrl}
           previewVideoUrl={game.previewVideoUrl}
+          coverImageUrl={getGameCover(game, "landscape")}
           orientation={game.orientation}
           title={game.title}
         />

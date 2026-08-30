@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Code2 } from "lucide-react";
+import { Code2, Play as PlayIcon } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
 import type { Category } from "@/lib/types";
 
@@ -16,6 +16,7 @@ export function PlayFrame({
   playUrl,
   title,
   previewVideoUrl,
+  coverImageUrl,
   orientation = "landscape",
 }: {
   category: Category;
@@ -48,6 +49,13 @@ export function PlayFrame({
    * Sits behind the play button (still clickable) and is skipped
    * entirely once the iframe/build starts. */
   previewVideoUrl?: string;
+  /** The game's real cover/thumbnail image (landscape cover, falling back
+   * to thumbnail/cover-image — see lib/game-cover.ts). Shown full-bleed
+   * behind the Play button in the "not playing yet" state — the actual
+   * CrazyGames behavior, where you see the real game art before hitting
+   * Play, not just a gradient placeholder. Omit to fall back to the
+   * category gradient + icon (e.g. games with no uploaded art yet). */
+  coverImageUrl?: string;
   /** Portrait games get letterboxed and rotated to fit a landscape
    * container so they aren't stretched sideways — the "orientation…
    * automatically rotate according to game need" behavior. Has no visual
@@ -91,6 +99,14 @@ export function PlayFrame({
 
       {!playing ? (
         <>
+          {coverImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverImageUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
           {previewVideoUrl && (
             <video
               src={previewVideoUrl}
@@ -102,12 +118,23 @@ export function PlayFrame({
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
+          {/* Scrim so the white play button and label stay legible over any
+           * cover art / preview clip, same as CrazyGames' darkened poster. */}
+          <div className="absolute inset-0 bg-black/25" aria-hidden />
           <button
             type="button"
             onClick={startPlaying}
-            className="group absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25"
+            aria-label={title ? `Play ${title}` : "Play"}
+            className="group absolute inset-0 flex flex-col items-center justify-center gap-3 transition-colors hover:bg-black/10"
           >
-            <span className="rounded-full bg-white px-9 py-3.5 text-lg font-extrabold tracking-wide text-[#0b0c14] shadow-xl transition-transform group-hover:scale-105">
+            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-xl transition-transform group-hover:scale-110 group-active:scale-95 sm:h-20 sm:w-20">
+              <PlayIcon
+                size={32}
+                className="ml-1 fill-[#0b0c14] text-[#0b0c14]"
+                strokeWidth={0}
+              />
+            </span>
+            <span className="rounded-full bg-black/40 px-4 py-1 text-sm font-bold tracking-wide text-white backdrop-blur-sm">
               Play
             </span>
           </button>
