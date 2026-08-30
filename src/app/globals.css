@@ -897,12 +897,13 @@ h1, h2, h3, h4, .font-display {
 
 /* ============================================================================
    GAME POST — DUAL ANIMATED CARD SYSTEM
-   Two staggered glass panels on every game post page:
-     • Card 1 (.game-post-card-1) — content / about
-     • Card 2 (.game-post-card-2) — ad + game info + tags
+   Two staggered glass panels on every game post page, in DOM/visual order:
+     • Card 1 (.game-post-card-1) — ad + game info + tags (renders first,
+       directly under the title/share/rating block, above the written content)
+     • Card 2 (.game-post-card-2) — content / about (renders second)
    Both panels slide up from below on mount; card 2 enters 140 ms after card 1
    for a natural cascade. On hover each card lifts 2 px with a deeper shadow.
-   Stat rows inside card 2 slide in from the left; tag pills pop with a slight
+   Stat rows inside card 1 slide in from the left; tag pills pop with a slight
    overshoot (spring bounce). All motion honours prefers-reduced-motion.
    ============================================================================ */
 
@@ -945,7 +946,7 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
-/* ── Card 1 — content / about ──────────────────────────────────────────── */
+/* ── Card 1 — ad + game info + tags (renders first) ─────────────────────── */
 .game-post-card-1 {
   animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.08s both;
   will-change: transform, opacity;
@@ -959,7 +960,7 @@ h1, h2, h3, h4, .font-display {
     inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
-/* ── Card 2 — ad + game info + tags ────────────────────────────────────── */
+/* ── Card 2 — content / about (renders second) ───────────────────────────── */
 .game-post-card-2 {
   animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.22s both;
   will-change: transform, opacity;

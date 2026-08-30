@@ -17,13 +17,13 @@ import {
 } from "lucide-react";
 import { PlayFrame } from "./PlayFrame";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
+import { GameThumbnail } from "./GameThumbnail";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
 import { CommentsSection } from "./CommentsSection";
 import { GamePostAdSlot } from "./GamePostAdSlot";
 import { GameContentSection } from "./GameContentSection";
 import { formatPlays } from "@/lib/format-plays";
-import { getGameCover } from "@/lib/game-cover";
 import { iconMap } from "@/lib/icon-map";
 import { recordPlayed, toggleFavorite, useIsFavorited, usePlayTimeTracking } from "@/lib/game-library";
 import type { AdPlacementConfig } from "./AdUnit";
@@ -126,9 +126,7 @@ export function MobileGamePage({
         />
       )}
 
-      {/* Hero — always shows the game's real cover art (or the category
-          gradient/icon placeholder when no art is uploaded yet) with a
-          centered CrazyGames-style Play button on top.
+      {/* Hero — always shows the thumbnail preview.
           PlayFrame is kept here for its preview-video background and the
           in-frame Play button tap (which also calls handlePlay).
           We never pass `playing={true}` here: the iframe lives exclusively
@@ -142,7 +140,6 @@ export function MobileGamePage({
           playing={false}
           onPlay={handlePlay}
           previewVideoUrl={game.previewVideoUrl}
-          coverImageUrl={getGameCover(game, "landscape")}
           orientation={game.orientation}
           title={game.title}
         />
@@ -151,6 +148,17 @@ export function MobileGamePage({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[var(--color-base)] to-transparent"
         />
+
+        {!playing && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="relative w-56 overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">
+              <GameThumbnail category={category} variant={game.variant} className="aspect-video w-full" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pt-7 pb-2">
+                <span className="block truncate text-sm font-bold text-white">{game.title}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 px-4">
@@ -272,46 +280,19 @@ export function MobileGamePage({
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            Card 1 — About this game
-            Same structured "board" panel as the desktop (GameDetailsSection):
-            intro blurb, long-form How to Play / Tips / Features / FAQ content
-            authored in the admin "Content" field, and the short "How to play"
-            blurb — all inside one boxed glass card. Slides up + fades in on
-            mount via .game-post-card-1 defined in globals.css.
-            Controls intentionally isn't shown here — it lives in the
-            "Game controls" popover on the play screen itself (PlayerActionBar).
-            ════════════════════════════════════════════════════════════ */}
-        {((game.description && game.description.trim().length > 0) ||
-          (game.content && game.content.trim().length > 0) ||
-          (game.instructions && game.instructions.trim().length > 0)) && (
-          <section className="game-post-card-1 glass flex flex-col gap-4 rounded-2xl p-4">
-            {game.description && game.description.trim().length > 0 && (
-              <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
-            )}
-
-            <GameContentSection html={game.content} />
-
-            {game.instructions && game.instructions.trim().length > 0 && (
-              <div>
-                <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
-                <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════
-            Card 2 — Ad · Game Info · Tags
-            Second animated glass panel matching the CrazyGames reference.
-            Three hairline-divided sections:
+            Card 1 — Ad · Game Info · Tags
+            Mirrors the mofigames.com reference layout: this info card sits
+            directly under the like/dislike/bookmark/share row and ABOVE the
+            game's written content, not below it. Three hairline-divided
+            sections:
               1. Ad slot  (Admin → Monetization → Custom HTML Ads)
-              2. Game Info  (Released, Developer, Platform, Orientation …)
+              2. Game Info  (Category, Released, Platform, Orientation, Rating …)
               3. Tags  (category, multiplayer, browser …)
-            Slides up 140 ms after Card 1 for a cascading entrance, then
+            Slides up first (see .game-post-card-1 in globals.css), then
             lifts on hover. Stat rows stagger in from the left; tag pills
             spring-pop with individual delays. All defined in globals.css.
             ════════════════════════════════════════════════════════════ */}
-        <div className="game-post-card-2 glass flex flex-col overflow-hidden rounded-2xl">
+        <div className="game-post-card-1 glass flex flex-col overflow-hidden rounded-2xl">
 
           {/* ── Section 1: Ad slot ─────────────────────────────────────── */}
           <div className="flex items-center justify-center border-b border-white/[0.06] px-4 py-4">
@@ -398,6 +379,36 @@ export function MobileGamePage({
             </div>
           </div>
         </div>
+
+        {/* ════════════════════════════════════════════════════════════════
+            Card 2 — About this game
+            Same structured "board" panel as the desktop (GameDetailsSection):
+            intro blurb, long-form How to Play / Tips / Features / FAQ content
+            authored in the admin "Content" field, and the short "How to play"
+            blurb — all inside one boxed glass card. Rendered AFTER the Game
+            Info / Tags card above; slides up + fades in on mount via
+            .game-post-card-2 defined in globals.css.
+            Controls intentionally isn't shown here — it lives in the
+            "Game controls" popover on the play screen itself (PlayerActionBar).
+            ════════════════════════════════════════════════════════════ */}
+        {((game.description && game.description.trim().length > 0) ||
+          (game.content && game.content.trim().length > 0) ||
+          (game.instructions && game.instructions.trim().length > 0)) && (
+          <section className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-4">
+            {game.description && game.description.trim().length > 0 && (
+              <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
+            )}
+
+            <GameContentSection html={game.content} />
+
+            {game.instructions && game.instructions.trim().length > 0 && (
+              <div>
+                <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+                <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* More in this category */}
         <section>

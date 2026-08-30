@@ -100,47 +100,20 @@ export function GameDetailsSection({
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          Card 1 — About this game
-          Intro blurb + long-form content (How to Play / Tips / Features /
-          FAQ authored in the admin "Content" field) + "How to play" blurb.
-          Controls intentionally aren't repeated here — they live in the
-          "Game controls" popover on the play screen (PlayerActionBar).
-          ══════════════════════════════════════════════════════════════ */}
-      <div className="game-post-card-1 glass flex flex-col gap-4 rounded-2xl p-5">
-        <p className="text-sm leading-relaxed text-text-muted">
-          {game.description && game.description.trim().length > 0 ? (
-            game.description
-          ) : (
-            <>
-              Jump into {game.title}, a {category.name.toLowerCase()} pick from MofiGames.{" "}
-              {category.description} No download, no install — it runs straight in your browser on
-              desktop, tablet, or phone.
-            </>
-          )}
-        </p>
-
-        <GameContentSection html={game.content} />
-
-        {game.instructions && game.instructions.trim().length > 0 && (
-          <div>
-            <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
-            <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
-          </div>
-        )}
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════
-          Card 2 — Ad · Game Info · Tags
-          Mirrors the CrazyGames sidebar panel layout but in the main
-          content column below the content card. Three sections separated
-          by subtle hairlines:
+          Card 1 — Ad · Game Info · Tags
+          Mirrors the mofigames.com reference layout: this info card sits
+          directly under the title/share/rating block and ABOVE the game's
+          written content, not below it. Three sections separated by subtle
+          hairlines:
             1. Ad slot  (Admin → Monetization → Custom HTML Ads)
-            2. Game Info  (Released, Developer, Platform, Orientation …)
+            2. Game Info  (Rating, Released, Developer, Platform, Orientation …)
             3. Tags  (category, multiplayer, browser …)
           Both cards (1 + 2) animate in on mount with a staggered slide-up
-          defined in globals.css (.game-post-card-1 / .game-post-card-2).
+          defined in globals.css (.game-post-card-1 / .game-post-card-2) —
+          card 1 always animates in first, so it carries whichever box is
+          rendered first in the DOM.
           ══════════════════════════════════════════════════════════════ */}
-      <div className="game-post-card-2 glass flex flex-col overflow-hidden rounded-2xl">
+      <div className="game-post-card-1 glass flex flex-col overflow-hidden rounded-2xl">
 
         {/* ── Section 1: Ad slot ─────────────────────────────────────────── */}
         <div className="flex items-center justify-center border-b border-white/[0.06] px-5 py-4">
@@ -159,44 +132,59 @@ export function GameDetailsSection({
           </h2>
 
           <dl className="flex flex-col gap-2 text-sm">
-            <StatRow label="Released" index={0}>
+            <StatRow label="Rating" index={0}>
+              {isRealGame ? (
+                <>
+                  {game.rating.toFixed(1)} / 5
+                  {typeof game.ratingCount === "number" && game.ratingCount > 0 && (
+                    <span className="ml-1 font-normal text-text-faint">
+                      ({game.ratingCount.toLocaleString()} votes)
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {meta.ratingOutOf10}
+                  <span className="ml-1 font-normal text-text-faint">
+                    ({meta.votes.toLocaleString()} votes)
+                  </span>
+                </>
+              )}
+            </StatRow>
+
+            <StatRow label="Released" index={1}>
               {releasedLabel}
             </StatRow>
 
             {isRealGame ? (
               <>
                 {game.developer && (
-                  <StatRow label="Developer" index={1}>
+                  <StatRow label="Developer" index={2}>
                     {game.developer}
                   </StatRow>
                 )}
                 {game.publisher && (
-                  <StatRow label="Publisher" index={2}>
+                  <StatRow label="Publisher" index={3}>
                     {game.publisher}
                   </StatRow>
                 )}
                 {game.version && (
-                  <StatRow label="Version" index={3}>
+                  <StatRow label="Version" index={4}>
                     {game.version}
                   </StatRow>
                 )}
               </>
             ) : (
-              <>
-                <StatRow label="Last Updated" index={1}>
-                  {meta.lastUpdatedLabel}
-                </StatRow>
-                <StatRow label="Game engine" index={2}>
-                  {meta.gameEngine}
-                </StatRow>
-              </>
+              <StatRow label="Game engine" index={2}>
+                {meta.gameEngine}
+              </StatRow>
             )}
 
-            <StatRow label="Platform" index={isRealGame ? 4 : 3}>
+            <StatRow label="Platform" index={isRealGame ? 5 : 3}>
               {game.mobileSupport === false ? "Desktop only" : "Browser (desktop & mobile)"}
             </StatRow>
 
-            <StatRow label="Orientation" index={isRealGame ? 5 : 4}>
+            <StatRow label="Orientation" index={isRealGame ? 6 : 4}>
               {orientationLabel}
             </StatRow>
           </dl>
@@ -226,6 +214,37 @@ export function GameDetailsSection({
         </div>
       </div>
 
+      {/* ══════════════════════════════════════════════════════════════════
+          Card 2 — About this game
+          Intro blurb + long-form content (How to Play / Tips / Features /
+          FAQ authored in the admin "Content" field) + "How to play" blurb.
+          Rendered AFTER the Game Info / Tags card above. Controls
+          intentionally aren't repeated here — they live in the
+          "Game controls" popover on the play screen (PlayerActionBar).
+          ══════════════════════════════════════════════════════════════ */}
+      <div className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-5">
+        <p className="text-sm leading-relaxed text-text-muted">
+          {game.description && game.description.trim().length > 0 ? (
+            game.description
+          ) : (
+            <>
+              Jump into {game.title}, a {category.name.toLowerCase()} pick from MofiGames.{" "}
+              {category.description} No download, no install — it runs straight in your browser on
+              desktop, tablet, or phone.
+            </>
+          )}
+        </p>
+
+        <GameContentSection html={game.content} />
+
+        {game.instructions && game.instructions.trim().length > 0 && (
+          <div>
+            <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+            <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+          </div>
+        )}
+      </div>
+
       {!isRealGame && (
         <div>
           <h2 className="mb-1 font-display text-base font-bold text-text">Last Updated</h2>
@@ -239,7 +258,7 @@ export function GameDetailsSection({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 /**
- * A key-value row inside Card 2's "Game Info" section.
+ * A key-value row inside the Game Info card's "Game Info" section.
  * `index` drives the stagger delay so rows cascade in left-to-right.
  */
 function StatRow({
@@ -264,7 +283,7 @@ function StatRow({
 }
 
 /**
- * A pill chip inside Card 2's "Tags" section.
+ * A pill chip inside the Game Info card's "Tags" section.
  * `index` drives the spring-pop stagger; `variant="hot"` renders the red
  * accent chip used for admin-set promo tags (e.g. "New", "Hot").
  */
