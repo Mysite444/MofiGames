@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Play,
@@ -10,9 +10,10 @@ import {
   Bookmark,
   Share2,
   MessageSquare,
-  ChevronDown,
   Star,
   Eye,
+  Info,
+  Tag as TagIcon,
 } from "lucide-react";
 import { PlayFrame } from "./PlayFrame";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
@@ -61,9 +62,25 @@ export function MobileGamePage({
   // Real playtime tracking — see lib/game-library.ts. Streams actual
   // elapsed seconds to the signed-in account while `playing` is true.
   usePlayTimeTracking(playing);
+
+  // Auto-start: launch the landscape player immediately on mount so users
+  // go straight into the game without an extra "Play" tap.
+  // recordPlayed is called here so the game shows up in /recently-played
+  // even if the visitor closes before the iframe fully loads.
+  useEffect(() => {
+    recordPlayed(game.slug);
+    setPlaying(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const favorited = useIsFavorited(game.slug);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const baseLikes = Math.round(game.plays * 0.92);
+
+  // Derived metadata for Card 2 ─ Game Info section
+  const isRealGame = Boolean(game.developer || game.publisher || game.releaseDate || game.version);
+  const releasedLabel = game.releaseDate
+    ? new Date(game.releaseDate).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+    : null;
+  const orientationLabel = game.orientation === "portrait" ? "Portrait" : "Landscape";
 
   function handlePlay() {
     setPlaying(true);
@@ -270,54 +287,20 @@ export function MobileGamePage({
           </Link>
         </div>
 
-        {/* In-post ad slot — same placement/config as the desktop game page
-            (Admin → Monetization → Advertisement Management → Custom HTML
-            Ads); renders nothing when that placement is off. */}
-        <div className="flex justify-center">
-          <GamePostAdSlot
-            config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
-            adsenseClientId={adsenseClientId}
-            adsenseReady={adsenseReady}
-          />
-        </div>
-
-        {/* Expand/collapse toggle — reveals the same structured facts as the
-            desktop "About this game" panel, not the long-form article copy. */}
-        <button
-          type="button"
-          onClick={() => setDetailsOpen((v) => !v)}
-          aria-expanded={detailsOpen}
-          className="flex w-full items-center justify-center gap-1.5 py-1 text-text-faint"
-        >
-          <ChevronDown
-            size={20}
-            className={`transition-transform duration-200 ${detailsOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-
-        {detailsOpen && (
-          <div className="glass flex flex-col gap-2 rounded-2xl p-4 text-sm">
-            <Row label="Category" value={category.name} />
-            <Row label="Platform" value={game.mobileSupport === false ? "Browser (desktop only)" : "Browser (all devices)"} />
-            <Row label="Players" value={formatPlays(game.plays)} />
-            <Row label="Rating" value={`${game.rating} / 5 (${(game.ratingCount ?? 0).toLocaleString()})`} />
-            <Row label="Favorites" value={(game.favoriteCount ?? 0).toLocaleString()} />
-            {game.developer ? <Row label="Developer" value={game.developer} /> : null}
-            {game.publisher ? <Row label="Publisher" value={game.publisher} /> : null}
-            {game.version ? <Row label="Version" value={game.version} /> : null}
-          </div>
-        )}
-
-        {/* About this game — same arranged content as the desktop page
-            (GameDetailsSection): short intro blurb, then the long-form
-            How to Play / Tips / Features / FAQ article authored in the
-            admin's "Content" field, rendered with real headings,
-            paragraphs, and lists instead of one flat paragraph. This
-            section was previously missing entirely on mobile. */}
+        {/* ════════════════════════════════════════════════════════════════
+            Card 1 — About this game
+            Same structured "board" panel as the desktop (GameDetailsSection):
+            intro blurb, long-form How to Play / Tips / Features / FAQ content
+            authored in the admin "Content" field, and the short "How to play"
+            blurb — all inside one boxed glass card. Slides up + fades in on
+            mount via .game-post-card-1 defined in globals.css.
+            Controls intentionally isn't shown here — it lives in the
+            "Game controls" popover on the play screen itself (PlayerActionBar).
+            ════════════════════════════════════════════════════════════ */}
         {((game.description && game.description.trim().length > 0) ||
           (game.content && game.content.trim().length > 0) ||
           (game.instructions && game.instructions.trim().length > 0)) && (
-          <section className="flex flex-col gap-4">
+          <section className="game-post-card-1 glass flex flex-col gap-4 rounded-2xl p-4">
             {game.description && game.description.trim().length > 0 && (
               <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
             )}
@@ -333,6 +316,106 @@ export function MobileGamePage({
           </section>
         )}
 
+        {/* ════════════════════════════════════════════════════════════════
+            Card 2 — Ad · Game Info · Tags
+            Second animated glass panel matching the CrazyGames reference.
+            Three hairline-divided sections:
+              1. Ad slot  (Admin → Monetization → Custom HTML Ads)
+              2. Game Info  (Released, Developer, Platform, Orientation …)
+              3. Tags  (category, multiplayer, browser …)
+            Slides up 140 ms after Card 1 for a cascading entrance, then
+            lifts on hover. Stat rows stagger in from the left; tag pills
+            spring-pop with individual delays. All defined in globals.css.
+            ════════════════════════════════════════════════════════════ */}
+        <div className="game-post-card-2 glass flex flex-col overflow-hidden rounded-2xl">
+
+          {/* ── Section 1: Ad slot ─────────────────────────────────────── */}
+          <div className="flex items-center justify-center border-b border-white/[0.06] px-4 py-4">
+            <GamePostAdSlot
+              config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
+              adsenseClientId={adsenseClientId}
+              adsenseReady={adsenseReady}
+            />
+          </div>
+
+          {/* ── Section 2: Game info ──────────────────────────────────── */}
+          <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-4">
+            <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-text-faint">
+              <Info size={12} className="shrink-0" />
+              Game Info
+            </h2>
+
+            <dl className="flex flex-col gap-2 text-sm">
+              {/* Category */}
+              <MobileStatRow label="Category" index={0}>
+                {category.name}
+              </MobileStatRow>
+
+              {/* Release date — show only if available */}
+              {releasedLabel && (
+                <MobileStatRow label="Released" index={1}>
+                  {releasedLabel}
+                </MobileStatRow>
+              )}
+
+              {/* Developer / Publisher / Version — real games only */}
+              {game.developer && (
+                <MobileStatRow label="Developer" index={2}>
+                  {game.developer}
+                </MobileStatRow>
+              )}
+              {game.publisher && (
+                <MobileStatRow label="Publisher" index={3}>
+                  {game.publisher}
+                </MobileStatRow>
+              )}
+              {game.version && (
+                <MobileStatRow label="Version" index={4}>
+                  {game.version}
+                </MobileStatRow>
+              )}
+
+              {/* Always-present metadata */}
+              <MobileStatRow label="Platform" index={isRealGame ? 5 : 2}>
+                {game.mobileSupport === false ? "Desktop only" : "Browser (all devices)"}
+              </MobileStatRow>
+
+              <MobileStatRow label="Orientation" index={isRealGame ? 6 : 3}>
+                {orientationLabel}
+              </MobileStatRow>
+
+              <MobileStatRow label="Rating" index={isRealGame ? 7 : 4}>
+                {game.rating} / 5
+                {game.ratingCount != null && game.ratingCount > 0 && (
+                  <span className="ml-1 text-text-faint">
+                    ({game.ratingCount.toLocaleString()} votes)
+                  </span>
+                )}
+              </MobileStatRow>
+            </dl>
+          </div>
+
+          {/* ── Section 3: Tags ───────────────────────────────────────── */}
+          <div className="flex flex-col gap-3 px-4 py-4">
+            <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-text-faint">
+              <TagIcon size={12} className="shrink-0" />
+              Tags
+            </h2>
+
+            <div className="flex flex-wrap gap-2">
+              {game.tag && <MobileTagPill label={game.tag} variant="hot" index={0} />}
+              <MobileTagPill label={category.name} index={game.tag ? 1 : 0} />
+              {game.multiplayer ? (
+                <MobileTagPill label="Multiplayer" index={game.tag ? 2 : 1} />
+              ) : (
+                <MobileTagPill label="Singleplayer" index={game.tag ? 2 : 1} />
+              )}
+              <MobileTagPill label="Browser" index={game.tag ? 3 : 2} />
+            </div>
+          </div>
+        </div>
+
+        {/* More in this category */}
         <section>
           <h2 className="mb-3 font-display text-base font-bold text-text">More {category.name}</h2>
           <MobileRelatedGrid games={related} />
@@ -346,11 +429,71 @@ export function MobileGamePage({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+/**
+ * A key-value row inside Card 2's "Game Info" section on mobile.
+ * Uses a two-column justify-between layout to match the existing mobile Row
+ * pattern while picking up the stagger animation from globals.css.
+ */
+function MobileStatRow({
+  label,
+  index,
+  children,
+}: {
+  label: string;
+  /** 0-based — controls the stagger delay (0.32 s + index × 55 ms). */
+  index: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex justify-between">
-      <dt className="text-text-faint">{label}</dt>
-      <dd className="text-text-muted">{value}</dd>
+    <div
+      className="game-post-stat-row flex items-baseline justify-between gap-2"
+      style={{ animationDelay: `${0.32 + index * 0.055}s` }}
+    >
+      <dt className="shrink-0 text-text-faint">{label}</dt>
+      <dd className="text-right font-semibold text-text">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * A tag chip inside Card 2's "Tags" section on mobile.
+ * Smaller padding than desktop to fit comfortably on narrow screens.
+ */
+function MobileTagPill({
+  label,
+  count,
+  variant,
+  index,
+}: {
+  label: string;
+  count?: number;
+  variant?: "hot";
+  /** 0-based — controls the pop-in stagger (0.44 s + index × 60 ms). */
+  index: number;
+}) {
+  const delay = `${0.44 + index * 0.06}s`;
+
+  if (variant === "hot") {
+    return (
+      <span
+        className="game-post-tag-pill flex items-center rounded-full bg-hot/15 px-3 py-1 text-xs font-bold text-hot hover:bg-hot/25"
+        style={{ animationDelay: delay }}
+      >
+        {label}
+        {count !== undefined && <span className="ml-1">{count}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="game-post-tag-pill glass flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-text-muted"
+      style={{ animationDelay: delay }}
+    >
+      {label}
+      {count !== undefined && <span className="font-bold text-text">{count}</span>}
+    </span>
   );
 }

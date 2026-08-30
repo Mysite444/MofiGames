@@ -893,3 +893,133 @@ h1, h2, h3, h4, .font-display {
 .notice-bar-glow {
   animation: notice-bar-glow 2.6s ease-in-out infinite;
 }
+
+
+/* ============================================================================
+   GAME POST — DUAL ANIMATED CARD SYSTEM
+   Two staggered glass panels on every game post page:
+     • Card 1 (.game-post-card-1) — content / about
+     • Card 2 (.game-post-card-2) — ad + game info + tags
+   Both panels slide up from below on mount; card 2 enters 140 ms after card 1
+   for a natural cascade. On hover each card lifts 2 px with a deeper shadow.
+   Stat rows inside card 2 slide in from the left; tag pills pop with a slight
+   overshoot (spring bounce). All motion honours prefers-reduced-motion.
+   ============================================================================ */
+
+@keyframes gameCardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.986);
+    filter: blur(0.8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes gameStatRowIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes gameTagPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(6px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Card 1 — content / about ──────────────────────────────────────────── */
+.game-post-card-1 {
+  animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.08s both;
+  will-change: transform, opacity;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.game-post-card-1:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.13),
+    0 20px 48px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* ── Card 2 — ad + game info + tags ────────────────────────────────────── */
+.game-post-card-2 {
+  animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.22s both;
+  will-change: transform, opacity;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.game-post-card-2:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.13),
+    0 20px 48px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+/* ── Stat rows: staggered left-to-right slide ───────────────────────────── */
+.game-post-stat-row {
+  animation: gameStatRowIn 0.34s ease both;
+}
+
+/* ── Tag pills: spring pop with individual delay via inline style ─────── */
+.game-post-tag-pill {
+  animation: gameTagPopIn 0.42s cubic-bezier(0.22, 0.8, 0.44, 1) both;
+  transition:
+    transform 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.game-post-tag-pill:hover {
+  transform: scale(1.1) translateY(-1px);
+}
+
+/* ── Section dividers inside card 2 ────────────────────────────────────── */
+.game-post-card-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Respect prefers-reduced-motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .game-post-card-1,
+  .game-post-card-2 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .game-post-card-1:hover,
+  .game-post-card-2:hover {
+    transform: none;
+  }
+  .game-post-stat-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .game-post-tag-pill {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .game-post-tag-pill:hover {
+    transform: none;
+  }
+}

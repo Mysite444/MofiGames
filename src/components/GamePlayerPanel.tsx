@@ -69,6 +69,22 @@ export function GamePlayerPanel({
   // elapsed seconds to the signed-in account while `playing` is true.
   usePlayTimeTracking(playing);
 
+  // Auto-start: skip the "click Play" screen and begin immediately on mount.
+  // Mirrors the same logic as handlePlay() below so in-game interstitial ads
+  // (if enabled) still fire before the iframe appears — we never bypass the
+  // ad frequency check, only the manual click requirement.
+  useEffect(() => {
+    recordPlayed(game.slug);
+    if (inGameAds?.enabled && shouldShowInGameAd(inGameAds.frequency)) {
+      setInterstitialVisible(true);
+      return;
+    }
+    setPlaying(true);
+    // Dependencies intentionally omitted — this must run exactly once on
+    // mount, not re-run whenever `inGameAds` or `game.slug` changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Signed-in visitors (including guest/anonymous sessions — see
   // lib/game-library.ts) already have their progress-adjacent data written
   // through to their account, so the "won't be saved" warning is only

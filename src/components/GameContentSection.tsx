@@ -7,12 +7,16 @@ import { sanitizeContentHtml } from "@/lib/sanitize-html";
  * heading, paragraph, and list structure, instead of the flat, unbroken
  * paragraph the page used to render `game.description` as.
  *
- * Same typography treatment as RichContent (used for CMS Pages/Blog) so
- * this matches the rest of the site rather than inventing a second style.
+ * Pure typography here — no card/border of its own. The boxed "board"
+ * panel CrazyGames wraps its whole content block in (see the reference
+ * screenshots) is applied one level up, around this component *together
+ * with* the intro blurb and "How to play" text (GameDetailsSection /
+ * MobileGamePage), so the intro paragraph, headings, and lists all sit
+ * inside one shared card instead of this piece floating in its own box
+ * underneath a separate, unboxed intro paragraph.
+ *
  * Shared between GameDetailsSection (desktop) and MobileGamePage (mobile)
- * so both surfaces render identically arranged content — see the reference
- * CrazyGames-style layout (intro paragraph → "How to Play" → "Tips" bullet
- * list → "Features" bullet list → "FAQ") this was built to match.
+ * so both surfaces render identically arranged, identically boxed content.
  *
  * Renders nothing when the game has no authored content yet, same as
  * CategoryContentSection does for categories without content.
