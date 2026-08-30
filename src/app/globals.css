@@ -897,19 +897,13 @@ h1, h2, h3, h4, .font-display {
 
 /* ============================================================================
    GAME POST — DUAL ANIMATED CARD SYSTEM
-   Two staggered glass panels on every game post page. These two classes are
-   purely presentational (identical keyframes, only the delay differs) — they
-   name "first panel to enter" / "second panel to enter", not fixed content:
-     • .game-post-card-1 — the panel that appears first on screen
-     • .game-post-card-2 — the panel that appears second, 140 ms later
-   On desktop (GameDetailsSection) that's Ad + Game Info + Tags, then About/
-   content — matching the CrazyGames-style reference layout. On mobile
-   (MobileGamePage) the order is unchanged: About/content, then Ad + Game
-   Info + Tags. Both panels slide up from below on mount; the second enters
-   140 ms after the first for a natural cascade. On hover each card lifts 2px
-   with a deeper shadow. Stat rows inside the info panel slide in from the
-   left; tag pills pop with a slight overshoot (spring bounce). All motion
-   honours prefers-reduced-motion.
+   Two staggered glass panels on every game post page:
+     • Card 1 (.game-post-card-1) — content / about
+     • Card 2 (.game-post-card-2) — ad + game info + tags
+   Both panels slide up from below on mount; card 2 enters 140 ms after card 1
+   for a natural cascade. On hover each card lifts 2 px with a deeper shadow.
+   Stat rows inside card 2 slide in from the left; tag pills pop with a slight
+   overshoot (spring bounce). All motion honours prefers-reduced-motion.
    ============================================================================ */
 
 @keyframes gameCardSlideUp {
@@ -951,7 +945,7 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
-/* ── Card 1 — first panel to enter (desktop: ad/info/tags; mobile: about) ── */
+/* ── Card 1 — content / about ──────────────────────────────────────────── */
 .game-post-card-1 {
   animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.08s both;
   will-change: transform, opacity;
@@ -965,7 +959,7 @@ h1, h2, h3, h4, .font-display {
     inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
-/* ── Card 2 — second panel to enter (desktop: about; mobile: ad/info/tags) ── */
+/* ── Card 2 — ad + game info + tags ────────────────────────────────────── */
 .game-post-card-2 {
   animation: gameCardSlideUp 0.52s cubic-bezier(0.22, 0.8, 0.44, 1) 0.22s both;
   will-change: transform, opacity;

@@ -20,7 +20,7 @@ export function GameDetailsSection({
   game: Game;
   category: Category;
   /** Admin → Monetization → Advertisement Management → Custom HTML Ads —
-   * powers the in-post ad slot at the top-right of the info card below. */
+   * powers the in-post ad slot below. */
   customHtmlAds?: AdPlacementConfig;
   adsenseClientId?: string | null;
   adsenseReady?: boolean;
@@ -39,42 +39,6 @@ export function GameDetailsSection({
     : meta.releasedLabel;
   const orientationLabel = game.orientation === "portrait" ? "Portrait" : "Landscape";
 
-  // ── Game Info rows ────────────────────────────────────────────────────────
-  // Built as an array (rather than hand-tracked indices) so the CrazyGames-
-  // style field order — Developer, Rating, Released, Game engine, Platform,
-  // Orientation — stays intact regardless of which optional admin-entered
-  // facts (Publisher / Version) are present, and the stagger animation on
-  // each StatRow lines up with whatever actually renders.
-  const infoRows: { label: string; value: React.ReactNode }[] = [];
-
-  if (isRealGame && game.developer) {
-    infoRows.push({ label: "Developer", value: game.developer });
-  }
-  if (isRealGame && game.publisher) {
-    infoRows.push({ label: "Publisher", value: game.publisher });
-  }
-  infoRows.push({
-    label: "Rating",
-    value: (
-      <>
-        {meta.ratingOutOf10}{" "}
-        <span className="font-normal text-text-faint">
-          ({(game.ratingCount ?? meta.votes).toLocaleString()} votes)
-        </span>
-      </>
-    ),
-  });
-  infoRows.push({ label: "Released", value: releasedLabel });
-  if (isRealGame && game.version) {
-    infoRows.push({ label: "Version", value: game.version });
-  }
-  infoRows.push({ label: "Game engine", value: meta.gameEngine });
-  infoRows.push({
-    label: "Platform",
-    value: game.mobileSupport === false ? "Desktop only" : "Browser (desktop & mobile)",
-  });
-  infoRows.push({ label: "Orientation", value: orientationLabel });
-
   async function handleShare() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     const nav = typeof navigator !== "undefined" ? navigator : null;
@@ -91,79 +55,100 @@ export function GameDetailsSection({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* ── Breadcrumb nav ───────────────────────────────────────────────── */}
+      <nav className="flex flex-wrap items-center gap-1 text-xs text-text-faint">
+        <Link href="/" className="hover:text-text">
+          Games
+        </Link>
+        <ChevronRight size={12} />
+        <Link href={`/${category.slug}`} className="hover:text-text">
+          {category.name}
+        </Link>
+        <ChevronRight size={12} />
+        <span className="text-text-muted">{game.title}</span>
+      </nav>
+
+      {/* ── Title + share / bookmark ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <h1 className="font-display text-2xl font-bold text-text sm:text-3xl">{game.title}</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="glass flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-text hover:bg-white/10"
+          >
+            <Share2 size={15} />
+            Share
+          </button>
+          {typeof game.favoriteCount === "number" && game.favoriteCount > 0 && (
+            <span className="flex items-center gap-1.5 text-sm text-text-muted">
+              <Bookmark size={14} className="fill-[#3DA9FC] text-[#3DA9FC]" />
+              {game.favoriteCount.toLocaleString()} bookmarks
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Rating ───────────────────────────────────────────────────────── */}
+      {isRealGame ? (
+        <RatingStars slug={game.slug} rating={game.rating} ratingCount={game.ratingCount ?? 0} />
+      ) : (
+        <p className="text-sm text-text-muted">
+          <span className="font-bold text-text">{meta.ratingOutOf10}</span>{" "}
+          <span className="text-text-muted">({meta.votes.toLocaleString()} votes)</span>
+        </p>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════════
-          Card 1 — Header (breadcrumb · title · share · rating + top-right
-          ad) · Game Info · Tags
-          Mirrors the CrazyGames game-post panel exactly: breadcrumb, title,
-          share button and rating now live inside the top of this card
-          rather than floating above it, with the in-post 300×250 ad sitting
-          at the top right of that same header row. Rectangular (rounded-lg)
-          panel + rectangular tag chips, matching the reference layout.
-          Three sections separated by hairlines:
-            1. Header  (breadcrumb, title, share, rating — left)
-                        + Ad slot  (Admin → Monetization → Custom HTML Ads — right)
-            2. Game Info  (Developer, Rating, Released, Engine, Platform …)
-            3. Tags  (category, multiplayer, browser …)
-          Uses .game-post-card-1's animation (fastest-in) since this panel
-          is the first thing to appear below the player.
+          Card 1 — About this game
+          Intro blurb + long-form content (How to Play / Tips / Features /
+          FAQ authored in the admin "Content" field) + "How to play" blurb.
+          Controls intentionally aren't repeated here — they live in the
+          "Game controls" popover on the play screen (PlayerActionBar).
           ══════════════════════════════════════════════════════════════ */}
-      <div className="game-post-card-1 glass flex flex-col overflow-hidden rounded-lg">
+      <div className="game-post-card-1 glass flex flex-col gap-4 rounded-2xl p-5">
+        <p className="text-sm leading-relaxed text-text-muted">
+          {game.description && game.description.trim().length > 0 ? (
+            game.description
+          ) : (
+            <>
+              Jump into {game.title}, a {category.name.toLowerCase()} pick from MofiGames.{" "}
+              {category.description} No download, no install — it runs straight in your browser on
+              desktop, tablet, or phone.
+            </>
+          )}
+        </p>
 
-        {/* ── Section 1: Header (left) + ad slot (top right) ─────────────── */}
-        <div className="flex flex-wrap items-start justify-between gap-6 border-b border-white/[0.06] px-5 py-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {/* Breadcrumb nav */}
-            <nav className="flex flex-wrap items-center gap-1 text-xs text-text-faint">
-              <Link href="/" className="hover:text-text">
-                Games
-              </Link>
-              <ChevronRight size={12} />
-              <Link href={`/${category.slug}`} className="hover:text-text">
-                {category.name}
-              </Link>
-              <ChevronRight size={12} />
-              <span className="text-text-muted">{game.title}</span>
-            </nav>
+        <GameContentSection html={game.content} />
 
-            {/* Title */}
-            <h1 className="font-display text-2xl font-bold text-text sm:text-3xl">{game.title}</h1>
-
-            {/* Share / bookmark */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleShare}
-                className="glass flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-text hover:bg-white/10"
-              >
-                <Share2 size={15} />
-                Share
-              </button>
-              {typeof game.favoriteCount === "number" && game.favoriteCount > 0 && (
-                <span className="flex items-center gap-1.5 text-sm text-text-muted">
-                  <Bookmark size={14} className="fill-[#3DA9FC] text-[#3DA9FC]" />
-                  {game.favoriteCount.toLocaleString()} bookmarks
-                </span>
-              )}
-            </div>
-
-            {/* Rating */}
-            {isRealGame ? (
-              <RatingStars slug={game.slug} rating={game.rating} ratingCount={game.ratingCount ?? 0} />
-            ) : (
-              <p className="text-sm text-text-muted">
-                <span className="font-bold text-text">{meta.ratingOutOf10}</span>{" "}
-                <span className="text-text-muted">({meta.votes.toLocaleString()} votes)</span>
-              </p>
-            )}
+        {game.instructions && game.instructions.trim().length > 0 && (
+          <div>
+            <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+            <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
           </div>
+        )}
+      </div>
 
-          <div className="shrink-0">
-            <GamePostAdSlot
-              config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
-              adsenseClientId={adsenseClientId}
-              adsenseReady={adsenseReady}
-            />
-          </div>
+      {/* ══════════════════════════════════════════════════════════════════
+          Card 2 — Ad · Game Info · Tags
+          Mirrors the CrazyGames sidebar panel layout but in the main
+          content column below the content card. Three sections separated
+          by subtle hairlines:
+            1. Ad slot  (Admin → Monetization → Custom HTML Ads)
+            2. Game Info  (Released, Developer, Platform, Orientation …)
+            3. Tags  (category, multiplayer, browser …)
+          Both cards (1 + 2) animate in on mount with a staggered slide-up
+          defined in globals.css (.game-post-card-1 / .game-post-card-2).
+          ══════════════════════════════════════════════════════════════ */}
+      <div className="game-post-card-2 glass flex flex-col overflow-hidden rounded-2xl">
+
+        {/* ── Section 1: Ad slot ─────────────────────────────────────────── */}
+        <div className="flex items-center justify-center border-b border-white/[0.06] px-5 py-4">
+          <GamePostAdSlot
+            config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
+            adsenseClientId={adsenseClientId}
+            adsenseReady={adsenseReady}
+          />
         </div>
 
         {/* ── Section 2: Game info ───────────────────────────────────────── */}
@@ -174,11 +159,46 @@ export function GameDetailsSection({
           </h2>
 
           <dl className="flex flex-col gap-2 text-sm">
-            {infoRows.map((row, index) => (
-              <StatRow key={row.label} label={row.label} index={index}>
-                {row.value}
-              </StatRow>
-            ))}
+            <StatRow label="Released" index={0}>
+              {releasedLabel}
+            </StatRow>
+
+            {isRealGame ? (
+              <>
+                {game.developer && (
+                  <StatRow label="Developer" index={1}>
+                    {game.developer}
+                  </StatRow>
+                )}
+                {game.publisher && (
+                  <StatRow label="Publisher" index={2}>
+                    {game.publisher}
+                  </StatRow>
+                )}
+                {game.version && (
+                  <StatRow label="Version" index={3}>
+                    {game.version}
+                  </StatRow>
+                )}
+              </>
+            ) : (
+              <>
+                <StatRow label="Last Updated" index={1}>
+                  {meta.lastUpdatedLabel}
+                </StatRow>
+                <StatRow label="Game engine" index={2}>
+                  {meta.gameEngine}
+                </StatRow>
+              </>
+            )}
+
+            <StatRow label="Platform" index={isRealGame ? 4 : 3}>
+              {game.mobileSupport === false ? "Desktop only" : "Browser (desktop & mobile)"}
+            </StatRow>
+
+            <StatRow label="Orientation" index={isRealGame ? 5 : 4}>
+              {orientationLabel}
+            </StatRow>
           </dl>
         </div>
 
@@ -206,39 +226,6 @@ export function GameDetailsSection({
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          Card 2 — About this game
-          Intro blurb + long-form content (How to Play / Tips / Features /
-          FAQ authored in the admin "Content" field) + "How to play" blurb.
-          Controls intentionally aren't repeated here — they live in the
-          "Game controls" popover on the play screen (PlayerActionBar).
-          Now sits below the info/tags card, using .game-post-card-2's
-          animation (slightly delayed) so the two panels still cascade in
-          the order they appear on screen.
-          ══════════════════════════════════════════════════════════════ */}
-      <div className="game-post-card-2 glass flex flex-col gap-4 rounded-lg p-5">
-        <p className="text-sm leading-relaxed text-text-muted">
-          {game.description && game.description.trim().length > 0 ? (
-            game.description
-          ) : (
-            <>
-              Jump into {game.title}, a {category.name.toLowerCase()} pick from MofiGames.{" "}
-              {category.description} No download, no install — it runs straight in your browser on
-              desktop, tablet, or phone.
-            </>
-          )}
-        </p>
-
-        <GameContentSection html={game.content} />
-
-        {game.instructions && game.instructions.trim().length > 0 && (
-          <div>
-            <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
-            <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
-          </div>
-        )}
-      </div>
-
       {!isRealGame && (
         <div>
           <h2 className="mb-1 font-display text-base font-bold text-text">Last Updated</h2>
@@ -252,7 +239,7 @@ export function GameDetailsSection({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 /**
- * A key-value row inside Card 1's "Game Info" section.
+ * A key-value row inside Card 2's "Game Info" section.
  * `index` drives the stagger delay so rows cascade in left-to-right.
  */
 function StatRow({
@@ -277,10 +264,7 @@ function StatRow({
 }
 
 /**
- * A rectangular tag chip inside Card 1's "Tags" section, matching the
- * CrazyGames reference: a label on the left and — when a count is given —
- * a distinct, slightly lighter rectangular badge fused to its right edge,
- * both inside one rounded-md (not fully pill-shaped) container.
+ * A pill chip inside Card 2's "Tags" section.
  * `index` drives the spring-pop stagger; `variant="hot"` renders the red
  * accent chip used for admin-set promo tags (e.g. "New", "Hot").
  */
@@ -297,29 +281,26 @@ function TagPill({
   index: number;
 }) {
   const delay = `${0.44 + index * 0.06}s`;
-  const isHot = variant === "hot";
+
+  if (variant === "hot") {
+    return (
+      <span
+        className="game-post-tag-pill flex items-center rounded-full bg-hot/15 px-3.5 py-1.5 text-xs font-bold text-hot hover:bg-hot/25"
+        style={{ animationDelay: delay }}
+      >
+        {label}
+        {count !== undefined && <span className="ml-1.5">{count}</span>}
+      </span>
+    );
+  }
 
   return (
     <span
-      className={
-        "game-post-tag-pill flex items-stretch overflow-hidden rounded-md text-xs font-semibold " +
-        (isHot
-          ? "bg-hot/15 text-hot hover:bg-hot/25"
-          : "glass text-text-muted hover:bg-white/10 hover:text-text")
-      }
+      className="game-post-tag-pill glass flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-text-muted hover:bg-white/10 hover:text-text"
       style={{ animationDelay: delay }}
     >
-      <span className="flex items-center px-3 py-1.5">{label}</span>
-      {count !== undefined && (
-        <span
-          className={
-            "flex items-center px-2.5 py-1.5 font-bold " +
-            (isHot ? "bg-hot/20 text-hot" : "bg-white/10 text-text")
-          }
-        >
-          {count.toLocaleString()}
-        </span>
-      )}
+      {label}
+      {count !== undefined && <span className="font-bold text-text">{count}</span>}
     </span>
   );
 }

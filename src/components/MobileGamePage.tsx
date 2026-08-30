@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Play,
@@ -12,6 +12,8 @@ import {
   MessageSquare,
   Star,
   Eye,
+  Info,
+  Tag as TagIcon,
 } from "lucide-react";
 import { PlayFrame } from "./PlayFrame";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
@@ -41,34 +43,31 @@ export function MobileGamePage({
   category: Category;
   related: Game[];
   /** Admin → Monetization → Advertisement Management → Custom HTML Ads —
-   * same in-post placement as the desktop game page (GameDetailsSection). */
+   * same in-post placement as the desktop game page (GameDetailsSection);
+   * this was previously never wired up here, so it never rendered on
+   * mobile regardless of the admin toggle. */
   customHtmlAds?: AdPlacementConfig;
   adsenseClientId?: string | null;
   adsenseReady?: boolean;
 }) {
   const Icon = iconMap[category.icon];
 
-  // Like/dislike are optimistic, local-only. Favorite and recently-played
-  // are real — backed by localStorage via lib/game-library.ts.
+  // Like/dislike are optimistic, local-only — there's no backend yet to
+  // persist them, so they're UI feedback rather than a real vote system.
+  // Favorite and recently-played are real, though — both are backed by
+  // localStorage via lib/game-library.ts (see /favorites and /recently-played).
   const [playing, setPlaying] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
 
-  // Real playtime tracking — streams elapsed seconds while `playing` is true.
+  // Real playtime tracking — see lib/game-library.ts. Streams actual
+  // elapsed seconds to the signed-in account while `playing` is true.
   usePlayTimeTracking(playing);
 
-  // Auto-start: launch the landscape player on mount so users go straight
-  // into the game. recordPlayed is called here so the game shows up in
-  // /recently-played even if the visitor closes before the iframe loads.
-  useEffect(() => {
-    recordPlayed(game.slug);
-    setPlaying(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const favorited = useIsFavorited(game.slug);
   const baseLikes = Math.round(game.plays * 0.92);
 
-  // Derived metadata for Card 1 — Game Info section
+  // Derived metadata for Card 2 ─ Game Info section
   const isRealGame = Boolean(game.developer || game.publisher || game.releaseDate || game.version);
   const releasedLabel = game.releaseDate
     ? new Date(game.releaseDate).toLocaleDateString(undefined, { month: "long", year: "numeric" })
@@ -281,25 +280,46 @@ export function MobileGamePage({
         </div>
 
         {/* ════════════════════════════════════════════════════════════════
-            Card 1 — Ad · Game Info · Tags
-            ────────────────────────────────────────────────────────────
-            Now the FIRST card on mobile, matching both the CrazyGames mobile
-            reference screenshots and the desktop GameDetailsSection order
-            (info/tags before about-content). Key differences from the old
-            Card 2:
-              • No "GAME INFO" / "TAGS" section-header labels — CrazyGames
-                mobile doesn't show those uppercase headers; the rows and chips
-                speak for themselves.
-              • Tags render in a 2-column grid instead of a flex-wrap row —
-                mirrors the CrazyGames reference exactly (two chips per row).
-              • Tag chips are rectangular (rounded-xl) not fully pill-shaped
-                (rounded-full) — matches the reference chip style.
-              • Count rendered in the site's accent blue (#3DA9FC) so it reads
-                as data, not decoration — consistent with CrazyGames purple.
-            Uses .game-post-card-1 (delay 0.08 s) so it enters first and the
-            content card cascades in 140 ms behind it.
+            Card 1 — About this game
+            Same structured "board" panel as the desktop (GameDetailsSection):
+            intro blurb, long-form How to Play / Tips / Features / FAQ content
+            authored in the admin "Content" field, and the short "How to play"
+            blurb — all inside one boxed glass card. Slides up + fades in on
+            mount via .game-post-card-1 defined in globals.css.
+            Controls intentionally isn't shown here — it lives in the
+            "Game controls" popover on the play screen itself (PlayerActionBar).
             ════════════════════════════════════════════════════════════ */}
-        <div className="game-post-card-1 glass flex flex-col overflow-hidden rounded-2xl">
+        {((game.description && game.description.trim().length > 0) ||
+          (game.content && game.content.trim().length > 0) ||
+          (game.instructions && game.instructions.trim().length > 0)) && (
+          <section className="game-post-card-1 glass flex flex-col gap-4 rounded-2xl p-4">
+            {game.description && game.description.trim().length > 0 && (
+              <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
+            )}
+
+            <GameContentSection html={game.content} />
+
+            {game.instructions && game.instructions.trim().length > 0 && (
+              <div>
+                <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+                <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            Card 2 — Ad · Game Info · Tags
+            Second animated glass panel matching the CrazyGames reference.
+            Three hairline-divided sections:
+              1. Ad slot  (Admin → Monetization → Custom HTML Ads)
+              2. Game Info  (Released, Developer, Platform, Orientation …)
+              3. Tags  (category, multiplayer, browser …)
+            Slides up 140 ms after Card 1 for a cascading entrance, then
+            lifts on hover. Stat rows stagger in from the left; tag pills
+            spring-pop with individual delays. All defined in globals.css.
+            ════════════════════════════════════════════════════════════ */}
+        <div className="game-post-card-2 glass flex flex-col overflow-hidden rounded-2xl">
 
           {/* ── Section 1: Ad slot ─────────────────────────────────────── */}
           <div className="flex items-center justify-center border-b border-white/[0.06] px-4 py-4">
@@ -310,108 +330,82 @@ export function MobileGamePage({
             />
           </div>
 
-          {/* ── Section 2: Game info rows — no section header ─────────── */}
-          <dl className="flex flex-col gap-2.5 border-b border-white/[0.06] px-4 py-4 text-sm">
+          {/* ── Section 2: Game info ──────────────────────────────────── */}
+          <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-4">
+            <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-text-faint">
+              <Info size={12} className="shrink-0" />
+              Game Info
+            </h2>
 
-            {/* Category */}
-            <MobileStatRow label="Category" index={0}>
-              {category.name}
-            </MobileStatRow>
-
-            {/* Release date — show only if available */}
-            {releasedLabel && (
-              <MobileStatRow label="Released" index={1}>
-                {releasedLabel}
+            <dl className="flex flex-col gap-2 text-sm">
+              {/* Category */}
+              <MobileStatRow label="Category" index={0}>
+                {category.name}
               </MobileStatRow>
-            )}
 
-            {/* Developer / Publisher / Version — real games only */}
-            {game.developer && (
-              <MobileStatRow label="Developer" index={2}>
-                {game.developer}
-              </MobileStatRow>
-            )}
-            {game.publisher && (
-              <MobileStatRow label="Publisher" index={3}>
-                {game.publisher}
-              </MobileStatRow>
-            )}
-            {game.version && (
-              <MobileStatRow label="Version" index={4}>
-                {game.version}
-              </MobileStatRow>
-            )}
-
-            {/* Always-present metadata */}
-            <MobileStatRow label="Platform" index={isRealGame ? 5 : 2}>
-              {game.mobileSupport === false ? "Desktop only" : "Browser (all devices)"}
-            </MobileStatRow>
-
-            <MobileStatRow label="Orientation" index={isRealGame ? 6 : 3}>
-              {orientationLabel}
-            </MobileStatRow>
-
-            <MobileStatRow label="Rating" index={isRealGame ? 7 : 4}>
-              {game.rating} / 5
-              {game.ratingCount != null && game.ratingCount > 0 && (
-                <span className="ml-1 text-text-faint">
-                  ({game.ratingCount.toLocaleString()} votes)
-                </span>
+              {/* Release date — show only if available */}
+              {releasedLabel && (
+                <MobileStatRow label="Released" index={1}>
+                  {releasedLabel}
+                </MobileStatRow>
               )}
-            </MobileStatRow>
-          </dl>
 
-          {/* ── Section 3: Tags — 2-column grid, rectangular chips ────── */}
-          <div className="grid grid-cols-2 gap-2 px-4 py-4">
-            {game.tag && <MobileTagPill label={game.tag} variant="hot" index={0} />}
-            <MobileTagPill label={category.name} index={game.tag ? 1 : 0} />
-            {game.multiplayer ? (
-              <MobileTagPill label="Multiplayer" index={game.tag ? 2 : 1} />
-            ) : (
-              <MobileTagPill label="Singleplayer" index={game.tag ? 2 : 1} />
-            )}
-            <MobileTagPill label="Browser" index={game.tag ? 3 : 2} />
+              {/* Developer / Publisher / Version — real games only */}
+              {game.developer && (
+                <MobileStatRow label="Developer" index={2}>
+                  {game.developer}
+                </MobileStatRow>
+              )}
+              {game.publisher && (
+                <MobileStatRow label="Publisher" index={3}>
+                  {game.publisher}
+                </MobileStatRow>
+              )}
+              {game.version && (
+                <MobileStatRow label="Version" index={4}>
+                  {game.version}
+                </MobileStatRow>
+              )}
+
+              {/* Always-present metadata */}
+              <MobileStatRow label="Platform" index={isRealGame ? 5 : 2}>
+                {game.mobileSupport === false ? "Desktop only" : "Browser (all devices)"}
+              </MobileStatRow>
+
+              <MobileStatRow label="Orientation" index={isRealGame ? 6 : 3}>
+                {orientationLabel}
+              </MobileStatRow>
+
+              <MobileStatRow label="Rating" index={isRealGame ? 7 : 4}>
+                {game.rating} / 5
+                {game.ratingCount != null && game.ratingCount > 0 && (
+                  <span className="ml-1 text-text-faint">
+                    ({game.ratingCount.toLocaleString()} votes)
+                  </span>
+                )}
+              </MobileStatRow>
+            </dl>
+          </div>
+
+          {/* ── Section 3: Tags ───────────────────────────────────────── */}
+          <div className="flex flex-col gap-3 px-4 py-4">
+            <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-text-faint">
+              <TagIcon size={12} className="shrink-0" />
+              Tags
+            </h2>
+
+            <div className="flex flex-wrap gap-2">
+              {game.tag && <MobileTagPill label={game.tag} variant="hot" index={0} />}
+              <MobileTagPill label={category.name} index={game.tag ? 1 : 0} />
+              {game.multiplayer ? (
+                <MobileTagPill label="Multiplayer" index={game.tag ? 2 : 1} />
+              ) : (
+                <MobileTagPill label="Singleplayer" index={game.tag ? 2 : 1} />
+              )}
+              <MobileTagPill label="Browser" index={game.tag ? 3 : 2} />
+            </div>
           </div>
         </div>
-
-        {/* ════════════════════════════════════════════════════════════════
-            Card 2 — About this game
-            ────────────────────────────────────────────────────────────
-            Now the SECOND card on mobile, matching both the CrazyGames mobile
-            reference and the desktop GameDetailsSection order. Key differences
-            from the old Card 1:
-              • "How to play" heading is now text-xl (was text-base) and
-                includes the game title — "How to play {game.title}" — matching
-                the prominent "How to Play Bloxd.io" heading in the reference.
-              • gap-5 (was gap-4) adds slightly more breathing room between
-                the intro blurb, rich content, and the How to play block.
-            Uses .game-post-card-2 (delay 0.22 s) so it cascades in after
-            Card 1, same timing as desktop.
-            ════════════════════════════════════════════════════════════ */}
-        {((game.description && game.description.trim().length > 0) ||
-          (game.content && game.content.trim().length > 0) ||
-          (game.instructions && game.instructions.trim().length > 0)) && (
-          <section className="game-post-card-2 glass flex flex-col gap-5 rounded-2xl p-4">
-            {game.description && game.description.trim().length > 0 && (
-              <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
-            )}
-
-            <GameContentSection html={game.content} />
-
-            {game.instructions && game.instructions.trim().length > 0 && (
-              <div className="flex flex-col gap-2">
-                {/* Prominent heading matching the CrazyGames "How to Play {title}"
-                    section title in the mobile reference screenshots.
-                    Upgraded from text-base → text-xl so it reads as a real
-                    section break rather than a sub-label. */}
-                <h2 className="font-display text-xl font-bold text-text">
-                  How to play {game.title}
-                </h2>
-                <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
-              </div>
-            )}
-          </section>
-        )}
 
         {/* More in this category */}
         <section>
@@ -430,10 +424,9 @@ export function MobileGamePage({
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 /**
- * A key-value row inside Card 1's "Game Info" section on mobile.
- * Two-column justify-between layout: label (faint) on the left,
- * value (semibold white) on the right — matches the CrazyGames mobile
- * reference style. Stagger delay from `index` unchanged.
+ * A key-value row inside Card 2's "Game Info" section on mobile.
+ * Uses a two-column justify-between layout to match the existing mobile Row
+ * pattern while picking up the stagger animation from globals.css.
  */
 function MobileStatRow({
   label,
@@ -457,22 +450,8 @@ function MobileStatRow({
 }
 
 /**
- * A tag chip inside Card 1's "Tags" 2-column grid on mobile.
- *
- * Updated to match the CrazyGames mobile reference:
- *   • rounded-xl (rectangular) instead of rounded-full (pill) — the
- *     reference uses a squarish chip, not a full pill shape.
- *   • justify-between layout: label on the left, count on the right —
- *     mirrors the "label  COUNT" pattern in the CrazyGames tag grid
- *     (e.g. ".io  94", "Mobile  2,436").
- *   • Count is rendered in the site accent blue (#3DA9FC) so it reads as
- *     quantitative data, not decoration — CrazyGames uses their purple
- *     accent for the same purpose.
- *   • py-2 (was py-1) for a taller, finger-friendly touch target inside
- *     the 2-column grid.
- *
- * The hot variant spans both columns via col-span-2 (it's a promo badge,
- * not a category count) and keeps its full-width red accent styling.
+ * A tag chip inside Card 2's "Tags" section on mobile.
+ * Smaller padding than desktop to fit comfortably on narrow screens.
  */
 function MobileTagPill({
   label,
@@ -491,24 +470,22 @@ function MobileTagPill({
   if (variant === "hot") {
     return (
       <span
-        className="game-post-tag-pill col-span-2 flex items-center justify-between rounded-xl bg-hot/15 px-3 py-2 text-sm font-bold text-hot hover:bg-hot/25"
+        className="game-post-tag-pill flex items-center rounded-full bg-hot/15 px-3 py-1 text-xs font-bold text-hot hover:bg-hot/25"
         style={{ animationDelay: delay }}
       >
-        <span>{label}</span>
-        {count !== undefined && <span>{count}</span>}
+        {label}
+        {count !== undefined && <span className="ml-1">{count}</span>}
       </span>
     );
   }
 
   return (
     <span
-      className="game-post-tag-pill glass flex items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold"
+      className="game-post-tag-pill glass flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-text-muted"
       style={{ animationDelay: delay }}
     >
-      <span className="truncate text-text-muted">{label}</span>
-      {count !== undefined && (
-        <span className="ml-2 shrink-0 font-bold text-[#3DA9FC]">{count}</span>
-      )}
+      {label}
+      {count !== undefined && <span className="font-bold text-text">{count}</span>}
     </span>
   );
 }
