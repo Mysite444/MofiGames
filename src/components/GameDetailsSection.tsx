@@ -55,73 +55,80 @@ export function GameDetailsSection({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* ── Breadcrumb nav ───────────────────────────────────────────────── */}
-      <nav className="flex flex-wrap items-center gap-1 text-xs text-text-faint">
-        <Link href="/" className="hover:text-text">
-          Games
-        </Link>
-        <ChevronRight size={12} />
-        <Link href={`/${category.slug}`} className="hover:text-text">
-          {category.name}
-        </Link>
-        <ChevronRight size={12} />
-        <span className="text-text-muted">{game.title}</span>
-      </nav>
-
-      {/* ── Title + share / bookmark ─────────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
-        <h1 className="font-display text-2xl font-bold text-text sm:text-3xl">{game.title}</h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="glass flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-text hover:bg-white/10"
-          >
-            <Share2 size={15} />
-            Share
-          </button>
-          {typeof game.favoriteCount === "number" && game.favoriteCount > 0 && (
-            <span className="flex items-center gap-1.5 text-sm text-text-muted">
-              <Bookmark size={14} className="fill-[#3DA9FC] text-[#3DA9FC]" />
-              {game.favoriteCount.toLocaleString()} bookmarks
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Rating ───────────────────────────────────────────────────────── */}
-      {isRealGame ? (
-        <RatingStars slug={game.slug} rating={game.rating} ratingCount={game.ratingCount ?? 0} />
-      ) : (
-        <p className="text-sm text-text-muted">
-          <span className="font-bold text-text">{meta.ratingOutOf10}</span>{" "}
-          <span className="text-text-muted">({meta.votes.toLocaleString()} votes)</span>
-        </p>
-      )}
-
       {/* ══════════════════════════════════════════════════════════════════
-          Card 1 — Ad · Game Info · Tags
-          Mirrors the mofigames.com reference layout: this info card sits
-          directly under the title/share/rating block and ABOVE the game's
-          written content, not below it. Three sections separated by subtle
-          hairlines:
-            1. Ad slot  (Admin → Monetization → Custom HTML Ads)
+          Card 1 — Header (breadcrumb/title/share/rating + ad) · Game Info · Tags
+          Mirrors the mofigames.com reference layout exactly: breadcrumb,
+          title, share/bookmark and rating sit in the TOP-LEFT of this card,
+          with the 300×250 ad slot pinned to the TOP-RIGHT of the same row —
+          both live inside the card now, not above it. Below that header row,
+          two more sections separated by subtle hairlines:
+            1. Header row  — breadcrumb/title/share/rating (left) · ad (right)
             2. Game Info  (Rating, Released, Developer, Platform, Orientation …)
             3. Tags  (category, multiplayer, browser …)
-          Both cards (1 + 2) animate in on mount with a staggered slide-up
-          defined in globals.css (.game-post-card-1 / .game-post-card-2) —
-          card 1 always animates in first, so it carries whichever box is
-          rendered first in the DOM.
+          This card sits ABOVE the game's written content ("About this
+          game", Card 2), not below it. Both cards animate in on mount with
+          a staggered slide-up defined in globals.css (.game-post-card-1 /
+          .game-post-card-2) — card 1 always animates in first, so it
+          carries whichever box is rendered first in the DOM.
           ══════════════════════════════════════════════════════════════ */}
       <div className="game-post-card-1 glass flex flex-col overflow-hidden rounded-2xl">
 
-        {/* ── Section 1: Ad slot ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-center border-b border-white/[0.06] px-5 py-4">
-          <GamePostAdSlot
-            config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
-            adsenseClientId={adsenseClientId}
-            adsenseReady={adsenseReady}
-          />
+        {/* ── Section 1: Header — breadcrumb/title/share/rating (left) + ad (top right) ── */}
+        <div className="flex flex-wrap items-start justify-between gap-6 border-b border-white/[0.06] px-5 py-5">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {/* Breadcrumb nav */}
+            <nav className="flex flex-wrap items-center gap-1 text-xs text-text-faint">
+              <Link href="/" className="hover:text-text">
+                Games
+              </Link>
+              <ChevronRight size={12} />
+              <Link href={`/${category.slug}`} className="hover:text-text">
+                {category.name}
+              </Link>
+              <ChevronRight size={12} />
+              <span className="text-text-muted">{game.title}</span>
+            </nav>
+
+            {/* Title */}
+            <h1 className="font-display text-2xl font-bold text-text sm:text-3xl">{game.title}</h1>
+
+            {/* Share / bookmark */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleShare}
+                className="glass flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-text hover:bg-white/10"
+              >
+                <Share2 size={15} />
+                Share
+              </button>
+              {typeof game.favoriteCount === "number" && game.favoriteCount > 0 && (
+                <span className="flex items-center gap-1.5 text-sm text-text-muted">
+                  <Bookmark size={14} className="fill-[#3DA9FC] text-[#3DA9FC]" />
+                  {game.favoriteCount.toLocaleString()} bookmarks
+                </span>
+              )}
+            </div>
+
+            {/* Rating */}
+            {isRealGame ? (
+              <RatingStars slug={game.slug} rating={game.rating} ratingCount={game.ratingCount ?? 0} />
+            ) : (
+              <p className="text-sm text-text-muted">
+                <span className="font-bold text-text">{meta.ratingOutOf10}</span>{" "}
+                <span className="text-text-muted">({meta.votes.toLocaleString()} votes)</span>
+              </p>
+            )}
+          </div>
+
+          {/* Ad slot — pinned top right, fixed 300×250, never shrinks */}
+          <div className="shrink-0">
+            <GamePostAdSlot
+              config={customHtmlAds ?? { enabled: false, slotId: null, code: null }}
+              adsenseClientId={adsenseClientId}
+              adsenseReady={adsenseReady}
+            />
+          </div>
         </div>
 
         {/* ── Section 2: Game info ───────────────────────────────────────── */}
