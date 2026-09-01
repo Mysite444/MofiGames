@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { Play } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
 import { GameThumbnail } from "./GameThumbnail";
-import { getCategoryBySlug } from "@/lib/categories";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game, Category } from "@/lib/types";
 
@@ -25,7 +27,12 @@ export function FeaturedBanner({
    *  unaffected. */
   hideWatermark?: boolean;
 }) {
-  const category = categoryOverride ?? getCategoryBySlug(game.categorySlug);
+  // useMergedCategoryBySlug prefers the live DB row so admin edits to the
+  // category's name, icon, or gradient are reflected immediately.
+  // The categoryOverride prop (passed by MobileHome's genreProps helper)
+  // still takes precedence when the caller has already resolved it.
+  const mergedCategory = useMergedCategoryBySlug(game.categorySlug);
+  const category = categoryOverride ?? mergedCategory;
   if (!category) return null;
   const Icon = iconMap[category.icon];
   // The banner background is a gradient — no image needed there. The small
@@ -36,7 +43,7 @@ export function FeaturedBanner({
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.015] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.99]"
+      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.015] hover:ring-2 hover:ring-white hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.99]"
     >
       <div
         className="absolute inset-0"

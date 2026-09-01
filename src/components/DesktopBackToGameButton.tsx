@@ -9,13 +9,15 @@ import { ArrowUp } from "lucide-react";
  * stationary. Positioned to align with the post-content column (sidebar rail
  * on the left, 300 px "Play next" aside on the right).
  *
- * Color: #2563EB (Tailwind blue-600).
- * Rationale: the project's light accent blue (#3DA9FC) is reserved for icon
- * states (bookmarks, etc.) and lacks CTA weight on a dark background.
- * blue-600 is deep cobalt — 4.97:1 contrast vs. white (WCAG AA), used by
- * Discord, Linear, and Figma as their primary dark-UI action colour — so the
- * pill reads as a clear, intentional call-to-action without competing with
- * other UI chrome.
+ * Color: var(--color-cta-blue) (#2563EB, Tailwind blue-600) — the same
+ * shared token used by every primary CTA pill site-wide (Random Game, Back
+ * to Top, pagination — see .btn-cta / .pagination-* in globals.css).
+ * Rationale: the project's light accent blue (--color-menu-blue, #3DA9FC) is
+ * reserved for icon states (bookmarks, etc.) and lacks CTA weight on a dark
+ * background. blue-600 is deep cobalt — 4.97:1 contrast vs. white (WCAG AA),
+ * used by Discord, Linear, and Figma as their primary dark-UI action colour
+ * — so the pill reads as a clear, intentional call-to-action without
+ * competing with other UI chrome.
  */
 export function DesktopBackToGameButton({ targetId }: { targetId: string }) {
   const [outOfView, setOutOfView] = useState(false);
@@ -76,10 +78,10 @@ export function DesktopBackToGameButton({ targetId }: { targetId: string }) {
           ${shown ? "opacity-100 animate-bounce" : "pointer-events-none opacity-0"}
         `}
         style={{
-          background: hovered ? "#1D4ED8" : "#2563EB",
+          background: hovered ? "var(--color-cta-blue-hover)" : "var(--color-cta-blue)",
           boxShadow: hovered
-            ? "0 6px 28px rgba(37,99,235,0.65), 0 4px 12px rgba(0,0,0,0.35)"
-            : "0 4px 20px rgba(37,99,235,0.50), 0 2px 8px rgba(0,0,0,0.30)",
+            ? "0 6px 28px rgba(var(--color-cta-blue-rgb), 0.65), 0 4px 12px rgba(0,0,0,0.35)"
+            : "0 4px 20px rgba(var(--color-cta-blue-rgb), 0.50), 0 2px 8px rgba(0,0,0,0.30)",
         }}
       >
         <ArrowUp size={16} strokeWidth={2.5} />

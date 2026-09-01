@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   Plus, Pencil, Trash2, X, Loader2, Sparkles,
   LayoutGrid, Tag, Search, GripVertical, AlertTriangle, CheckCircle2,
+  ChevronUp, ChevronDown,
 } from "lucide-react";
 
 const BUILT_IN_SLUGS = new Set([
@@ -47,6 +48,7 @@ const emptyForm: CategoryInput = {
   og_image_url: null,
   show_on_homepage: true, homepage_position: null, homepage_label: null,
   display_style: "default",
+  content: [],
 };
 
 // ─── Component ────────────────────────────────────────────────────────────
@@ -262,6 +264,7 @@ export function CategoriesAdminClient() {
       og_image_url: cat.og_image_url,
       show_on_homepage: cat.show_on_homepage, homepage_position: cat.homepage_position,
       homepage_label: cat.homepage_label, display_style: cat.display_style,
+      content: cat.content ?? [],
     });
     setSlugTouched(true); setFormError(null); setFormOpen(true);
   }
@@ -288,6 +291,36 @@ export function CategoriesAdminClient() {
       setFormError(err instanceof Error ? err.message : "AI generation failed.");
     } finally { setAiLoading(false); }
   }
+
+  // ── Content blocks ────────────────────────────────────────────────────
+
+  function addContentBlock() {
+    setForm((f) => ({ ...f, content: [...(f.content ?? []), { heading: "", body: "" }] }));
+  }
+
+  function removeContentBlock(i: number) {
+    setForm((f) => ({ ...f, content: (f.content ?? []).filter((_, j) => j !== i) }));
+  }
+
+  function updateContentBlock(i: number, field: "heading" | "body", value: string) {
+    setForm((f) => {
+      const content = [...(f.content ?? [])];
+      content[i] = { ...content[i], [field]: value };
+      return { ...f, content };
+    });
+  }
+
+  function moveContentBlock(i: number, dir: -1 | 1) {
+    setForm((f) => {
+      const content = [...(f.content ?? [])];
+      const j = i + dir;
+      if (j < 0 || j >= content.length) return f;
+      [content[i], content[j]] = [content[j], content[i]];
+      return { ...f, content };
+    });
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────
 
   async function handleSave(e: FormEvent) {
     e.preventDefault(); setFormError(null);
@@ -536,6 +569,56 @@ export function CategoriesAdminClient() {
                 <input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) }))} className="admin-input" />
                 <p className="mt-1 text-[11px] text-text-faint">Overridden by drag-and-drop order above.</p>
               </Field>
+
+              {/* ── Content Sections ─────────────────────────────────────── */}
+              <SectionHeading>Content Sections</SectionHeading>
+              <p className="text-[11px] leading-relaxed text-text-faint">
+                These heading + paragraph blocks appear in the expandable &quot;Show more&quot; section on the category page. Leave empty to hide the section entirely.
+              </p>
+              {(form.content ?? []).map((block, i) => (
+                <div key={i} className="rounded-xl border border-[var(--color-surface-border)] bg-white/[0.02] p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-text-faint">Section {i + 1}</span>
+                    <div className="ml-auto flex items-center gap-1">
+                      <button type="button" disabled={i === 0} onClick={() => moveContentBlock(i, -1)}
+                        className="flex h-6 w-6 items-center justify-center rounded text-white/40 hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-20">
+                        <ChevronUp size={13} />
+                      </button>
+                      <button type="button" disabled={i === (form.content ?? []).length - 1} onClick={() => moveContentBlock(i, 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded text-white/40 hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-20">
+                        <ChevronDown size={13} />
+                      </button>
+                      <button type="button" onClick={() => removeContentBlock(i)} aria-label="Remove section"
+                        className="flex h-6 w-6 items-center justify-center rounded text-white/40 hover:bg-hot/15 hover:text-hot">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Field label="Heading">
+                      <input
+                        value={block.heading}
+                        onChange={(e) => updateContentBlock(i, "heading", e.target.value)}
+                        placeholder="e.g. Play With Friends, Not Just Bots"
+                        className="admin-input"
+                      />
+                    </Field>
+                    <Field label="Body">
+                      <textarea
+                        value={block.body}
+                        onChange={(e) => updateContentBlock(i, "body", e.target.value)}
+                        rows={3}
+                        placeholder="Two or three sentences describing this aspect of the category…"
+                        className="admin-input resize-none"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={addContentBlock}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--color-surface-border)] py-2.5 text-xs font-semibold text-text-faint hover:border-white/30 hover:text-white/80">
+                <Plus size={13} /> Add section
+              </button>
 
               {/* Display Template — preserved exactly from original */}
               <SectionHeading>Display Template</SectionHeading>

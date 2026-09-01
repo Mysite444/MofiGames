@@ -445,6 +445,17 @@ export const categoryInputSchema = z.object({
   // Display template — determines card shape on the homepage row and mobile
   // (migration 0066): 'default' = landscape 16:9, 'portrait' = tall 2:3
   display_style: z.enum(["default", "portrait"]).default("default"),
+
+  // Content blocks — heading + paragraph sections on the category page
+  // (migration 0074).  Each element: { heading: string, body: string }.
+  content: z
+    .array(
+      z.object({
+        heading: z.string().trim().max(200).default(""),
+        body: z.string().trim().max(5000).default(""),
+      })
+    )
+    .default([]),
 });
 
 export const categoryUpdateSchema = categoryInputSchema.partial();

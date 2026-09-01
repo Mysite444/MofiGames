@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Send, Loader2, CheckCircle2, User, Mail, FileText, MessageSquare } from "lucide-react";
 
 const inputWrap =
-  "glass flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 transition-all focus-within:ring-2 focus-within:ring-white/40";
+  "glass input-glow flex items-start gap-2.5 rounded-xl px-3.5 py-2.5";
 const inputBase =
   "w-full bg-transparent text-sm text-white placeholder:text-text-faint focus:outline-none";
 

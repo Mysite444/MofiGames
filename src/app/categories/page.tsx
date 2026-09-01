@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LayoutGrid } from "lucide-react";
-import { categories } from "@/lib/categories";
+import { mergeAllCategoriesWithDb } from "@/lib/categories";
 import { getAllRealGames, getAllRealCategories } from "@/lib/games-server";
 import { iconMap } from "@/lib/icon-map";
 import type { Category } from "@/lib/types";
@@ -13,9 +13,9 @@ export const metadata = {
 export default async function CategoriesPage() {
   const [realGames, realCategories] = await Promise.all([getAllRealGames(), getAllRealCategories()]);
 
-  const staticSlugs = new Set(categories.map((c) => c.slug));
-  const newRealCategories = realCategories.filter((c) => !staticSlugs.has(c.slug));
-  const allCategories: Category[] = [...categories, ...newRealCategories];
+  // DB values overwrite static fields (name, icon, colors, SEO …) for the
+  // 18 built-in genres; custom DB-only categories are appended at the end.
+  const allCategories: Category[] = mergeAllCategoriesWithDb(realCategories);
 
   function countFor(slug: string): number {
     return realGames.filter((g) => g.categorySlug === slug).length;
@@ -62,7 +62,7 @@ export default async function CategoriesPage() {
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
-                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl p-4 ring-1 ring-white/10 transition-all hover:ring-white/30"
+                className="group relative flex items-center gap-4 overflow-hidden rounded-2xl p-4 ring-1 ring-white/10 transition-all hover:ring-white"
                 style={{ background: `linear-gradient(120deg, ${cat.colorTo}cc, ${cat.colorFrom}99)` }}
               >
                 <Icon
@@ -98,7 +98,7 @@ export default async function CategoriesPage() {
               <Link
                 key={cat.slug}
                 href={`/${cat.slug}`}
-                className="group relative overflow-hidden rounded-2xl p-5 ring-1 ring-white/10 transition-all hover:-translate-y-1 hover:ring-white/30 hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                className="group relative overflow-hidden rounded-2xl p-5 ring-1 ring-white/10 transition-all hover:-translate-y-1 hover:ring-white hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                 style={{ background: `linear-gradient(135deg, ${cat.colorTo}dd, ${cat.colorFrom}bb)` }}
               >
                 <Icon

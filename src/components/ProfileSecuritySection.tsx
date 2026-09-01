@@ -169,7 +169,7 @@ function TwoFactorSection() {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="000000"
-            className="glass w-full rounded-xl px-3.5 py-2.5 text-center font-display text-lg tracking-[0.4em] text-white placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-white/40"
+            className="glass input-glow w-full rounded-xl px-3.5 py-2.5 text-center font-display text-lg tracking-[0.4em] text-white placeholder:text-text-faint focus:outline-none"
           />
           <div className="flex w-full gap-2">
             <button
@@ -271,7 +271,7 @@ function ChangePasswordSection({ policy }: { policy: SecuritySettings }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="New password"
-                className="glass rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-white/40"
+                className="glass input-glow rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-text-faint focus:outline-none"
               />
               {password.length > 0 && (
                 <ul className="flex flex-col gap-1 text-xs">
@@ -298,7 +298,7 @@ function ChangePasswordSection({ policy }: { policy: SecuritySettings }) {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Confirm new password"
-                className="glass rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-white/40"
+                className="glass input-glow rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-text-faint focus:outline-none"
               />
               <button
                 type="submit"

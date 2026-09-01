@@ -1,5 +1,5 @@
 import { Flame } from "lucide-react";
-import { getCategoryBySlug } from "@/lib/categories";
+import { getCategoryBySlug, mergeCategoryWithDb } from "@/lib/categories";
 import { getAllRealGames, getAllRealCategories } from "@/lib/games-server";
 import { FeaturedBanner } from "@/components/FeaturedBanner";
 import { CategoryGrid } from "@/components/CategoryGrid";
@@ -14,7 +14,11 @@ export const metadata = {
 export default async function PopularGamesPage() {
   const [realGames, realCategories] = await Promise.all([getAllRealGames(), getAllRealCategories()]);
   function categoryFor(slug: string) {
-    return getCategoryBySlug(slug) ?? realCategories.find((c) => c.slug === slug);
+    // DB data wins for built-in categories so admin edits are reflected here.
+    const staticCat = getCategoryBySlug(slug);
+    const dbCat = realCategories.find((c) => c.slug === slug);
+    if (!staticCat) return dbCat;
+    return mergeCategoryWithDb(staticCat, dbCat);
   }
 
   const games = [...realGames].sort((a, b) => b.plays - a.plays);

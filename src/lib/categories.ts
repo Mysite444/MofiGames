@@ -191,3 +191,52 @@ export const categories: Category[] = [
 export function getCategoryBySlug(slug: string): Category | undefined {
   return categories.find((c) => c.slug === slug);
 }
+
+/**
+ * Merges a single static category with its DB counterpart.
+ *
+ * DB data wins for every user-editable field (name, icon, colors,
+ * description, SEO, homepage placement, displayStyle). The static
+ * `content` blocks are preserved because the DB has no content column —
+ * admins edit that copy through the source file only.
+ *
+ * If `dbCat` is undefined the static fallback is returned unchanged.
+ */
+export function mergeCategoryWithDb(
+  staticCat: Category,
+  dbCat: Category | undefined,
+): Category {
+  if (!dbCat) return staticCat;
+  // Spread order: static first so DB values overwrite everything.
+  // content: prefer the DB array when non-empty (admin has edited it);
+  //          fall back to the static array when the DB row is empty/null.
+  return {
+    ...staticCat,
+    ...dbCat,
+    content:
+      dbCat.content && dbCat.content.length > 0
+        ? dbCat.content
+        : staticCat.content,
+  };
+}
+
+/**
+ * Merges the full list of static built-in categories with whatever the
+ * DB currently holds, then appends any extra categories that only exist
+ * in the DB (custom genres added through the admin panel).
+ *
+ * Call this instead of the raw `categories` import whenever you need a
+ * list that respects admin edits to the 18 built-in genres.
+ */
+export function mergeAllCategoriesWithDb(dbCategories: Category[]): Category[] {
+  const staticSlugs = new Set(categories.map((c) => c.slug));
+  const dbCatMap = new Map(dbCategories.map((c) => [c.slug, c]));
+  return [
+    // Built-in categories: DB data overlaid on the static fallback.
+    ...categories.map((staticCat) =>
+      mergeCategoryWithDb(staticCat, dbCatMap.get(staticCat.slug)),
+    ),
+    // Custom categories that only exist in the DB.
+    ...dbCategories.filter((c) => !staticSlugs.has(c.slug)),
+  ];
+}

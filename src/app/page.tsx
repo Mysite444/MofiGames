@@ -298,8 +298,6 @@ export default async function HomePage() {
       <div className="hidden flex-col gap-2 lg:flex">
         <ContinuePlayingDesktop />
 
-        {realGames.length > 0 && <CategoryRow title="Your Games" games={realGames} />}
-
         <TopPicksRow banners={topPicksBanners} grids={topPicksGrids} country={topPicksCountry} />
 
         {rowsBeforeLeaderboard.map(renderRow)}
@@ -320,7 +318,7 @@ export default async function HomePage() {
         </div>
 
         <footer className="mt-4 border-t border-white/10 px-4 py-8 text-center text-xs text-text-faint md:px-6">
-          © {new Date().getFullYear()} {identity.copyrightText}
+          {identity.copyrightText}
         </footer>
       </div>
     </>

@@ -116,7 +116,7 @@ export function CommentsSection({ game }: { game: Game }) {
       {ready && user && (
         <form onSubmit={handlePost} className="flex items-start gap-3">
           <Avatar name={user.name} size={36} />
-          <div className="glass flex flex-1 flex-col gap-2 rounded-2xl p-3 focus-within:ring-2 focus-within:ring-white/40">
+          <div className="glass input-glow flex flex-1 flex-col gap-2 rounded-2xl p-3">
             <textarea
               value={draft}
               onChange={(e) => {
@@ -219,7 +219,7 @@ function CommentItem({
 
       {isReplying && (
         <div className="ml-12 flex items-start gap-2.5">
-          <div className="glass flex flex-1 flex-col gap-2 rounded-2xl p-3 focus-within:ring-2 focus-within:ring-white/40">
+          <div className="glass input-glow flex flex-1 flex-col gap-2 rounded-2xl p-3">
             <textarea
               autoFocus
               value={replyDraft}

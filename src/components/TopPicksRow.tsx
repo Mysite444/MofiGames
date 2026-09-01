@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FeaturedBanner } from "./FeaturedBanner";
 import { GameThumbnail } from "./GameThumbnail";
-import { getCategoryBySlug } from "@/lib/categories";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import type { Game } from "@/lib/types";
 
 const tagStyles: Record<string, string> = {
@@ -28,13 +28,13 @@ const GRID_WIDTH = "w-[326px] xl:w-[366px]";
 // caption row below. That's what lets four of these stack 2x2 to exactly
 // match the big tile's height, mirroring the reference layout pixel-for-pixel.
 function MiniTile({ game }: { game: Game }) {
-  const category = getCategoryBySlug(game.categorySlug);
+  const category = useMergedCategoryBySlug(game.categorySlug);
   if (!category) return null;
 
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(0,0,0,0.5)] active:scale-[0.97]"
+      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-white hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.97]"
     >
       <GameThumbnail
         category={category}

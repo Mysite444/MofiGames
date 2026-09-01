@@ -5,7 +5,7 @@
  * The three cover variants map to the card shapes used across MofiGames:
  *
  *   'landscape' (16:9) — GenreGameCard, FeaturedBanner, large homepage
- *                         cards: Your Games, Trending, Featured, Popular,
+ *                         cards: category rows, Trending, Featured, Popular,
  *                         Today's Best, large card rows.
  *
  *   'square'    (1:1)  — GameCard, ContinuePlayingCard, Favorites, Saved

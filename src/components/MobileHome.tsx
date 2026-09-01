@@ -151,18 +151,6 @@ export function MobileHome({
     <div className="flex flex-col gap-5 pb-2">
       <ContinuePlayingMobile />
 
-      {realGames.length > 0 && (
-        <MobileGameRow
-          title="Your Games"
-          icon="Sparkles"
-          accent="#FFD60A"
-          games={realGames}
-          viewMoreHref="/leaderboard"
-          cardSize="portrait"
-          headerBg="gold"
-        />
-      )}
-
       {topPicksBanners.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="font-category-fat px-4 text-[17px] text-white">

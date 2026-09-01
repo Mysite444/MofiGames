@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { GameThumbnail } from "./GameThumbnail";
-import { getCategoryBySlug } from "@/lib/categories";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game } from "@/lib/types";
 
@@ -15,7 +15,7 @@ const tagStyles: Record<string, string> = {
 };
 
 export function GameCard({ game }: { game: Game }) {
-  const category = getCategoryBySlug(game.categorySlug);
+  const category = useMergedCategoryBySlug(game.categorySlug);
   const [previewActive, setPreviewActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   // Square cover (1:1) matches this card's aspect-square container.
@@ -54,7 +54,7 @@ export function GameCard({ game }: { game: Game }) {
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[rgba(0,0,0,0.5)] group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[rgba(0,0,0,0.5)] group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

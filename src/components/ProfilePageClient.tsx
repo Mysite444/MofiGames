@@ -407,7 +407,7 @@ export function ProfilePageClient() {
                         if (e.key === "Enter") saveEditing();
                         if (e.key === "Escape") setEditing(false);
                       }}
-                      className="rounded-xl bg-white/15 px-3 py-1.5 font-display text-xl font-bold text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/50 sm:text-2xl"
+                      className="input-glow rounded-xl bg-white/15 px-3 py-1.5 font-display text-xl font-bold text-white placeholder:text-white/50 focus:outline-none sm:text-2xl"
                       disabled={saving}
                     />
                     <button

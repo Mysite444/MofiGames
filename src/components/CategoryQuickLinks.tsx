@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { categories } from "@/lib/categories";
+import { mergeAllCategoriesWithDb } from "@/lib/categories";
 import { iconMap } from "@/lib/icon-map";
 import { useRealGames } from "@/lib/supabase/real-games-client";
-
-const staticSlugs = new Set(categories.map((c) => c.slug));
 
 // Desktop equivalent of the reference's "Dress Up / Scratch / Shooting..."
 // quick-tag grid — uses our real 18 genres instead of made-up tags, reusing
@@ -16,8 +14,9 @@ export function CategoryQuickLinks() {
   // CategoryQuickGrid — this grid was otherwise the one place on the
   // homepage/404 page a real-only category couldn't be reached from.
   const { categories: realCategories } = useRealGames();
-  const newRealCategories = realCategories.filter((c) => !staticSlugs.has(c.slug));
-  const allCategories = [...categories, ...newRealCategories];
+  // DB values win for built-in categories (name, icon, colorFrom …);
+  // custom DB-only categories are appended after the 18 built-ins.
+  const allCategories = mergeAllCategoriesWithDb(realCategories);
 
   return (
     <section className="px-4 md:px-6">

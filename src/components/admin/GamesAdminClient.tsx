@@ -1497,7 +1497,7 @@ export function GamesAdminClient() {
                   kind="image"
                 />
                 <p className="mt-1.5 text-[11px] text-text-faint">
-                  Used for: large homepage cards · Your Games · Trending · Featured · Popular · Today&apos;s Best
+                  Used for: large homepage cards · category rows · Trending · Featured · Popular · Today&apos;s Best
                 </p>
               </Field>
 

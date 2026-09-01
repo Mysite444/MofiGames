@@ -121,10 +121,10 @@ export function SiteIdentityAdminClient() {
             onChange={(e) => setForm((f) => ({ ...f, copyright_text: e.target.value }))}
             className="admin-input"
             maxLength={200}
-            placeholder="MofiGames. All rights reserved."
+            placeholder={`© ${new Date().getFullYear()} MofiGames. All rights reserved.`}
           />
           <p className="mt-1 text-[11px] text-text-faint">
-            Shown in the site footer as “© {new Date().getFullYear()} …” followed by this text.
+            Shown exactly as typed in the site footer — include the © symbol and year yourself, e.g. “© {new Date().getFullYear()} MofiGames. All rights reserved.”
           </p>
         </Field>
 

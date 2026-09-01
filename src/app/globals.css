@@ -48,6 +48,20 @@
   --color-menu-yellow: #000000;
   --color-menu-blue: #3da9fc;
 
+  /* Primary CTA blue — the "Back to Game" pill's color (game page, mobile +
+     desktop). Now the single shared accent for every standalone action pill
+     site-wide: Random Game / Back to Top (homepage, PC + mobile), Back to
+     Game (game page content, PC + mobile), and pagination (.pagination-btn /
+     .pagination-arrow). Deliberately its own token, separate from
+     --color-menu-blue above (that lighter blue, #3da9fc, stays reserved for
+     icon states — bookmarks etc. — and lacks CTA weight on a dark bg).
+     #2563EB is Tailwind blue-600: 4.97:1 contrast vs. white text (WCAG AA).
+     --color-cta-blue-rgb duplicates the same color as an r,g,b triplet so
+     box-shadow glows can use rgba(var(--color-cta-blue-rgb), alpha). */
+  --color-cta-blue: #2563eb;
+  --color-cta-blue-hover: #1d4ed8;
+  --color-cta-blue-rgb: 37, 99, 235;
+
   /* Fonts */
   --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
@@ -72,6 +86,8 @@
   --color-menu-bg: var(--color-menu-bg);
   --color-menu-yellow: var(--color-menu-yellow);
   --color-menu-blue: var(--color-menu-blue);
+  --color-cta-blue: var(--color-cta-blue);
+  --color-cta-blue-hover: var(--color-cta-blue-hover);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-category: var(--font-category);
@@ -347,7 +363,17 @@ h1, h2, h3, h4, .font-display {
 }
 
 /* Scrollbar for the desktop hover-menu — completely hidden while collapsed,
-   fades in thin + purple only once the menu is hovered/open (CrazyGames style). */
+   fades in thin once the menu is hovered/open (CrazyGames style).
+   NOTE: this used to color the thumb with --color-menu-yellow, back when that
+   variable held the purple accent (#9146ff). It was repointed to #000000
+   during the black/white rebrand (see the --color-menu-yellow comment near
+   the top of this file), which made the thumb the same color as the near-
+   black menu bg/track — invisible until the browser's native scrollbar
+   :hover state happened to lighten it. Using a translucent white here
+   instead (same token the rest of the site's thin scrollbars already use —
+   see .content-scroll and html::-webkit-scrollbar-thumb below) keeps it
+   visible the instant the menu opens, regardless of what the accent color
+   is set to. */
 .menu-scroll {
   scrollbar-width: none; /* Firefox: no gutter, no thumb, until open */
   scrollbar-color: transparent transparent;
@@ -364,13 +390,16 @@ h1, h2, h3, h4, .font-display {
 }
 .menu-scroll.menu-scroll-open {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-menu-yellow) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
 }
 .menu-scroll.menu-scroll-open::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 .menu-scroll.menu-scroll-open::-webkit-scrollbar-thumb {
-  background: var(--color-menu-yellow);
+  background: rgba(255, 255, 255, 0.35);
+}
+.menu-scroll.menu-scroll-open::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 /* The "lighting" hover used on desktop menu nav items: a soft purple fill
@@ -496,26 +525,61 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
-/* Search box shell — a single border that shifts to the theme accent on
-   hover/focus. Replaces the old stacked ring+glow effect (which read as an
-   extra outline "line" on top of the box's own border) with just that one
-   border changing color. */
+/* Search box shell — on hover/focus, no border-color swap and no hard
+   rectangular outline. Instead a soft, blurred glow fades in around the
+   pill plus a gentle lift, so the feedback reads as an animation rather
+   than a static line snapping into place. */
 .search-shell {
-  transition: border-color 0.2s ease;
+  transition: box-shadow 0.35s ease, transform 0.2s ease;
 }
 .search-shell:hover,
 .search-shell:focus-within {
-  border-color: var(--color-menu-yellow);
+  transform: translateY(-1px) scale(1.01);
+  box-shadow:
+    0 0 20px 4px rgba(255, 255, 255, 0.14),
+    0 0 42px 10px rgba(255, 255, 255, 0.08),
+    0 10px 28px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 /* The site-wide :focus-visible outline (see below) is unlayered, so it
-   otherwise beats the input's own focus:outline-none utility. Scoped
-   override so the search box keeps just its purple border on click,
-   without touching the accessible focus ring anywhere else on the site. */
+   otherwise beats the input's own focus:outline-none utility — belt and
+   braces with !important since this is the one spot on the site an input
+   deliberately opts out of the default ring in favor of the glow above.
+   Scoped to .search-shell only, so the accessible focus ring stays intact
+   everywhere else on the site. */
+.search-shell input:focus,
 .search-shell input:focus-visible {
-  outline: none;
+  outline: none !important;
 }
 
-/* Respect reduced motion preferences */
+/* Text-input focus feedback (login, signup, forgot/reset password,
+   contact form, comments, reviews, profile forms) — same soft-glow
+   language as .search-shell above, replacing the old flat white
+   ring-rectangle with a fade-in glow + gentle lift. Works whether it's
+   applied to the input's wrapper div (:focus-within) or straight on an
+   <input> itself (:focus). */
+.input-glow {
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+.input-glow:focus-within,
+.input-glow:focus {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 14px 3px rgba(255, 255, 255, 0.14),
+    0 0 30px 8px rgba(255, 255, 255, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+/* Same override as .search-shell above: the site-wide :focus-visible
+   outline is unlayered, so it beats the input's own focus:outline-none
+   utility and still draws the old flat white rectangle around the field
+   on top of the glow. Kill it here too so the glow is the only focus
+   feedback shown on these fields. */
+.input-glow input:focus,
+.input-glow input:focus-visible {
+  outline: none !important;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
@@ -634,24 +698,28 @@ h1, h2, h3, h4, .font-display {
 /* ── Primary CTA pill button (.btn-cta) ──────────────────────────────────────
    Single source of truth for all standalone action pills:
    "Random Game", "Back to Top" (home), "Back to Game" (game page), etc.
+   Color: --color-cta-blue (#2563EB) — matches the "Back to Game" pill on the
+   game page exactly, so every primary CTA pill site-wide reads as the same
+   action color instead of some being black and some being blue.
    Layout utilities (flex, gap, padding, width) are still applied via Tailwind
    at the call-site so full-width mobile variants can override freely.
    ──────────────────────────────────────────────────────────────────────────── */
 .btn-cta {
-  background: var(--color-menu-yellow);   /* solid jet black */
+  background: var(--color-cta-blue);
   color: #ffffff;
   font-weight: 700;
   border-radius: 9999px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: box-shadow 0.22s ease, filter 0.18s ease, transform 0.15s ease;
+  box-shadow: 0 4px 20px rgba(var(--color-cta-blue-rgb), 0.32), 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.18s ease, box-shadow 0.22s ease, filter 0.18s ease, transform 0.15s ease;
 }
 .btn-cta:hover {
-  filter: brightness(1.12);
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.48), 0 4px 12px rgba(0, 0, 0, 0.35);
+  background: var(--color-cta-blue-hover);
+  filter: none;
+  box-shadow: 0 6px 28px rgba(var(--color-cta-blue-rgb), 0.48), 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 .btn-cta:active {
   transform: scale(0.97);
-  filter: brightness(1.05);
+  filter: none;
 }
 
 /* ── Pagination buttons (.pagination-btn / .pagination-btn-active) ───────────
@@ -660,6 +728,8 @@ h1, h2, h3, h4, .font-display {
    out the purple fill so it's almost invisible. These classes explicitly
    cancel the filter and surface the solid colour with the same glow as
    .btn-cta so all interactive pill-buttons feel identical.
+   Color: --color-cta-blue — same token as .btn-cta / Back to Game, so
+   pagination reads as the same accent as every other primary action pill.
    ──────────────────────────────────────────────────────────────────────────── */
 
 /* Idle: same frosted-glass look as the rest of the UI */
@@ -678,13 +748,13 @@ h1, h2, h3, h4, .font-display {
     transform 0.15s ease,
     backdrop-filter 0s;      /* instant — don't animate blur removal */
 }
-/* Hover: kill the blur so solid black shows, clean elevation shadow */
+/* Hover: kill the blur so solid blue shows, clean elevation shadow */
 .pagination-btn:hover {
-  background: var(--color-menu-yellow);
+  background: var(--color-cta-blue);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-color: var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+  border-color: var(--color-cta-blue);
+  box-shadow: 0 4px 16px rgba(var(--color-cta-blue-rgb), 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
@@ -692,11 +762,11 @@ h1, h2, h3, h4, .font-display {
   transform: scale(0.96);
 }
 
-/* Active (current page): always solid black — same token as btn-cta */
+/* Active (current page): always solid blue — same token as btn-cta */
 .pagination-btn-active {
-  background: var(--color-menu-yellow);
-  border: 1px solid var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+  background: var(--color-cta-blue);
+  border: 1px solid var(--color-cta-blue);
+  box-shadow: 0 4px 16px rgba(var(--color-cta-blue-rgb), 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
@@ -718,33 +788,35 @@ h1, h2, h3, h4, .font-display {
     backdrop-filter 0s;
 }
 .pagination-arrow:hover:not(:disabled) {
-  background: var(--color-menu-yellow);
+  background: var(--color-cta-blue);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-color: var(--color-menu-yellow);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+  border-color: var(--color-cta-blue);
+  box-shadow: 0 4px 16px rgba(var(--color-cta-blue-rgb), 0.38);
   color: #ffffff;
   transform: scale(1.1);
 }
 .pagination-arrow:active:not(:disabled) {
   transform: scale(0.96);
 }
-/* Next arrow: always solid black (primary CTA direction) */
+/* Next arrow: always solid blue (primary CTA direction) */
 .pagination-arrow-next {
-  background: var(--color-menu-yellow);
+  background: var(--color-cta-blue);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid var(--color-menu-yellow);
+  border: 1px solid var(--color-cta-blue);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 4px 14px rgba(var(--color-cta-blue-rgb), 0.32);
   transition:
+    background-color 0.18s ease,
     box-shadow 0.18s ease,
     transform 0.15s ease,
     filter 0.15s ease;
 }
 .pagination-arrow-next:hover:not(:disabled) {
-  filter: brightness(1.12);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  background: var(--color-cta-blue-hover);
+  filter: none;
+  box-shadow: 0 6px 22px rgba(var(--color-cta-blue-rgb), 0.5);
   transform: scale(1.1);
 }
 .pagination-arrow-next:active:not(:disabled) {

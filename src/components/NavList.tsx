@@ -8,7 +8,7 @@ import {
   AlertTriangle, FileText, Baby, HeartHandshake, ChevronRight, LayoutGrid, User,
   Clock, Bookmark, Newspaper, Link2, Gamepad2,
 } from "lucide-react";
-import { categories } from "@/lib/categories";
+import { mergeAllCategoriesWithDb } from "@/lib/categories";
 import { iconMap } from "@/lib/icon-map";
 import { useRealGames } from "@/lib/supabase/real-games-client";
 import { FacebookIcon, InstagramIcon, XIcon, YoutubeIcon } from "./SocialIcons";
@@ -40,27 +40,6 @@ function useNavigationFragment() {
     };
   }, []);
   return { pages, menuLinks };
-}
-
-/** Copyright text set in Admin → Site Settings → Site Identity, from GET
- * /api/fragments/footer — backed by the "footer-widgets" fragment (Admin
- * → Cache → Fragment Cache). Falls back to the original built-in
- * copyright line until the row loads (or the fragment is disabled). */
-function useCopyrightText() {
-  const [text, setText] = useState<string | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/fragments/footer")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.copyrightText) setText(data.copyrightText);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return text ?? "MofiGames. All rights reserved.";
 }
 
 const discoverItems = [
@@ -102,8 +81,6 @@ const socialItems = [
   { label: "YouTube", href: "#", Icon: YoutubeIcon },
 ];
 
-const staticSlugs = new Set(categories.map((c) => c.slug));
-
 function SectionLabel({ collapsed, children }: { collapsed: boolean; children: string }) {
   if (collapsed) return null;
   return (
@@ -137,10 +114,11 @@ export function NavList({
   // not page props. Without this, a category that only exists in the
   // database (no matching placeholder slug) had no menu entry anywhere.
   const { categories: realCategories } = useRealGames();
-  const newRealCategories = realCategories.filter((c) => !staticSlugs.has(c.slug));
-  const genreItems = [...categories, ...newRealCategories];
+  // DB data wins for built-in categories (name, icon, colors, description,
+  // SEO, etc.) so admin edits are reflected immediately in the nav.
+  // Custom DB-only genres are appended after the 18 built-in ones.
+  const genreItems = mergeAllCategoriesWithDb(realCategories);
   const { pages: navPages, menuLinks } = useNavigationFragment();
-  const copyrightText = useCopyrightText();
 
   return (
     <nav className={`flex flex-col ${collapsed ? "gap-0.5" : "gap-1"}`}>
@@ -262,10 +240,6 @@ export function NavList({
               </a>
             ))}
           </div>
-
-          <p className="px-3 pb-2 pt-4 text-[11px] leading-relaxed text-text-faint">
-            © {new Date().getFullYear()} {copyrightText}
-          </p>
         </>
       )}
     </nav>

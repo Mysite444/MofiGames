@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { createClient } from "./client";
 import { mapDbGameRow, mapDbCategoryRow, type DbGameRow, type DbCategoryRow } from "../games-mapping";
+import { getCategoryBySlug, mergeCategoryWithDb } from "../categories";
 import type { Game, Category } from "../types";
 
 // Client-side counterpart to games-server.ts. Server Components can just
@@ -136,4 +137,21 @@ export function useRealGames(): {
 export function getRealGamesSnapshot(): Game[] {
   ensureLoaded();
   return games;
+}
+
+/**
+ * Resolves a single category by slug, preferring the live DB row over the
+ * hardcoded static fallback so admin edits (name, icon, colors, SEO …) are
+ * reflected immediately in every client-side game card and banner.
+ *
+ * Safe to call in any "use client" component — reads from the same
+ * module-level store as useRealGames() with zero extra network requests.
+ */
+export function useMergedCategoryBySlug(slug: string): Category | undefined {
+  const { categories: dbCategories } = useRealGames();
+  const staticCat = getCategoryBySlug(slug);
+  const dbCat = dbCategories.find((c) => c.slug === slug);
+  if (!staticCat && !dbCat) return undefined;
+  if (!staticCat) return dbCat;
+  return mergeCategoryWithDb(staticCat, dbCat);
 }

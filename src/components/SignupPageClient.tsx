@@ -10,7 +10,7 @@ import { useAuth, EmailConfirmationRequiredError } from "@/lib/auth-context";
 import { checkPasswordStrength, fetchSecuritySettings, DEFAULT_SECURITY_SETTINGS, type SecuritySettings } from "@/lib/security";
 
 const inputWrapClass =
-  "glass flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 transition-all focus-within:ring-2 focus-within:ring-white/40";
+  "glass input-glow flex items-center gap-2.5 rounded-xl px-3.5 py-2.5";
 const inputClass = "w-full bg-transparent text-sm text-white placeholder:text-text-faint focus:outline-none";
 
 export function SignupPageClient() {

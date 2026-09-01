@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { GameThumbnail } from "./GameThumbnail";
-import { getCategoryBySlug } from "@/lib/categories";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game } from "@/lib/types";
 
@@ -16,7 +18,7 @@ const tagStyles: Record<string, string> = {
 // regular-sized GameCards. The 88×88px container is square, so we use the
 // square cover (1:1 aspect ratio) to avoid cropping important artwork.
 export function ContinuePlayingCard({ game }: { game: Game }) {
-  const category = getCategoryBySlug(game.categorySlug);
+  const category = useMergedCategoryBySlug(game.categorySlug);
   // Square cover (1:1) matches this 88×88px tile — falls back to
   // thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "square");
@@ -25,7 +27,7 @@ export function ContinuePlayingCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block h-[88px] w-[88px] overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.05] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(0,0,0,0.5)] active:scale-[0.96]"
+      className="tile-shine group relative block h-[88px] w-[88px] overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.05] hover:ring-2 hover:ring-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.96]"
     >
       {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element

@@ -40,7 +40,7 @@ export const DEFAULT_SITE_IDENTITY: SiteIdentity = {
   appleTouchIconUrl: null,
   icon192Url: null,
   icon512Url: null,
-  copyrightText: "MofiGames. All rights reserved.",
+  copyrightText: "© MofiGames. All rights reserved.",
   updatedAt: new Date(0).toISOString(),
 };
 

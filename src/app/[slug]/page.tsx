@@ -14,7 +14,7 @@ import {
   getAllRealCategories,
   isCurrentUserAdmin,
 } from "@/lib/games-server";
-import { categories, getCategoryBySlug } from "@/lib/categories";
+import { categories, getCategoryBySlug, mergeCategoryWithDb } from "@/lib/categories";
 import { getTagBySlug, getPostsByTag, getPageBySlug } from "@/lib/content-server";
 import { getSeoSettings } from "@/lib/seo-settings";
 
@@ -171,7 +171,13 @@ export async function generateMetadata({
 
   if (resolution.type === "category") {
     const realCategories = await getAllRealCategories();
-    const category = getCategoryBySlug(slug) ?? realCategories.find((c) => c.slug === slug);
+    // DB data wins for editable fields (name, SEO title/description, etc.)
+    // while static content blocks are preserved from categories.ts.
+    const staticCat = getCategoryBySlug(slug);
+    const dbCat = realCategories.find((c) => c.slug === slug);
+    const category = staticCat
+      ? mergeCategoryWithDb(staticCat, dbCat)
+      : dbCat;
     if (!category) return {};
     return buildCategoryMetadata(category, settings);
   }
@@ -377,7 +383,13 @@ async function CategoryRenderer({ slug }: { slug: string }) {
     getSeoSettings(),
   ]);
 
-  const category = getCategoryBySlug(slug) ?? realCategories.find((c) => c.slug === slug);
+  // Merge DB row over the static fallback so admin edits (name, icon,
+  // colors, description, SEO, display style …) are reflected on the page.
+  // Static `content` blocks are preserved because the DB has no content
+  // column — those paragraphs still come from categories.ts.
+  const staticCat = getCategoryBySlug(slug);
+  const dbCat = realCategories.find((c) => c.slug === slug);
+  const category = staticCat ? mergeCategoryWithDb(staticCat, dbCat) : dbCat;
   if (!category) notFound();
 
   const realGamesInCategory = realGames.filter((g) => g.categorySlug === slug);

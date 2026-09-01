@@ -1,9 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
 import { GameCard } from "./GameCard";
 import { GameThumbnail } from "./GameThumbnail";
-import { getCategoryBySlug } from "@/lib/categories";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game, IconName } from "@/lib/types";
 
@@ -20,7 +22,9 @@ const headerBgStyles: Record<string, string> = {
 };
 
 function PortraitCard({ game }: { game: Game }) {
-  const category = getCategoryBySlug(game.categorySlug);
+  // Prefer the live DB row so admin edits to the category name are shown
+  // in the card's subtitle without a deploy.
+  const category = useMergedCategoryBySlug(game.categorySlug);
   // Portrait cover (2:3) matches this aspect-[2/3] 128px-wide tile — falls
   // back to thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "portrait");
@@ -29,7 +33,7 @@ function PortraitCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block aspect-[2/3] w-[128px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] hover:scale-[1.02] hover:ring-2 hover:ring-[rgba(0,0,0,0.5)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      className="tile-shine group relative block aspect-[2/3] w-[128px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] hover:scale-[1.02] hover:ring-2 hover:ring-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
     >
       {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element

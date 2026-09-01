@@ -180,6 +180,9 @@ export interface AdminCategory {
   homepage_label: string | null;
   // Display template (migration 0066)
   display_style: "default" | "portrait";
+  // Content blocks — editable heading+paragraph sections on the category page
+  // (migration 0074).  Empty array = "Show more" section is hidden.
+  content: Array<{ heading: string; body: string }>;
 }
 
 export type GameInput = Omit<

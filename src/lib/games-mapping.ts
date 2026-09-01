@@ -117,6 +117,8 @@ export interface DbCategoryRow {
   homepage_label?: string | null;
   // Display template (migration 0066)
   display_style?: string | null;
+  // Content blocks — heading + paragraph sections on the category page (migration 0074)
+  content?: Array<{ heading: string; body: string }> | null;
 }
 
 function resolvePlayUrl(row: DbGameRow, gameFilesBaseUrl: string): string | undefined {
@@ -245,5 +247,7 @@ export function mapDbCategoryRow(row: DbCategoryRow): Category {
     homepagePosition: row.homepage_position ?? null,
     homepageLabel: row.homepage_label ?? null,
     displayStyle: row.display_style === "portrait" ? "portrait" : "default",
+    // Only carry non-empty content arrays; empty/null means "use static fallback".
+    content: Array.isArray(row.content) && row.content.length > 0 ? row.content : undefined,
   };
 }
