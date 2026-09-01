@@ -82,5 +82,18 @@ export async function PUT(request: Request) {
   // regardless of whether the cron job is running.
   revalidatePath("/", "layout");
 
+  // The line above revalidates the root layout shell (<head> — favicon,
+  // title, etc.), but copyright_text is rendered inside the homepage's
+  // own <footer>, in src/app/page.tsx — a leaf page with its own
+  // `export const revalidate = 60` ISR cache, entirely separate from the
+  // layout. A layout-scoped revalidation doesn't reliably bust that
+  // page's own cached render, so a saved copyright-text change could sit
+  // invisible in the database for up to 60s, and whichever edit happened
+  // to be live when that window next ticked over is what showed up —
+  // always one save "behind" from the admin's perspective. Revalidating
+  // the page route directly closes that gap the same way the line above
+  // already does for the layout.
+  revalidatePath("/");
+
   return NextResponse.json({ settings: data });
 }

@@ -11,9 +11,16 @@ import type { AdPlacementConfig } from "./AdUnit";
 
 export function AppShell({
   children,
+  copyrightText,
   adSettings,
 }: {
   children: React.ReactNode;
+  /** Passed down from the server (RootLayout → getSiteIdentity()) since
+   * AppShell itself is a client component. Rendered at the bottom of the
+   * desktop sidebar and the mobile drawer — the site's only two "menu"
+   * surfaces — when each is open. Optional so existing tests/usages that
+   * don't pass it still render (just without the copyright line). */
+  copyrightText?: string;
   /** Passed down from the server (RootLayout → getAdSettings()) since
    * AppShell itself is a client component. Optional so existing tests/
    * usages that don't pass it still render (just with every sitewide ad
@@ -58,8 +65,8 @@ export function AppShell({
       />
       {/* Sidebar is a hover-expand overlay — it never pushes content, so main's
           padding only needs to reserve space for the collapsed icon-rail. */}
-      <Sidebar hidden={sidebarHidden} />
-      <MobileDrawer open={drawerOpen} onClose={closeDrawer} />
+      <Sidebar hidden={sidebarHidden} copyrightText={copyrightText} />
+      <MobileDrawer open={drawerOpen} onClose={closeDrawer} copyrightText={copyrightText} />
 
       <main
         id="top"

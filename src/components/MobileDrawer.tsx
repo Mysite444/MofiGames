@@ -9,9 +9,13 @@ import { NavList } from "./NavList";
 export function MobileDrawer({
   open,
   onClose,
+  copyrightText,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Site Identity → Copyright Text (Admin → Site Settings). Pinned to
+   * the bottom of the drawer panel, below the scrollable nav list. */
+  copyrightText?: string;
 }) {
   // The header is `position: sticky` + `backdrop-filter`, which on real
   // mobile Safari/Chrome (NOT desktop DevTools mobile emulation) gets
@@ -61,6 +65,12 @@ export function MobileDrawer({
             <NavList showArrows onNavigate={onClose} />
           </div>
         </div>
+
+        {copyrightText && (
+          <div className="shrink-0 border-t border-white/10 px-4 py-3.5 text-center text-xs leading-snug text-text-faint">
+            {copyrightText}
+          </div>
+        )}
       </div>
     </div>
   );

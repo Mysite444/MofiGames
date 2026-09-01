@@ -128,7 +128,11 @@ export default async function RootLayout({
   // finish before RootLayout could even return its JSX (which is what
   // lets the page and the sibling hint/script components below start
   // rendering at all). See MOFIGAMES_PERFORMANCE_AUDIT.md.
-  const [settings, adSettings] = await Promise.all([getSeoSettings(), getAdSettings()]);
+  const [settings, adSettings, identity] = await Promise.all([
+    getSeoSettings(),
+    getAdSettings(),
+    getSiteIdentity(),
+  ]);
   const adsenseReady = adSettings.adsense_enabled && Boolean(adSettings.adsense_client_id);
 
   return (
@@ -153,6 +157,7 @@ export default async function RootLayout({
           <LinkPrefetchController />
           <SessionTimeoutManager />
           <AppShell
+            copyrightText={identity.copyrightText}
             adSettings={{
               header: {
                 enabled: adSettings.header_ads_enabled,

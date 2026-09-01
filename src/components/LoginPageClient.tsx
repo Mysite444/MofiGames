@@ -62,7 +62,7 @@ function MfaChallengeForm() {
       <button
         type="submit"
         disabled={loading || code.length !== 6}
-        className="glow-yellow-button inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white transition-opacity active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+        className="login-cta-glow inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
       >
         {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
         {loading ? "Verifying…" : "Verify"}
@@ -271,7 +271,7 @@ export function LoginPageClient() {
           <button
             type="submit"
             disabled={loading}
-            className="glow-yellow-button mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white transition-opacity active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+            className="login-cta-glow mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
             {loading ? "Logging in…" : "Log In"}
