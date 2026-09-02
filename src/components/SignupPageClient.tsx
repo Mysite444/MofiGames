@@ -274,7 +274,7 @@ export function SignupPageClient() {
           <button
             type="submit"
             disabled={loading}
-            className="glow-yellow-button mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white transition-opacity active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+            className="glass mt-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
             {loading ? "Creating account…" : "Create Account"}

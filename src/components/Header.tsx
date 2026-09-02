@@ -338,7 +338,7 @@ export function Header({
               <Link
                 href="/login"
                 onClick={() => setAccountOpen(false)}
-                className="glow-yellow-button flex w-full items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] py-2.5 text-sm font-bold text-white active:scale-[0.98]"
+                className="glass flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-bold text-white transition-colors hover:bg-white/10 active:scale-[0.98]"
               >
                 <LogIn size={16} />
                 Log In
@@ -346,7 +346,7 @@ export function Header({
               <Link
                 href="/signup"
                 onClick={() => setAccountOpen(false)}
-                className="glass flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold text-white"
+                className="glass flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 active:scale-[0.98]"
               >
                 <UserPlus size={16} />
                 Create Account

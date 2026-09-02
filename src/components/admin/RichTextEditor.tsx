@@ -89,6 +89,16 @@ function extractYouTubeId(url: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Is the editor "visually" empty? Plain whitespace/<br> only, and no
+// embedded media that would still be meaningful with no text (image, table,
+// video, hr).
+// ---------------------------------------------------------------------------
+function checkEmpty(el: HTMLElement): boolean {
+  if ((el.textContent ?? "").trim() !== "") return false;
+  return !el.querySelector("img, table, hr, iframe, video");
+}
+
+// ---------------------------------------------------------------------------
 // Main RichTextEditor component
 // ---------------------------------------------------------------------------
 
@@ -109,8 +119,14 @@ export function RichTextEditor({
   minHeight?: number;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const lastValueRef = useRef(value);
+  // Sentinel (not a valid string value) so the very first sync effect run
+  // always writes `value` into the DOM. Seeding this with `value` itself
+  // (the old code) made the mount-time check `value !== lastValueRef.current`
+  // false, so the editor's contentEditable div was left genuinely empty on
+  // load no matter what content was passed in.
+  const lastValueRef = useRef<string | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const [isEmpty, setIsEmpty] = useState(true);
 
   // Dialog state
   const [dialog, setDialog] = useState<DialogState>({ type: null });
@@ -131,11 +147,13 @@ export function RichTextEditor({
   // Current heading display
   const [currentHeading, setCurrentHeading] = useState("Paragraph");
 
-  // Only push `value` into the DOM when it changes from *outside* this component.
+  // Only push `value` into the DOM when it changes from *outside* this component
+  // (including the very first render — see lastValueRef comment above).
   useEffect(() => {
     if (editorRef.current && value !== lastValueRef.current) {
       editorRef.current.innerHTML = value;
       lastValueRef.current = value;
+      setIsEmpty(checkEmpty(editorRef.current));
     }
   }, [value]);
 
@@ -198,6 +216,7 @@ export function RichTextEditor({
   function handleInput() {
     if (!editorRef.current) return;
     lastValueRef.current = editorRef.current.innerHTML;
+    setIsEmpty(checkEmpty(editorRef.current));
     onChange(editorRef.current.innerHTML);
   }
 
@@ -574,44 +593,61 @@ export function RichTextEditor({
       </div>
 
       {/* ── Editor surface ───────────────────────────────────────────────── */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        data-placeholder={placeholder}
-        style={{ minHeight }}
-        className={[
-          "wp-editor overflow-y-auto px-5 py-4 text-sm leading-relaxed text-white focus:outline-none",
-          "[&_h1]:mt-4 [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white",
-          "[&_h2]:mt-3 [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-white",
-          "[&_h3]:mt-3 [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-white",
-          "[&_h4]:mt-2 [&_h4]:font-display [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-white",
-          "[&_h5]:mt-2 [&_h5]:font-display [&_h5]:text-sm [&_h5]:font-bold [&_h5]:text-white",
-          "[&_h6]:mt-2 [&_h6]:font-display [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-white/80",
-          "[&_p]:mb-2 [&_p]:leading-relaxed",
-          "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
-          "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
-          "[&_li]:my-0.5",
-          "[&_a]:text-blue-400 [&_a]:underline [&_a]:underline-offset-2",
-          "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-white/30 [&_blockquote]:pl-4 [&_blockquote]:text-white/70 [&_blockquote]:italic",
-          "[&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-white",
-          "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-white/5 [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-xs",
-          "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm",
-          "[&_th]:border [&_th]:border-white/15 [&_th]:bg-white/5 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold",
-          "[&_td]:border [&_td]:border-white/10 [&_td]:px-3 [&_td]:py-2",
-          "[&_hr]:my-4 [&_hr]:border-white/15",
-          "[&_strong]:font-bold [&_strong]:text-white",
-          "[&_em]:italic",
-          "[&_s]:line-through [&_s]:text-white/60",
-          "[&_img]:max-w-full [&_img]:rounded-lg",
-          "[&_figure]:my-3",
-          "[&_figcaption]:mt-1 [&_figcaption]:text-center [&_figcaption]:text-xs [&_figcaption]:text-white/50",
-          "[&_.video-embed]:relative [&_.video-embed]:my-4",
-          "[&_.inline-code]:rounded [&_.inline-code]:bg-white/10 [&_.inline-code]:px-1.5 [&_.inline-code]:py-0.5 [&_.inline-code]:font-mono [&_.inline-code]:text-xs",
-          "empty:before:pointer-events-none empty:before:text-white/25 empty:before:content-[attr(data-placeholder)]",
-        ].join(" ")}
-      />
+      {/* Wrapped in a relative container so the placeholder can be an
+          absolutely-positioned overlay rather than a CSS `:empty::before`
+          pseudo-element on the contentEditable node itself. The pseudo-
+          element approach is a known source of caret-rendering bugs in
+          Chromium/WebKit: when the editable node is genuinely empty, the
+          browser's caret line-box calculation gets confused by the
+          pseudo-content and the caret flashes in and immediately
+          disappears on click. Keeping the placeholder as a separate,
+          non-editable, pointer-events-none sibling avoids that entirely. */}
+      <div className="relative">
+        {isEmpty && placeholder && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-5 top-4 select-none text-sm leading-relaxed text-white/25"
+          >
+            {placeholder}
+          </span>
+        )}
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          style={{ minHeight }}
+          className={[
+              "wp-editor overflow-y-auto px-5 py-4 text-sm leading-relaxed text-white focus:outline-none",
+            "[&_h1]:mt-4 [&_h1]:font-display [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white",
+            "[&_h2]:mt-3 [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-white",
+            "[&_h3]:mt-3 [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-bold [&_h3]:text-white",
+            "[&_h4]:mt-2 [&_h4]:font-display [&_h4]:text-base [&_h4]:font-bold [&_h4]:text-white",
+            "[&_h5]:mt-2 [&_h5]:font-display [&_h5]:text-sm [&_h5]:font-bold [&_h5]:text-white",
+            "[&_h6]:mt-2 [&_h6]:font-display [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-white/80",
+            "[&_p]:mb-2 [&_p]:leading-relaxed",
+            "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5",
+            "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5",
+            "[&_li]:my-0.5",
+            "[&_a]:text-blue-400 [&_a]:underline [&_a]:underline-offset-2",
+            "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-white/30 [&_blockquote]:pl-4 [&_blockquote]:text-white/70 [&_blockquote]:italic",
+            "[&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-white",
+            "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-white/5 [&_pre]:p-4 [&_pre]:font-mono [&_pre]:text-xs",
+            "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-sm",
+            "[&_th]:border [&_th]:border-white/15 [&_th]:bg-white/5 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold",
+            "[&_td]:border [&_td]:border-white/10 [&_td]:px-3 [&_td]:py-2",
+            "[&_hr]:my-4 [&_hr]:border-white/15",
+            "[&_strong]:font-bold [&_strong]:text-white",
+            "[&_em]:italic",
+            "[&_s]:line-through [&_s]:text-white/60",
+            "[&_img]:max-w-full [&_img]:rounded-lg",
+            "[&_figure]:my-3",
+            "[&_figcaption]:mt-1 [&_figcaption]:text-center [&_figcaption]:text-xs [&_figcaption]:text-white/50",
+            "[&_.video-embed]:relative [&_.video-embed]:my-4",
+            "[&_.inline-code]:rounded [&_.inline-code]:bg-white/10 [&_.inline-code]:px-1.5 [&_.inline-code]:py-0.5 [&_.inline-code]:font-mono [&_.inline-code]:text-xs",
+          ].join(" ")}
+        />
+      </div>
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}
 

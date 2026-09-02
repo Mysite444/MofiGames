@@ -271,7 +271,7 @@ export function LoginPageClient() {
           <button
             type="submit"
             disabled={loading}
-            className="login-cta-glow mt-1 inline-flex items-center justify-center gap-2 rounded-full bg-[var(--color-menu-bg)] px-6 py-3 text-sm font-bold text-white active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+            className="glass mt-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
             {loading ? "Logging in…" : "Log In"}

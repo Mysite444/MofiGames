@@ -24,7 +24,6 @@ import {
 } from "@/lib/homepage-layout-server";
 import { ALL_REGISTRY_SECTIONS, categorySectionKey } from "@/lib/homepage-section-registry";
 import { getSeoSettings } from "@/lib/seo-settings";
-import { getSiteIdentity } from "@/lib/site-identity";
 import { applyTitleTemplate } from "@/lib/seo";
 // clientCountryFromHeaders (headers() call) was removed from the server
 // render path so this page qualifies for ISR / static generation.
@@ -107,13 +106,12 @@ export default async function HomePage() {
   // only thing that can still reject is a Next.js control-flow signal
   // (redirect/notFound/DYNAMIC_SERVER_USAGE), which Promise.all propagates
   // immediately, same as a sequential await chain would have.
-  const [realGames, realCategories, identity, sectionOverrides, pinnedGameIds] = await timed(
-    "homepage:batch1(games+categories+identity+sections+pinned)",
+  const [realGames, realCategories, sectionOverrides, pinnedGameIds] = await timed(
+    "homepage:batch1(games+categories+sections+pinned)",
     () =>
       Promise.all([
         getAllRealGames(),
         getAllRealCategories(),
-        getSiteIdentity(),
         getHomepageSectionOverrides(),
         getHomepageSectionPinnedGameIds(),
       ])
@@ -306,7 +304,7 @@ export default async function HomePage() {
 
         {rowsAfterLeaderboard.map(renderRow)}
 
-        <div className="flex justify-center gap-3 px-4 md:px-6">
+        <div className="flex justify-center gap-3 px-4 pb-8 md:px-6">
           <RandomGameButton />
           <a
             href="#top"
@@ -316,10 +314,6 @@ export default async function HomePage() {
             Back to Top
           </a>
         </div>
-
-        <footer className="mt-4 border-t border-white/10 px-4 py-8 text-center text-xs text-text-faint md:px-6">
-          {identity.copyrightText}
-        </footer>
       </div>
     </>
   );
