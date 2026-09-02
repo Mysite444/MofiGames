@@ -271,7 +271,7 @@ export function LoginPageClient() {
           <button
             type="submit"
             disabled={loading}
-            className="glass mt-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+            className="auth-btn glass mt-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white disabled:pointer-events-none disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
             {loading ? "Logging in…" : "Log In"}
@@ -287,7 +287,7 @@ export function LoginPageClient() {
             type="button"
             onClick={handleGuest}
             disabled={loading}
-            className="glass flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
+            className="auth-btn glass flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
           >
             <Sparkles size={16} />
             Continue as Guest
@@ -298,7 +298,7 @@ export function LoginPageClient() {
               type="button"
               onClick={() => handleOAuth("google")}
               disabled={loading || oauthLoading !== null}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08] disabled:pointer-events-none disabled:opacity-60"
+              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
             >
               {oauthLoading === "google" ? <Loader2 size={14} className="animate-spin" /> : <GoogleIcon size={14} />}
               Continue with Google
@@ -307,7 +307,7 @@ export function LoginPageClient() {
               type="button"
               onClick={() => handleOAuth("discord")}
               disabled={loading || oauthLoading !== null}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08] disabled:pointer-events-none disabled:opacity-60"
+              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
             >
               {oauthLoading === "discord" ? <Loader2 size={14} className="animate-spin" /> : <DiscordIcon size={14} />}
               Continue with Discord
