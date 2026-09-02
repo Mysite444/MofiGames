@@ -98,6 +98,7 @@ const emptyForm: GameInput = {
   description: "",
   instructions: "",
   content: "",
+  content_draft: null,
   controls: "",
 
   thumbnail_url: null,
@@ -469,6 +470,7 @@ export function GamesAdminClient() {
       description: game.description,
       instructions: game.instructions,
       content: game.content,
+      content_draft: game.content_draft ?? null,
       controls: game.controls,
       thumbnail_url: game.thumbnail_url,
       cover_image_url: game.cover_image_url,
@@ -2749,8 +2751,16 @@ function RowActionsMenu({
               close();
             }}
           >
-            Edit
+            Quick Edit
           </MenuItem>
+          <a
+            href={`/admin/games/${game.id}/edit`}
+            onClick={close}
+            className="flex items-center gap-2 px-3.5 py-2 text-sm text-white/85 hover:bg-white/10"
+          >
+            <Pencil size={14} className="text-amber-400" />
+            <span className="text-amber-400/90">Full Editor ✦</span>
+          </a>
           <MenuItem
             icon={<Eye size={14} />}
             onClick={() => {

@@ -72,6 +72,10 @@ export interface AdminGame {
    * RichTextEditor (headings, paragraphs, bullet/numbered lists). See
    * migration 0072. */
   content: string;
+  /** Work-in-progress draft of content (migration 0075). NULL = no pending
+   * edits; the editor falls back to `content`. Publishing copies this to
+   * `content`. Autosave writes here; public pages never read it. */
+  content_draft: string | null;
   controls: string;
   thumbnail_url: string | null;
   cover_image_url: string | null;
@@ -192,6 +196,21 @@ export type GameInput = Omit<
 export type CategoryInput = Omit<AdminCategory, "created_at">;
 
 // --- Games ------------------------------------------------------------
+
+/** Fetch a single game by ID for the full-page editor. Returns null if the
+ * game doesn't exist (never throws for a 404 — only rethrows on real DB
+ * errors). */
+export async function fetchGameAdminById(id: string): Promise<AdminGame | null> {
+  const supabase = createClient();
+  const [{ data, error }, { data: tagRows, error: tagError }] = await Promise.all([
+    supabase.from("games").select("*").eq("id", id).maybeSingle(),
+    supabase.from("game_tags").select("tag_id").eq("game_id", id),
+  ]);
+  if (error) throw new Error(error.message);
+  if (tagError) throw new Error(tagError.message);
+  if (!data) return null;
+  return { ...data, tagIds: (tagRows ?? []).map((r) => r.tag_id) };
+}
 
 /** Every (non-trashed, by default) game, unpaginated — for the pickers
  * that need the full list at once: Homepage sections, Homepage category

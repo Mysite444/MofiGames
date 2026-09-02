@@ -83,7 +83,11 @@ export const gameInputSchema = z
     // text fields above since markup adds overhead for the same amount of
     // reader-visible copy; sanitizeContentHtml() strips scripts/handlers
     // server-side before it's ever rendered.
-    content: z.string().trim().max(20000).default(""),
+    content: z.string().trim().max(200000).default(""),
+    // Work-in-progress draft of content (migration 0075). Autosave writes
+    // here; "Publish"/"Update" copies it to `content`. Never rendered
+    // publicly.
+    content_draft: z.string().trim().max(200000).nullable().optional(),
     controls: z.string().trim().max(4000).default(""),
 
     category_slug: z.string().trim().min(1, "Category is required"),

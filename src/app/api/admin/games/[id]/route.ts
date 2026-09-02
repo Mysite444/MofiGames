@@ -7,6 +7,32 @@ import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 import { deleteGameStorageFiles } from "@/lib/supabase/game-storage-cleanup";
 
+/** GET /api/admin/games/:id — fetch a single game for the full-page editor.
+ * Returns the complete game row + tagIds, same shape as the PATCH response. */
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const parsedParams = paramsSchema.safeParse(await params);
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Invalid game id." }, { status: 400 });
+  }
+
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
+  }
+  const { supabase } = auth.ctx;
+
+  const [{ data, error }, { data: tagRows, error: tagError }] = await Promise.all([
+    supabase.from("games").select("*").eq("id", parsedParams.data.id).maybeSingle(),
+    supabase.from("game_tags").select("tag_id").eq("game_id", parsedParams.data.id),
+  ]);
+
+  if (error) return apiError(error);
+  if (tagError) return apiError(tagError);
+  if (!data) return NextResponse.json({ error: "Game not found." }, { status: 404 });
+
+  return NextResponse.json({ game: { ...data, tagIds: (tagRows ?? []).map((r) => r.tag_id) } });
+}
+
 const paramsSchema = z.object({ id: z.string().uuid() });
 
 /** PATCH /api/admin/games/:id — partial update of a game. Admin only. If
