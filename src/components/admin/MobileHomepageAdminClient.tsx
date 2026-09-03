@@ -49,7 +49,7 @@ interface TemplateInfo {
   name: string;
   description: string;
   Icon: typeof Film;
-  preview: JSX.Element;
+  preview: React.JSX.Element;
 }
 
 const TEMPLATE_INFOS: TemplateInfo[] = [
