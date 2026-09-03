@@ -2780,3 +2780,88 @@ export async function deleteReviewAdmin(id: string): Promise<void> {
   const response = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: "DELETE" });
   await parseJsonOrThrow(response);
 }
+
+// ---------------------------------------------------------------------------
+// Mobile Homepage Sections
+// ---------------------------------------------------------------------------
+
+export type MobileGameSort =
+  | "popular"
+  | "new"
+  | "trending"
+  | "featured"
+  | "editors_pick"
+  | "random";
+
+export interface MobileHomepageSectionAdmin {
+  id: string;
+  section_key: string;
+  template_id: 1 | 2 | 3 | 4 | 5;
+  position: number;
+  title: string | null;
+  subtitle: string | null;
+  is_enabled: boolean;
+  game_limit: number;
+  game_sort: MobileGameSort;
+  show_view_all: boolean;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MobileHomepageSectionInput = Omit<
+  MobileHomepageSectionAdmin,
+  "id" | "created_at" | "updated_at"
+>;
+
+/** Fetch ALL mobile homepage sections (admin view — enabled + disabled). */
+export async function fetchMobileHomepageSections(): Promise<MobileHomepageSectionAdmin[]> {
+  const response = await fetch("/api/admin/mobile-homepage");
+  return (await parseJsonOrThrow(response)) as MobileHomepageSectionAdmin[];
+}
+
+/** Create a new mobile homepage section. */
+export async function createMobileHomepageSection(
+  input: MobileHomepageSectionInput
+): Promise<MobileHomepageSectionAdmin> {
+  const response = await fetch("/api/admin/mobile-homepage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const json = (await parseJsonOrThrow(response)) as { section: MobileHomepageSectionAdmin };
+  return json.section;
+}
+
+/** Update an existing mobile homepage section. */
+export async function updateMobileHomepageSection(
+  id: string,
+  input: Partial<MobileHomepageSectionInput>
+): Promise<MobileHomepageSectionAdmin> {
+  const response = await fetch(`/api/admin/mobile-homepage/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const json = (await parseJsonOrThrow(response)) as { section: MobileHomepageSectionAdmin };
+  return json.section;
+}
+
+/** Delete a mobile homepage section. */
+export async function deleteMobileHomepageSection(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/mobile-homepage/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  await parseJsonOrThrow(response);
+}
+
+/** Persist a new drag-and-drop order for ALL mobile homepage sections.
+ *  Takes the full ordered list of ids; rewrites position 10, 20, 30... */
+export async function reorderMobileHomepageSections(ids: string[]): Promise<void> {
+  const response = await fetch("/api/admin/mobile-homepage/reorder", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+  await parseJsonOrThrow(response);
+}

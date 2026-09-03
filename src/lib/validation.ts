@@ -1618,3 +1618,81 @@ export const contactFormSchema = z.object({
   /** Honeypot — must be empty; filled = bot. */
   website: z.string().max(0, "Bot detected.").optional().default(""),
 });
+
+// --- Mobile Homepage Sections (admin) --------------------------------------
+// Validates CREATE, PATCH, and REORDER payloads for the mobile_homepage_sections
+// table (migration 0076). The section_key format matches the existing
+// anySectionKey pattern used by homepage_section_games.
+
+const mobileGameSort = z.enum([
+  "popular", "new", "trending", "featured", "editors_pick", "random",
+]);
+
+const mobileSectionKey = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(
+    /^(system|genre|category):[a-z0-9_.-]+$/,
+    "section_key must be system:*, genre:<slug>, or category:<slug>"
+  );
+
+export const mobileHomepageSectionCreateSchema = z.object({
+  section_key: mobileSectionKey,
+  template_id: z.number().int().min(1).max(5),
+  position: z.number().int().min(0).max(999999).optional().default(0),
+  title: z
+    .string()
+    .trim()
+    .max(80)
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
+  subtitle: z
+    .string()
+    .trim()
+    .max(160)
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
+  is_enabled: z.boolean().optional().default(true),
+  game_limit: z.number().int().min(1).max(30).optional().default(10),
+  game_sort: mobileGameSort.optional().default("popular"),
+  show_view_all: z.boolean().optional().default(true),
+  settings: z.record(z.unknown()).optional().default({}),
+});
+
+export const mobileHomepageSectionUpdateSchema = z
+  .object({
+    template_id: z.number().int().min(1).max(5).optional(),
+    position: z.number().int().min(0).max(999999).optional(),
+    title: z
+      .string()
+      .trim()
+      .max(80)
+      .nullable()
+      .optional()
+      .or(z.literal("").transform(() => null)),
+    subtitle: z
+      .string()
+      .trim()
+      .max(160)
+      .nullable()
+      .optional()
+      .or(z.literal("").transform(() => null)),
+    is_enabled: z.boolean().optional(),
+    game_limit: z.number().int().min(1).max(30).optional(),
+    game_sort: mobileGameSort.optional(),
+    show_view_all: z.boolean().optional(),
+    settings: z.record(z.unknown()).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "No fields to update." });
+
+export const mobileHomepageSectionIdParamSchema = z.object({
+  id: z.string().uuid("Invalid section id."),
+});
+
+export const mobileHomepageSectionsReorderSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+});

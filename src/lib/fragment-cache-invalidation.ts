@@ -51,3 +51,9 @@ export function invalidateSiteIdentityFragments(): void {
 export function invalidateSeoSettingsFragments(): void {
   purgeFragment("seo-settings");
 }
+
+/** Mobile homepage section create/update/delete/reorder — see
+ * getMobileHomepageSections() in mobile-homepage-server.ts. */
+export function invalidateMobileHomepageFragments(): void {
+  purgeFragment("mobile-homepage");
+}

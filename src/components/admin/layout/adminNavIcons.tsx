@@ -72,6 +72,7 @@ import {
   Minimize2,
   Fingerprint,
   Star,
+  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -149,6 +150,7 @@ export const adminNavIcons: Record<string, LucideIcon> = {
   minimize2: Minimize2,
   fingerprint: Fingerprint,
   star: Star,
+  smartphone: Smartphone,
 };
 
 export function AdminIcon({ name, size = 17 }: { name: string; size?: number }) {

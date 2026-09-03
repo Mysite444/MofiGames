@@ -62,6 +62,7 @@ export function buildAdminNav(perms: AdminNavPerms): AdminNavGroup[] {
       links: [
         { href: "/admin/games", label: "Games", icon: "gamepad2" },
         { href: "/admin/homepage", label: "Featured Content", icon: "home" },
+        { href: "/admin/homepage/mobile", label: "Mobile Homepage", icon: "smartphone" },
         { href: "/admin/categories", label: "Categories", icon: "layoutGrid" },
         { href: "/admin/tags", label: "Tags", icon: "tag" },
         { href: "/admin/pages", label: "Pages", icon: "fileText" },
