@@ -798,9 +798,14 @@ export function MobileHomepageAdminClient() {
   // ── Delete ─────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (!deleteTarget) return;
-    await deleteMobileHomepageSection(deleteTarget.id);
-    setDeleteTarget(null);
-    await load();
+    try {
+      await deleteMobileHomepageSection(deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to delete section.");
+      throw err; // let DeleteConfirm's finally clear its own loading state
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -831,8 +836,15 @@ export function MobileHomepageAdminClient() {
       </div>
 
       {loadError && (
-        <div className="mb-5 rounded-xl bg-hot/15 px-4 py-3 text-sm font-medium text-hot">
-          {loadError}
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-hot/15 px-4 py-3 text-sm font-medium text-hot">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="shrink-0 rounded-full border border-hot/40 px-3 py-1 text-xs font-semibold hover:bg-hot/10"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -849,7 +861,7 @@ export function MobileHomepageAdminClient() {
       </div>
 
       {/* Sections list */}
-      {sections === null ? (
+      {sections === null && loadError ? null : sections === null ? (
         <div className="glass flex items-center justify-center rounded-xl py-16 text-text-faint">
           <Loader2 size={20} className="animate-spin" />
         </div>

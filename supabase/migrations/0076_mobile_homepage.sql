@@ -95,7 +95,6 @@ values
   ('genre:multiplayer',    5, 60,  'Play with Friends', 10, 'popular',      true),
   ('genre:brain',          3, 70,  'Brain Games',       10, 'popular',      true),
   ('system:editors_pick',  5, 80,  'Editor''s Picks',   10, 'editors_pick', true),
-  ('genre:sports',         5, 90,  'Sports Games',      10, 'popular',      true),
   ('genre:driving',        4, 100, 'Driving Games',     10, 'popular',      true),
   ('system:new',           2, 110, 'New Games',         6,  'new',          true),
   ('genre:action',         5, 120, 'Action',            10, 'popular',      true),
