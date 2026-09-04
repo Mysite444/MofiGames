@@ -14,7 +14,7 @@ const tagStyles: Record<string, string> = {
   UPDATED: "glass-strong text-white",
 };
 
-export function GameCard({ game }: { game: Game }) {
+export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: boolean }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
   const [previewActive, setPreviewActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -96,11 +96,13 @@ export function GameCard({ game }: { game: Game }) {
 
       </div>
 
-      <div className="mt-2 px-0.5">
-        <p className="truncate font-display text-[13px] font-semibold leading-tight text-text">
-          {game.title}
-        </p>
-      </div>
+      {!hideTitle && (
+        <div className="mt-2 px-0.5">
+          <p className="truncate font-display text-[13px] font-semibold leading-tight text-text">
+            {game.title}
+          </p>
+        </div>
+      )}
     </Link>
   );
 }

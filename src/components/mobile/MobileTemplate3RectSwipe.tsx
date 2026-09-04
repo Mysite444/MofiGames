@@ -17,29 +17,24 @@ const TAG_STYLES: Record<string, string> = {
 };
 
 /**
- * Template 3 — Rectangular Swipe with Colored Background
+ * Template 3 — Full-Width Rectangular Swipe
  *
- * Visual signature:
- *  • Section has a dedicated coloured background panel (category accent)
- *  • Star (★) symbol + section title in the header area
- *  • Smaller rectangular portrait cards (narrower than Template 5)
- *  • Horizontal swipe scroll rail (4 cards visible on a standard phone)
- *
- * This is the "featured category" / "originals-style" layout matching the
- * CrazyGames coloured-panel sections.
+ * Visual signature (matches CrazyGames "Featured games" section):
+ *  • Full-width section — no outer rounded card or side margins
+ *  • Subtle accent gradient header strip, solid-filled icon badge
+ *  • Large portrait (2:3) cards — 108 px wide, 4 visible at once on most phones
+ *  • No game name overlays on cards — thumbnails speak for themselves
+ *  • Horizontal swipe rail from edge to edge
  */
 function RectCard({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
-  // Portrait (2:3) for the taller rectangular card shape.
-  // Spec: "smaller game size thumbnail" — narrower than the existing 128px
-  // MobileGameRow portrait card; 72px keeps 4 cards in view at once.
   const imageSrc = getGameCover(game, "portrait");
   if (!imageSrc && !category) return null;
 
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block w-[72px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[80px]"
+      className="tile-shine group relative block w-[108px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[118px]"
       style={{ aspectRatio: "2/3" }}
     >
       {imageSrc ? (
@@ -58,11 +53,7 @@ function RectCard({ game }: { game: Game }) {
         />
       ) : null}
 
-      <div
-        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"
-        aria-hidden
-      />
-
+      {/* Tag badge only — no game name text */}
       {game.tag && (
         <span
           className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[9px] font-bold tracking-wide ${TAG_STYLES[game.tag]}`}
@@ -70,10 +61,6 @@ function RectCard({ game }: { game: Game }) {
           {game.tag}
         </span>
       )}
-
-      <div className="absolute inset-x-1.5 bottom-1.5">
-        <p className="truncate text-[10px] font-bold leading-tight text-white">{game.title}</p>
-      </div>
     </Link>
   );
 }
@@ -86,50 +73,39 @@ export function MobileTemplate3RectSwipe({
   accent = "#7C5CFC",
   icon,
   showViewAll = true,
-  category,
 }: MobileTemplateSectionProps) {
   if (games.length === 0) return null;
 
-  // Derive panel background from accent with low opacity
-  const panelBg = `${accent}22`;
   const Icon = icon ? iconMap[icon as IconName] : null;
 
   return (
-    <section
-      className="rounded-2xl mx-3 overflow-hidden"
-      style={{ background: panelBg, border: `1px solid ${accent}30` }}
-    >
-      {/* Coloured header strip */}
+    <section className="w-full overflow-hidden">
+      {/* Full-width header strip — no rounded outer wrapper, no border */}
       <div
-        className="px-4 pt-3.5 pb-2"
+        className="px-4 pt-3.5 pb-2.5"
         style={{
-          background: `linear-gradient(135deg, ${accent}40 0%, transparent 80%)`,
+          background: `linear-gradient(135deg, ${accent}28 0%, transparent 75%)`,
         }}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Star icon — signature of template 3 */}
+          <div className="flex items-center gap-2.5">
+            {/* Solid accent badge — CrazyGames style filled icon circle */}
             <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: `${accent}40`, color: accent }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+              style={{ backgroundColor: accent, color: "#fff" }}
             >
               {Icon ? (
-                <Icon size={14} strokeWidth={2} aria-hidden />
+                <Icon size={15} strokeWidth={2} aria-hidden />
               ) : (
-                <Star size={14} fill={accent} strokeWidth={0} aria-hidden />
+                <Star size={14} fill="#fff" strokeWidth={0} aria-hidden />
               )}
             </span>
             <div>
-              <h2
-                className="font-category-fat text-[16px] leading-tight"
-                style={{ color: accent }}
-              >
+              <h2 className="font-category-fat text-[17px] font-bold leading-tight text-white">
                 {title}
               </h2>
               {subtitle && (
-                <p className="text-[11px]" style={{ color: `${accent}99` }}>
-                  {subtitle}
-                </p>
+                <p className="text-[11px] text-white/60">{subtitle}</p>
               )}
             </div>
           </div>
@@ -137,8 +113,7 @@ export function MobileTemplate3RectSwipe({
           {showViewAll && viewAllHref && (
             <Link
               href={viewAllHref}
-              className="flex items-center gap-1 text-[12px] font-semibold opacity-70 hover:opacity-100 transition-opacity"
-              style={{ color: accent }}
+              className="flex items-center gap-1 text-[12px] font-semibold text-white/70 transition-colors hover:text-white"
             >
               See all <ArrowRight size={11} aria-hidden />
             </Link>
@@ -146,11 +121,12 @@ export function MobileTemplate3RectSwipe({
         </div>
       </div>
 
-      {/* Swipe rail */}
-      <div className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pb-3 pl-4 pt-1">
+      {/* Full-width swipe rail — starts flush with left edge */}
+      <div className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pb-3 pl-4 pt-1.5">
         {games.map((game) => (
           <RectCard key={game.id} game={game} />
         ))}
+        {/* Trailing spacer so last card never clips against the screen edge */}
         <div className="w-2 shrink-0" aria-hidden />
       </div>
     </section>

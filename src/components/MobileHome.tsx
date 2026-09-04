@@ -32,7 +32,7 @@ export async function MobileHome({
   const sections = await getMobileHomepageSections();
 
   return (
-    <div className="flex flex-col gap-5 pb-2">
+    <div className="flex flex-col gap-3 pb-4">
       {/* ── Continue Playing — ALWAYS first, NEVER removed ── */}
       <ContinuePlayingMobile />
 

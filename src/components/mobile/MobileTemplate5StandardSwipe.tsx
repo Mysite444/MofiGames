@@ -31,6 +31,7 @@ export function MobileTemplate5StandardSwipe({
       games={games}
       viewMoreHref={showViewAll ? viewAllHref : undefined}
       cardSize="square"
+      hideTitles
     />
   );
 }

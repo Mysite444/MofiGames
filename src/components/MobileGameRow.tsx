@@ -21,7 +21,7 @@ const headerBgStyles: Record<string, string> = {
   blue: "bg-gradient-to-r from-[#0d2740] via-[#0c1f33] to-transparent",
 };
 
-function PortraitCard({ game }: { game: Game }) {
+function PortraitCard({ game, hideTitle = false }: { game: Game; hideTitle?: boolean }) {
   // Prefer the live DB row so admin edits to the category name are shown
   // in the card's subtitle without a deploy.
   const category = useMergedCategoryBySlug(game.categorySlug);
@@ -49,10 +49,12 @@ function PortraitCard({ game }: { game: Game }) {
         </span>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" aria-hidden />
-      <div className="absolute inset-x-2 bottom-2">
-        <p className="truncate text-xs font-bold leading-tight text-white">{game.title}</p>
-        <p className="truncate text-[10px] text-white/65">{category?.name}</p>
-      </div>
+      {!hideTitle && (
+        <div className="absolute inset-x-2 bottom-2">
+          <p className="truncate text-xs font-bold leading-tight text-white">{game.title}</p>
+          <p className="truncate text-[10px] text-white/65">{category?.name}</p>
+        </div>
+      )}
     </Link>
   );
 }
@@ -66,6 +68,7 @@ export function MobileGameRow({
   cardSize = "square",
   scroll = true,
   headerBg,
+  hideTitles = false,
 }: {
   title: string;
   icon: IconName;
@@ -75,6 +78,8 @@ export function MobileGameRow({
   cardSize?: "square" | "portrait";
   scroll?: boolean;
   headerBg?: "gold" | "blue";
+  /** When true, game names are hidden below/inside cards. Default false. */
+  hideTitles?: boolean;
 }) {
   const Icon = iconMap[icon];
   if (games.length === 0) return null;
@@ -104,10 +109,10 @@ export function MobileGameRow({
       {scroll ? (
         <div className="snap-rail scrollbar-hide mt-1 flex gap-2.5 overflow-x-auto pt-2 pb-2 pl-4">
           {cardSize === "portrait"
-            ? games.map((g) => <PortraitCard key={g.id} game={g} />)
+            ? games.map((g) => <PortraitCard key={g.id} game={g} hideTitle={hideTitles} />)
             : games.map((g) => (
                 <div key={g.id} className="w-[84px] shrink-0 snap-card min-[400px]:w-[92px]">
-                  <GameCard game={g} />
+                  <GameCard game={g} hideTitle={hideTitles} />
                 </div>
               ))}
           <div className="w-2 shrink-0" aria-hidden />
@@ -116,7 +121,7 @@ export function MobileGameRow({
         <div className="mt-3 flex flex-wrap gap-2.5 px-4">
           {games.map((g) => (
             <div key={g.id} className="w-[84px] min-[400px]:w-[92px]">
-              <GameCard game={g} />
+              <GameCard game={g} hideTitle={hideTitles} />
             </div>
           ))}
         </div>

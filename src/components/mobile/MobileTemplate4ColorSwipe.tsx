@@ -55,7 +55,7 @@ function ColorCard({ game }: { game: Game }) {
         ) : null}
       </div>
 
-      {/* Tag */}
+      {/* Tag badge only — no game name text */}
       {game.tag && (
         <span
           className={`absolute left-1 top-1 rounded px-1 py-0.5 text-[9px] font-bold tracking-wide ${TAG_STYLES[game.tag]}`}
@@ -63,11 +63,6 @@ function ColorCard({ game }: { game: Game }) {
           {game.tag}
         </span>
       )}
-
-      {/* Title strip */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 pb-1.5 pt-4">
-        <p className="truncate text-[10px] font-bold leading-tight text-white">{game.title}</p>
-      </div>
     </Link>
   );
 }
