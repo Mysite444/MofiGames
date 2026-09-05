@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Loader2, Save } from "lucide-react";
 import { fetchSeoSettings, updateSeoSettings, type AdminSeoSettings, type SeoSettingsInput } from "@/lib/supabase/admin-content";
+import { applyTitleTemplate } from "@/lib/seo";
 
 /** Admin → SEO Management → Global Settings. Everything from the Advanced
  * SEO Module spec that isn't specific to one game/category/post/page:
@@ -111,6 +112,7 @@ export function SeoSettingsAdminClient() {
           <code className="rounded bg-white/10 px-1">%category%</code>{" "}
           <code className="rounded bg-white/10 px-1">%site_name%</code>
         </p>
+        <TitleTemplatePreview template={form.title_template} siteName={form.site_name} />
         <Field label="Default meta description">
           <textarea
             value={form.default_meta_description ?? ""}
@@ -341,5 +343,62 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-semibold text-text-muted">{label}</span>
       {children}
     </label>
+  );
+}
+
+const TITLE_TEMPLATE_PLACEHOLDERS = ["title", "category", "site_name"];
+
+/** Catches the exact typo class that produces a title like
+ * "MofiGames — Sports Games — MofiGamesite_name%" in search results: a
+ * placeholder typed without both surrounding percent signs (e.g. a stray
+ * "site_name%" or "%site_name" left over from an edit) never gets
+ * substituted by applyTitleTemplate(), so it shows up as literal text on
+ * every single page that uses this template. */
+function findUnwrappedPlaceholders(template: string): string[] {
+  return TITLE_TEMPLATE_PLACEHOLDERS.filter((name) => {
+    const withoutWrappedOccurrences = template.split(`%${name}%`).join("");
+    return withoutWrappedOccurrences.includes(name);
+  });
+}
+
+/** Live preview shown right under the Title Template field so a typo like
+ * a missing "%" is visible immediately, on this page, instead of only
+ * showing up later in Google search results. */
+function TitleTemplatePreview({ template, siteName }: { template?: string; siteName?: string }) {
+  const tpl = (template ?? "").trim();
+  if (!tpl) return null;
+
+  const resolvedSiteName = siteName?.trim() || "MofiGames";
+  const gamePageTitle = applyTitleTemplate(tpl, {
+    title: "Example Game",
+    category: "Adventure",
+    site_name: resolvedSiteName,
+  });
+  const categoryPageTitle = applyTitleTemplate(tpl, {
+    title: "Adventure Games",
+    category: "Adventure",
+    site_name: resolvedSiteName,
+  });
+  const broken = findUnwrappedPlaceholders(tpl);
+
+  return (
+    <div className="-mt-1 flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+        Live preview — what this looks like on a real page
+      </p>
+      <p className="truncate text-sm text-white">
+        Game page: <span className="text-text-muted">{gamePageTitle}</span>
+      </p>
+      <p className="truncate text-sm text-white">
+        Category page: <span className="text-text-muted">{categoryPageTitle}</span>
+      </p>
+      {broken.length > 0 && (
+        <p className="text-xs font-medium text-hot">
+          This looks broken: {broken.map((name) => `%${name}%`).join(", ")} is missing a percent sign somewhere, so
+          it won&apos;t get replaced — it&apos;ll show up as literal text on every page using this template, exactly
+          like above.
+        </p>
+      )}
+    </div>
   );
 }

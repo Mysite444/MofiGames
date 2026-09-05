@@ -175,8 +175,23 @@ export async function fetchGameBySlugLive(
  * without this, a Supabase outage hitting an uncached game slug would
  * crash the game page. fetchGameBySlugLive above already knows how to
  * answer from the static snapshot, so on any failure here we just call
- * it directly. */
-export async function getRealGameBySlug(
+ * it directly.
+ *
+ * Wrapped in React's cache() for request-level dedup: generateMetadata()
+ * in src/app/[slug]/page.tsx calls this once via resolveSlug() to decide
+ * the content type, then calls it again directly to build the actual
+ * metadata, and the page component calls it a third time to render. Without
+ * dedup those are three independent reads of the Game Metadata cache's TTL
+ * window — normally identical, but a request landing right on a cache
+ * refresh boundary could see the row on the first read and miss it on the
+ * second, so generateMetadata's `if (!real) return {}` fires even though
+ * resolveSlug just confirmed the game exists. Google indexes that empty
+ * metadata as an untitled page. cache() makes every call in the same
+ * render resolve to the same in-flight/settled promise, so that
+ * disagreement can't happen — this does NOT persist across requests,
+ * unlike metadata-cache.ts's TTL store, so it's a complement to it, not a
+ * replacement. */
+export const getRealGameBySlug = cache(async function getRealGameBySlug(
   slug: string
 ): Promise<{ game: Game; category: Category } | null> {
   try {
@@ -202,7 +217,7 @@ export async function getRealGameBySlug(
     console.error(`[games-server] getRealGameBySlug("${slug}") falling back to static snapshot:`, err);
     return fetchGameBySlugLive(slug, true);
   }
-}
+});
 
 /** Fragment-cached under "related-games" (Admin → Cache → Fragment Cache),
  * one entry per category slug — this is what powers the "Play next" grid

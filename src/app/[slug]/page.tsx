@@ -165,7 +165,15 @@ export async function generateMetadata({
 
   if (resolution.type === "game") {
     const real = await getRealGameBySlug(slug);
-    if (!real) return {};
+    // getRealGameBySlug is request-deduped (see games-server.ts), so this
+    // should always agree with resolveSlug's earlier check. If it ever
+    // doesn't — e.g. the game was unpublished a split second ago — fall
+    // back to a real site title instead of `{}`. An empty metadata object
+    // means an empty <title>, which is what gets a page indexed by Google
+    // as literally "Untitled".
+    if (!real) {
+      return { title: applyTitleTemplate(settings.titleTemplate, { title: "Game", site_name: settings.siteName }) };
+    }
     return buildGameMetadata(real.game, real.category, settings);
   }
 
