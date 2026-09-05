@@ -144,34 +144,43 @@ interface MobileLandscapePlayerProps {
 /**
  * Width of the Exit / Invite / Mute control strip, in CSS px.
  *
- * Was 48 — wide enough that on real devices it sat on top of the embedded
- * game's own left-edge UI (horn button, turn-signal arrows, etc.) instead of
- * beside it, since the strip was absolutely positioned *over* a full-width
- * iframe. Two changes fix that together:
- *   1. This value is trimmed down to the minimum that still comfortably
- *      fits the 15–16px icon + rotated text label with tappable padding.
- *   2. The iframe is no longer full-width underneath the strip — it's
- *      inset by exactly this many pixels (see the game-area wrapper below),
- *      so the game's own canvas literally starts where this strip ends
- *      instead of being covered by it.
+ * Narrowed from 56 → 44 to match the client-supplied reference screenshot:
+ * the strip should read as a slim rail hugging the edge, wide enough for a
+ * pill button with a rotated label + icon, but no wider. The Exit/Invite
+ * pills below fill almost the entire strip width (a couple of px of margin
+ * per side, same as the reference), and the iframe is still inset by
+ * exactly this many pixels (see the game-area wrapper below), so the
+ * game's own canvas starts precisely where the narrower strip ends.
  */
-const CONTROL_STRIP_WIDTH = 56;
+const CONTROL_STRIP_WIDTH = 44;
 
 /**
- * Diameter (CSS px) of each control-strip button. Sized to sit
- * comfortably inside CONTROL_STRIP_WIDTH with a few px of breathing room
- * on either side.
+ * Width (CSS px) of the Exit / Invite pill buttons. Inset a couple of px
+ * from each edge of CONTROL_STRIP_WIDTH so the pill's rounded sides don't
+ * get clipped by the strip's own edge.
  */
-const BUTTON_DIAMETER = 40;
+const PILL_WIDTH = 36;
 
 /**
- * Builds an inline style object matching the muted, low-key HUD icon
- * badges shown in the reference screenshot (the game's own gear-shift /
- * tyre icons bottom-right): a small dark rounded-square badge, NOT a
- * bright glossy circle. Restrained in colour on purpose — the accent
- * colour only shows as a thin ring/edge when a button is in an "active"
- * state (e.g. muted), everything else stays a neutral graphite tone so
- * the strip doesn't compete with the game for attention.
+ * Height (CSS px) of the Exit / Invite pill buttons — tall enough to stack
+ * a `writing-mode: vertical-rl` text label above the icon, matching the
+ * reference screenshot's proportions (roughly 2:1 height:width).
+ */
+const PILL_HEIGHT = 76;
+
+/**
+ * Diameter (CSS px) of the icon-only Mute badge near the bottom of the
+ * strip. Smaller than the old BUTTON_DIAMETER (40) so it comfortably fits
+ * the narrower CONTROL_STRIP_WIDTH.
+ */
+const MUTE_DIAMETER = 34;
+
+/**
+ * Builds an inline style object for the neutral graphite Mute badge: a
+ * small dark rounded-square, NOT a bright glossy circle. Restrained in
+ * colour on purpose — the accent colour only shows as a thin ring/edge
+ * when the button is "active" (muted); otherwise it stays a neutral
+ * graphite tone so the strip doesn't compete with the game for attention.
  *
  * Still a genuine 3D button, just a subtler one:
  *   - soft diagonal gradient face (dark graphite, faint highlight top-left)
@@ -195,9 +204,9 @@ function button3DStyle(
   active: boolean = false
 ): React.CSSProperties {
   return {
-    width: BUTTON_DIAMETER,
-    height: BUTTON_DIAMETER,
-    borderRadius: 11,
+    width: MUTE_DIAMETER,
+    height: MUTE_DIAMETER,
+    borderRadius: 10,
     background: pressed
       ? "linear-gradient(180deg, #202126 0%, #17181c 100%)"
       : "linear-gradient(160deg, #3a3c44 0%, #26272d 55%, #1b1c21 100%)",
@@ -220,6 +229,41 @@ function button3DStyle(
         ].join(", "),
     transform: pressed ? "translateY(2px) scale(0.96)" : "translateY(0) scale(1)",
     transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
+  };
+}
+
+/**
+ * Builds an inline style object for the Exit / Invite pill buttons,
+ * matching the reference screenshot: a solid-colour vertical capsule
+ * (rounded ends, PILL_WIDTH × PILL_HEIGHT) rather than the Mute badge's
+ * neutral graphite square. `accent` is the pill's own solid fill colour
+ * (violet for Exit, green for Invite) — full-strength when idle, dimmed
+ * slightly and inset-shadowed when pressed, same press language as
+ * button3DStyle so every control in the strip feels like one family.
+ */
+function pillButtonStyle(accent: string, pressed: boolean): React.CSSProperties {
+  return {
+    width: PILL_WIDTH,
+    height: PILL_HEIGHT,
+    borderRadius: PILL_WIDTH / 2,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    background: pressed
+      ? `linear-gradient(180deg, ${accent}cc 0%, ${accent}aa 100%)`
+      : `linear-gradient(160deg, ${accent} 0%, ${accent}e6 100%)`,
+    border: "1px solid rgba(255,255,255,0.28)",
+    boxShadow: pressed
+      ? ["0 1px 0 rgba(0,0,0,0.4)", "inset 0 2px 4px rgba(0,0,0,0.35)"].join(", ")
+      : [
+          "0 2px 0 rgba(0,0,0,0.35)",
+          "0 3px 8px rgba(0,0,0,0.4)",
+          "inset 0 1px 0 rgba(255,255,255,0.35)",
+        ].join(", "),
+    transform: pressed ? "translateY(2px) scale(0.97)" : "translateY(0) scale(1)",
+    transition: "transform 60ms ease, box-shadow 60ms ease",
   };
 }
 
@@ -680,34 +724,29 @@ export function MobileLandscapePlayer({
          * Edge-flush vertical sidebar pinned to the LEFT of the game
          * container, CONTROL_STRIP_WIDTH px wide — the game area above is
          * inset by that same amount, so the strip sits beside the game,
-         * never on top of it. Fills the left safe-area strip (camera-notch
-         * zone) with a solid black background top-to-bottom so no gap
-         * shows through, but the three buttons themselves are grouped into
-         * one tight cluster, vertically centred in the middle of the
-         * strip — NOT one pinned to the extreme top edge and another to
-         * the extreme bottom edge, which on a real device put Exit right
-         * under the camera notch and Mute right against the home-indicator
-         * zone, with a large dead gap between them:
+         * never on top of it. Matches the client's reference screenshot:
+         * Exit/Invite are solid-colour pill buttons anchored to the TOP of
+         * the strip, and the MIDDLE of the strip is left completely empty
+         * — no button, no icon, nothing tappable — because that band is
+         * where the phone's physical camera cutout sits once the device is
+         * rotated into landscape. A control placed there would either be
+         * partly hidden behind the camera housing or impossible to tap
+         * reliably, so instead of guessing at a safe height we just never
+         * put anything there at all:
          *
          *   ┌──────┐
-         *   │      │  ← black, flexes to fill space above the cluster
-         *   │  ⏻  │  ← Exit,   dark graphite rounded-square badge
-         *   │  ➕  │  ← Invite, dark graphite rounded-square badge
-         *   │  🔊  │  ← Mute,   dark graphite, thin red ring when muted
-         *   │      │  ← black, flexes to fill space below the cluster
+         *   │ Exit │  ← pill, violet, icon + rotated "Exit" label
+         *   │Invite│  ← pill, green,  icon + rotated "Invite" label
+         *   │      │
+         *   │      │  ← deliberately empty — camera-cutout zone
+         *   │      │
+         *   │  🔊  │  ← Mute, dark graphite badge, thin red ring when muted
          *   └──────┘
          *
-         * Restyled to match the reference screenshot's own in-game HUD
-         * icons (the small dark gear-shift / tyre badges bottom-right of
-         * the reference image) rather than looking like bright arcade
-         * buttons: small rounded-square badges, low-saturation graphite
-         * body, a subtle 3D bevel (gradient face + thin keycap "wall" +
-         * inset top highlight — see button3DStyle) that flattens and
-         * nudges down on press. Colour is used sparingly — only as a thin
-         * accent ring on a button's active state (currently just Mute)
-         * — so the strip stays visually quiet and doesn't compete with
-         * the game itself. Labels were dropped in favour of icon +
-         * aria-label: at this diameter a caption would crowd the badge.
+         * The empty band is a flex:1 spacer, so it grows or shrinks with
+         * whatever height the strip ends up at on a given device — the top
+         * pills and the bottom Mute badge stay pinned to their respective
+         * ends regardless.
          *
          * Lives INSIDE the rotated container so it lands in the correct
          * on-screen corner regardless of which rotation layer is active.
@@ -724,6 +763,9 @@ export function MobileLandscapePlayer({
          *     only drive the pressed-in 3D look, never the action.
          *   • When muted, only the icon tints red and a thin red ring
          *     appears — the badge itself stays graphite, unlike before.
+         *   • Anchored near (not flush against) the bottom edge, so it's
+         *     clear of both the empty camera zone above it and the very
+         *     edge of the screen below it.
          */}
         <div
           className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center"
@@ -735,11 +777,12 @@ export function MobileLandscapePlayer({
             boxShadow: "3px 0 14px rgba(0,0,0,0.55)",
           }}
         >
-          {/* Spacer above the cluster */}
-          <div style={{ flex: 1 }} />
-
-          <div className="flex flex-col items-center" style={{ gap: 14 }}>
-            {/* ── EXIT — violet/purple dome ───────────────────────────── */}
+          {/* ── EXIT + INVITE — anchored to the TOP of the strip ────────── */}
+          <div
+            className="flex flex-col items-center"
+            style={{ paddingTop: "max(10px, env(safe-area-inset-top))", gap: 3 }}
+          >
+            {/* ── EXIT — violet pill, label + icon ────────────────────── */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -749,9 +792,6 @@ export function MobileLandscapePlayer({
               onPointerCancel={() => setPressedButton(null)}
               aria-label="Exit game"
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 padding: 0,
                 color: "#fff",
                 cursor: "pointer",
@@ -759,13 +799,24 @@ export function MobileLandscapePlayer({
                 touchAction: "manipulation",
                 userSelect: "none",
                 flexShrink: 0,
-                ...button3DStyle("#a855f7", pressedButton === "exit"),
+                ...pillButtonStyle("#a855f7", pressedButton === "exit"),
               }}
             >
-              <LogOut size={19} strokeWidth={2.2} />
+              <span
+                style={{
+                  writingMode: "vertical-rl",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                  lineHeight: 1,
+                }}
+              >
+                Exit
+              </span>
+              <LogOut size={15} strokeWidth={2.4} />
             </button>
 
-            {/* ── INVITE — cyan/teal dome ─────────────────────────────── */}
+            {/* ── INVITE — green pill, label + icon ───────────────────── */}
             <div style={{ position: "relative" }}>
               <button
                 type="button"
@@ -776,9 +827,6 @@ export function MobileLandscapePlayer({
                 onPointerCancel={() => setPressedButton(null)}
                 aria-label="Invite a friend"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
                   padding: 0,
                   color: "#fff",
                   cursor: "pointer",
@@ -786,13 +834,26 @@ export function MobileLandscapePlayer({
                   touchAction: "manipulation",
                   userSelect: "none",
                   flexShrink: 0,
-                  ...button3DStyle("#10b981", pressedButton === "invite"),
+                  ...pillButtonStyle("#34d399", pressedButton === "invite"),
                 }}
               >
                 {inviteCopied ? (
-                  <Check size={19} strokeWidth={2.2} />
+                  <Check size={15} strokeWidth={2.4} />
                 ) : (
-                  <UserPlus size={19} strokeWidth={2.2} />
+                  <>
+                    <span
+                      style={{
+                        writingMode: "vertical-rl",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.3,
+                        lineHeight: 1,
+                      }}
+                    >
+                      Invite
+                    </span>
+                    <UserPlus size={15} strokeWidth={2.4} />
+                  </>
                 )}
               </button>
 
@@ -806,33 +867,41 @@ export function MobileLandscapePlayer({
                 </div>
               )}
             </div>
+          </div>
 
-            {/* ── VOLUME — neutral graphite badge, thin red ring when muted
-             *
-             *  ROOT CAUSE OF "works once, then stops" ───────────────────
-             *  The previous version fired the actual toggle from
-             *  onPointerDown instead of onClick (to dodge a legacy 300ms
-             *  tap delay), while Exit/Invite correctly kept onClick as the
-             *  action and onPointerDown as *only* the cosmetic "pressed"
-             *  state. onPointerDown does NOT have the same one-tap-one-
-             *  event guarantee onClick has: pointer capture, a
-             *  pointerleave fired mid-press by the button's own
-             *  translateY/scale press animation shifting it out from under
-             *  the finger, or a delayed compatibility mouse/click event
-             *  the browser still sends after a touch — any of these can
-             *  fire (or fail to fire) independently of a real second tap,
-             *  which is exactly what made the button feel "stuck" after
-             *  the first press.
-             *
-             *  FIX: back to the same proven pattern as Exit/Invite — onClick
-             *  is the ONLY thing that toggles state, so every tap maps to
-             *  exactly one toggle, forever. This isn't slower: the strip
-             *  already sets touchAction:"manipulation" on every button,
-             *  which is what actually removes the old 300ms delay on every
-             *  modern mobile browser — the click fires within a frame of
-             *  the tap. onPointerDown/Up/Leave/Cancel are kept, but now do
-             *  nothing except drive the visual "pressed" dome effect.
-             */}
+          {/* ── Dead zone — deliberately left empty; see the file-level
+           * comment above for why nothing ever gets placed here. */}
+          <div style={{ flex: 1 }} aria-hidden="true" />
+
+          {/* ── VOLUME — neutral graphite badge, thin red ring when muted.
+           * Anchored near the bottom (not flush against the edge, and
+           * nowhere near the top) — see the file-level comment above.
+           *
+           *  ROOT CAUSE OF "works once, then stops" ───────────────────
+           *  The previous version fired the actual toggle from
+           *  onPointerDown instead of onClick (to dodge a legacy 300ms
+           *  tap delay), while Exit/Invite correctly kept onClick as the
+           *  action and onPointerDown as *only* the cosmetic "pressed"
+           *  state. onPointerDown does NOT have the same one-tap-one-
+           *  event guarantee onClick has: pointer capture, a
+           *  pointerleave fired mid-press by the button's own
+           *  translateY/scale press animation shifting it out from under
+           *  the finger, or a delayed compatibility mouse/click event
+           *  the browser still sends after a touch — any of these can
+           *  fire (or fail to fire) independently of a real second tap,
+           *  which is exactly what made the button feel "stuck" after
+           *  the first press.
+           *
+           *  FIX: back to the same proven pattern as Exit/Invite — onClick
+           *  is the ONLY thing that toggles state, so every tap maps to
+           *  exactly one toggle, forever. This isn't slower: the strip
+           *  already sets touchAction:"manipulation" on every button,
+           *  which is what actually removes the old 300ms delay on every
+           *  modern mobile browser — the click fires within a frame of
+           *  the tap. onPointerDown/Up/Leave/Cancel are kept, but now do
+           *  nothing except drive the visual "pressed" dome effect.
+           */}
+          <div style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); handleMuteToggle(); }}
@@ -853,18 +922,16 @@ export function MobileLandscapePlayer({
                 touchAction: "manipulation",
                 userSelect: "none",
                 flexShrink: 0,
-                // Same neutral graphite body as Exit/Invite at all times —
-                // only a thin red ring (the `active` state) and the icon's
-                // own colour communicate "muted", instead of flipping the
-                // whole button to a loud solid red.
+                // Same neutral graphite body at all times — only a thin red
+                // ring (the `active` state) and the icon's own colour
+                // communicate "muted", instead of flipping the whole
+                // button to a loud solid red.
                 ...button3DStyle("#ef4444", pressedButton === "mute", muted),
               }}
             >
-              {muted ? <VolumeX size={18} strokeWidth={2.2} /> : <Volume2 size={18} strokeWidth={2.2} />}
+              {muted ? <VolumeX size={16} strokeWidth={2.4} /> : <Volume2 size={16} strokeWidth={2.4} />}
             </button>
           </div>
-
-          <div style={{ flex: 1 }} />
         </div>
       </div>
 
