@@ -6,11 +6,15 @@ import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, LogIn, Loader2, Sparkles, ShieldCheck } from "lucide-react";
 import { Logo } from "./Logo";
 import { GoogleIcon, DiscordIcon } from "./icons/BrandIcons";
-import { useAuth, AccountLockedError } from "@/lib/auth-context";
+import { useAuth, AccountLockedError, DISCORD_LOGIN_ENABLED } from "@/lib/auth-context";
 
 const inputWrapClass =
   "glass input-glow flex items-center gap-2.5 rounded-xl px-3.5 py-2.5";
 const inputClass = "w-full bg-transparent text-sm text-white placeholder:text-text-faint focus:outline-none";
+
+// TEMPORARY: "Forgot password?" link is hidden site-wide (mobile + desktop) until re-enabled.
+// Flip this back to `true` to restore it — no other changes needed.
+const SHOW_FORGOT_PASSWORD_LINK = false;
 
 function MfaChallengeForm() {
   const { verifyMfaCode, cancelMfaLogin } = useAuth();
@@ -263,9 +267,11 @@ export function LoginPageClient() {
               />
               Remember me
             </label>
-            <Link href="/forgot-password" className="text-text-faint hover:text-white">
-              Forgot password?
-            </Link>
+            {SHOW_FORGOT_PASSWORD_LINK && (
+              <Link href="/forgot-password" className="text-text-faint hover:text-white">
+                Forgot password?
+              </Link>
+            )}
           </div>
 
           <button
@@ -305,12 +311,14 @@ export function LoginPageClient() {
             </button>
             <button
               type="button"
-              onClick={() => handleOAuth("discord")}
-              disabled={loading || oauthLoading !== null}
-              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
+              onClick={() => DISCORD_LOGIN_ENABLED && handleOAuth("discord")}
+              disabled={!DISCORD_LOGIN_ENABLED || loading || oauthLoading !== null}
+              aria-disabled={!DISCORD_LOGIN_ENABLED}
+              title={DISCORD_LOGIN_ENABLED ? undefined : "Discord login is coming soon"}
+              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
             >
               {oauthLoading === "discord" ? <Loader2 size={14} className="animate-spin" /> : <DiscordIcon size={14} />}
-              Continue with Discord
+              {DISCORD_LOGIN_ENABLED ? "Continue with Discord" : "Discord — Coming soon"}
             </button>
           </div>
         </form>

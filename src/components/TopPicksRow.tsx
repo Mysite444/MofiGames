@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FeaturedBanner } from "./FeaturedBanner";
 import { GameThumbnail } from "./GameThumbnail";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
+import { getGameCover } from "@/lib/game-cover";
 import type { Game } from "@/lib/types";
 
 const tagStyles: Record<string, string> = {
@@ -29,19 +30,32 @@ const GRID_WIDTH = "w-[326px] xl:w-[366px]";
 // match the big tile's height, mirroring the reference layout pixel-for-pixel.
 function MiniTile({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
-  if (!category) return null;
+  // Prefer the square cover → thumbnailUrl → coverImageUrl fallback chain.
+  // Only fall back to the gradient GameThumbnail when no image is available.
+  const imageSrc = getGameCover(game, "square");
+
+  if (!imageSrc && !category) return null;
 
   return (
     <Link
       href={`/${game.slug}`}
       className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-white hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.97]"
     >
-      <GameThumbnail
-        category={category}
-        variant={game.variant}
-        showIcon={false}
-        className="absolute inset-0 h-full w-full"
-      />
+      {imageSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageSrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <GameThumbnail
+          category={category!}
+          variant={game.variant}
+          showIcon={false}
+          className="absolute inset-0 h-full w-full"
+        />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-transparent" aria-hidden />
 
       {game.tag && (

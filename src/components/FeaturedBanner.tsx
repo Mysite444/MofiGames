@@ -35,9 +35,13 @@ export function FeaturedBanner({
   const category = categoryOverride ?? mergedCategory;
   if (!category) return null;
   const Icon = iconMap[category.icon];
-  // The banner background is a gradient — no image needed there. The small
-  // 48×48px corner icon at the bottom-left uses the square cover (1:1) so
-  // portrait/landscape crops don't distort the game's logo or character.
+  // Landscape cover (16:9) fills the banner background when available.
+  // The gradient + mesh overlays always render on top for brand consistency
+  // and to ensure the bottom text/play-button remain legible regardless of
+  // what the cover image contains.
+  const landscapeSrc = getGameCover(game, "landscape");
+  // Square cover (1:1) for the small 48×48px corner icon — portrait/landscape
+  // crops would distort the game's logo or character at that size.
   const iconSrc = getGameCover(game, "square");
 
   return (
@@ -45,10 +49,20 @@ export function FeaturedBanner({
       href={`/${game.slug}`}
       className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.015] hover:ring-2 hover:ring-white hover:shadow-[0_6px_24px_rgba(0,0,0,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.99]"
     >
-      <div
-        className="absolute inset-0"
-        style={{ background: `linear-gradient(120deg, ${category.colorTo}, ${category.colorFrom})` }}
-      />
+      {/* Base layer: actual landscape cover when available; gradient otherwise */}
+      {landscapeSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={landscapeSrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(120deg, ${category.colorTo}, ${category.colorFrom})` }}
+        />
+      )}
       <div
         className="mesh-bg absolute inset-0 opacity-90"
         style={{

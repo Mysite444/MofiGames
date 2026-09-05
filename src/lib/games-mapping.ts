@@ -139,7 +139,12 @@ export function mapDbGameRow(row: DbGameRow, gameFilesBaseUrl: string): Game {
     slug: row.slug,
     title: row.title,
     categorySlug: row.category_slug,
-    variant: 0,
+    // Derive a stable 0–5 visual variant from the game's UUID so every
+    // GameThumbnail gradient card gets a visually distinct pattern and icon
+    // rotation. Using the last 4 hex chars of the UUID gives good distribution
+    // without needing a DB column. The result is deterministic — the same game
+    // always maps to the same variant — so server and client renders match.
+    variant: parseInt(row.id.replace(/-/g, "").slice(-4), 16) % 6,
     tag: row.tag,
     rating: row.rating,
     ratingCount: row.rating_count ?? 0,

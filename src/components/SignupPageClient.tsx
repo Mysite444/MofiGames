@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { User, Mail, Lock, Eye, EyeOff, UserPlus, Loader2, Check, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { GoogleIcon, DiscordIcon } from "./icons/BrandIcons";
-import { useAuth, EmailConfirmationRequiredError } from "@/lib/auth-context";
+import { useAuth, EmailConfirmationRequiredError, DISCORD_LOGIN_ENABLED } from "@/lib/auth-context";
 import { checkPasswordStrength, fetchSecuritySettings, DEFAULT_SECURITY_SETTINGS, type SecuritySettings } from "@/lib/security";
 
 const inputWrapClass =
@@ -298,12 +298,14 @@ export function SignupPageClient() {
             </button>
             <button
               type="button"
-              onClick={() => handleOAuth("discord")}
-              disabled={loading || oauthLoading !== null}
-              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-60"
+              onClick={() => DISCORD_LOGIN_ENABLED && handleOAuth("discord")}
+              disabled={!DISCORD_LOGIN_ENABLED || loading || oauthLoading !== null}
+              aria-disabled={!DISCORD_LOGIN_ENABLED}
+              title={DISCORD_LOGIN_ENABLED ? undefined : "Discord login is coming soon"}
+              className="auth-btn flex flex-1 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2.5 text-xs font-semibold text-white disabled:pointer-events-none disabled:opacity-50"
             >
               {oauthLoading === "discord" ? <Loader2 size={14} className="animate-spin" /> : <DiscordIcon size={14} />}
-              Continue with Discord
+              {DISCORD_LOGIN_ENABLED ? "Continue with Discord" : "Discord — Coming soon"}
             </button>
           </div>
         </form>

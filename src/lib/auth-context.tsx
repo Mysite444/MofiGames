@@ -5,6 +5,11 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "./supabase/client";
 import { sanitizeSingleLineText } from "./sanitize-text";
 
+/** TEMPORARY: Discord OAuth is not live yet. Flip to `true` to re-enable the
+ * "Continue with Discord" button on the login and signup pages (desktop + mobile) —
+ * no other changes needed. */
+export const DISCORD_LOGIN_ENABLED = false;
+
 export interface AuthUser {
   id: string;
   name: string;
