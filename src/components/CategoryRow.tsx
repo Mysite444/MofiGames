@@ -73,18 +73,24 @@ export function CategoryRow({
           <ChevronLeft size={26} />
         </button>
 
+        {/* overflow-y-visible (explicit, alongside overflow-x-auto) is what
+            lets a hovered card's scale-up render outside the scroller
+            without being clipped or triggering a vertical scrollbar — the
+            same technique used by CrazyGames/Netflix-style hover-zoom
+            rails. The extra vertical padding gives that scale-up room to
+            breathe without crowding the row title above or the row below. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-4 pt-1 pb-1 md:px-6"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto overflow-y-visible px-4 py-4 md:px-6"
           style={{ scrollPaddingLeft: "1rem" }}
         >
           {games.map((game) =>
             isOriginals ? (
-              <div key={game.id} className="snap-card shrink-0" style={ORIGINALS_CARD_SIZE}>
+              <div key={game.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={ORIGINALS_CARD_SIZE}>
                 <OriginalsGameCard game={game} />
               </div>
             ) : (
-              <div key={game.id} className="snap-card shrink-0" style={DEFAULT_CARD_SIZE}>
+              <div key={game.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DEFAULT_CARD_SIZE}>
                 <GenreGameCard game={game} />
               </div>
             )

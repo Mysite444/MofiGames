@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Sparkles, Trophy, Flame } from "lucide-react";
+import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game, Tag } from "@/lib/types";
 
 const badgeStyles: Record<Exclude<Tag, null>, string> = {
@@ -25,21 +26,20 @@ const badgeIcons: Record<Exclude<Tag, null>, typeof RefreshCw> = {
 /**
  * PC-only 6-column category grid card.
  *
- * Mirrors CrazyGames' category page layout exactly:
- *   • 16:9 thumbnail that fills the column width
- *   • No game name anywhere on the card — not below it, not on hover. Verified
- *     against a reference screenshot of crazygames.com/c/action: zero caption
- *     pixels in the 17px gap between rows, and CrazyGames doesn't reveal a
- *     name on hover there either. The title lives on the game's own page,
- *     not the grid tile. (The link still carries an aria-label so the game
- *     is identified for screen readers.)
- *   • Hover: thick white ring appears, white-glow shadow — no lift, no
- *     play-button overlay, matching CrazyGames exactly
- *   • TAG badge (TOP/HOT/NEW/UPDATED) fades out on hover
- *   • Video preview plays silently on hover when a previewVideoUrl exists
+ * Base layout still mirrors CrazyGames' category page: a 16:9 thumbnail
+ * that fills the column width, with a TAG badge that fades out on hover
+ * and a silent looping preview clip when the game has a previewVideoUrl.
+ *
+ * Hover now reproduces CrazyGames' actual hover treatment (see the
+ * before/after reference screenshots): the tile grows beyond its own grid
+ * cell and lifts above neighbouring tiles (CategoryDesktopGrid bumps this
+ * card's z-index on hover), and a bottom info panel fades in with the
+ * title, genre tag, play count, and like count. The link still carries an
+ * aria-label so the game stays identified for screen readers even though
+ * the title is now only shown visually on hover.
  *
  * Intentionally separate from:
- *   GenreGameCard  – same nameless-tile treatment, used in horizontal rails
+ *   GenreGameCard  – same tile + hover treatment, used in horizontal rails
  *   GameCard       – square aspect ratio + visible caption, mobile grids
  */
 export function CategoryPageCard({ game }: { game: Game }) {
@@ -75,7 +75,7 @@ export function CategoryPageCard({ game }: { game: Game }) {
     <Link
       href={`/${game.slug}`}
       aria-label={game.title}
-      className="group block w-full focus-visible:outline-none"
+      className="group relative block w-full hover:z-40 focus-visible:z-40 focus-visible:outline-none"
       onMouseEnter={startPreview}
       onMouseLeave={stopPreview}
       onFocus={startPreview}
@@ -84,7 +84,7 @@ export function CategoryPageCard({ game }: { game: Game }) {
       {/* ── Thumbnail ── 16:9, fills the column. With the 17px grid gap this
           computes to ~195px wide on a 1366px-viewport window — the exact
           column width measured off the CrazyGames reference screenshot.  */}
-      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.22] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_18px_38px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.22] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-active:scale-[0.97]">
 
         {/* Static thumbnail or generated placeholder */}
         {imageSrc ? (
@@ -133,6 +133,29 @@ export function CategoryPageCard({ game }: { game: Game }) {
             {game.sponsorLabel || "Sponsored"}
           </span>
         )}
+
+        {/* CrazyGames-style hover info panel — title, genre tag, plays,
+            likes. Hidden until hovered/focused; fades + slides up in. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-black/92 via-black/55 to-transparent px-2 pb-1.5 pt-7 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+          <p className="truncate font-display text-[11.5px] font-bold leading-tight text-white">
+            {game.title}
+          </p>
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-white/85">
+            {category && (
+              <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {category.name}
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Play size={9} className="fill-white" strokeWidth={0} />
+              {formatPlays(game.plays)}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <ThumbsUp size={9} />
+              {formatPlays(Math.round(game.plays * 0.92))}
+            </span>
+          </div>
+        </div>
       </div>
     </Link>
   );

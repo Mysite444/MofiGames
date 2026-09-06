@@ -87,10 +87,12 @@ export function LeaderboardPanel({ games }: { games: Game[] }) {
 
       {/* Desktop/laptop — same tile (GenreGameCard, 202x114) and sizing used
           by every other CategoryRow (Editor's Picks, Featured, etc.), so
-          this row matches them instead of using square GameCard tiles. */}
-      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto pt-1 pb-2 pl-6 scrollbar-hide snap-rail lg:flex">
+          this row matches them instead of using square GameCard tiles.
+          overflow-y-visible + extra vertical padding, same as CategoryRow,
+          so the hover-grow effect isn't clipped. */}
+      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto overflow-y-visible py-4 pl-6 scrollbar-hide snap-rail lg:flex">
         {games.map((g) => (
-          <div key={g.id} className="snap-card shrink-0" style={DESKTOP_CARD_SIZE}>
+          <div key={g.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DESKTOP_CARD_SIZE}>
             <GenreGameCard game={g} />
           </div>
         ))}

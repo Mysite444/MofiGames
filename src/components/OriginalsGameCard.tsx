@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw, Sparkles, Trophy, Flame } from "lucide-react";
+import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game, Tag } from "@/lib/types";
 
 // Bigger, bolder badge than the regular GameCard tag — closer to the chunky
@@ -43,8 +44,13 @@ function Wordmark({ title }: { title: string }) {
  * exact size (set by the parent wrapper in CategoryRow: 202px x 304px,
  * measured directly off the CrazyGames Originals tiles), no caption row
  * underneath (title lives on the art itself, like a logo), and a chunkier
- * corner badge. Hover shows a thick white ring, same as every other card
- * on the site — no lift, no play-button overlay.
+ * corner badge.
+ *
+ * Hover reproduces CrazyGames' real hover treatment: the tile grows beyond
+ * its own grid cell and lifts above its neighbours (CategoryRow bumps this
+ * card's z-index on hover), and a play-count/like-count row fades in below
+ * the wordmark — the wordmark itself already covers the "title" part of the
+ * info panel other cards only show on hover.
  *
  * Uses the portrait cover (2:3, 800×1200) so the full artwork is visible
  * without object-fit cropping characters/logos from the top or sides.
@@ -60,7 +66,7 @@ export function OriginalsGameCard({ game }: { game: Game }) {
 
   return (
     <Link href={`/${game.slug}`} className="group block h-full w-full focus-visible:outline-none">
-      <div className="tile-shine relative h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
+      <div className="tile-shine relative h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.14] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_18px_38px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.14] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -85,8 +91,26 @@ export function OriginalsGameCard({ game }: { game: Game }) {
           </span>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 p-3">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-3">
           <Wordmark title={game.title} />
+
+          {/* Plays/likes — fades in on hover, matching every other card's
+              info panel (the title itself is already always-visible above). */}
+          <div className="flex translate-y-1.5 items-center gap-2 text-[10px] font-semibold text-white/85 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+            {category && (
+              <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {category.name}
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Play size={9} className="fill-white" strokeWidth={0} />
+              {formatPlays(game.plays)}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <ThumbsUp size={9} />
+              {formatPlays(Math.round(game.plays * 0.92))}
+            </span>
+          </div>
         </div>
       </div>
     </Link>

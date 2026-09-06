@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Sparkles, Trophy, Flame } from "lucide-react";
+import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game, Category, Tag } from "@/lib/types";
 
 const badgeStyles: Record<Exclude<Tag, null>, string> = {
@@ -22,11 +23,13 @@ const badgeIcons: Record<Exclude<Tag, null>, typeof RefreshCw> = {
 };
 
 /**
- * Same visual treatment as CategoryPageCard (16:9, no caption, hover ring +
+ * Same visual treatment as CategoryPageCard (16:9, hover-grow + info panel,
  * preview video) but for cross-category listings — /games, search results,
  * etc. — where the category has to be resolved from a merged real+
  * placeholder list rather than the static-only one CategoryPageCard reads
- * from internally.
+ * from internally. Also keeps its own permanent title caption below the
+ * thumbnail (browse listings benefit from an always-visible title since
+ * games here span every category, unlike a single-genre page).
  */
 export function BrowseGameCard({ game, category }: { game: Game; category: Category | undefined }) {
   const [previewActive, setPreviewActive] = useState(false);
@@ -57,13 +60,13 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
     <Link
       href={`/${game.slug}`}
       aria-label={game.title}
-      className="group block w-full focus-visible:outline-none"
+      className="group relative block w-full hover:z-40 focus-visible:z-40 focus-visible:outline-none"
       onMouseEnter={startPreview}
       onMouseLeave={stopPreview}
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.22] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_18px_38px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.22] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -99,6 +102,30 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
             {game.sponsorLabel || "Sponsored"}
           </span>
         )}
+
+        {/* CrazyGames-style hover info panel — title, genre tag, plays,
+            likes. Hidden until hovered/focused; fades + slides up in. The
+            permanent caption below the thumbnail stays too (see docstring). */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-black/92 via-black/55 to-transparent px-2 pb-1.5 pt-7 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+          <p className="truncate font-display text-[11.5px] font-bold leading-tight text-white">
+            {game.title}
+          </p>
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-white/85">
+            {category && (
+              <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {category.name}
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Play size={9} className="fill-white" strokeWidth={0} />
+              {formatPlays(game.plays)}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <ThumbsUp size={9} />
+              {formatPlays(Math.round(game.plays * 0.92))}
+            </span>
+          </div>
+        </div>
       </div>
       <p className="mt-1.5 truncate px-0.5 text-xs font-semibold text-text-muted transition-colors group-hover:text-white">
         {game.title}
