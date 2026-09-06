@@ -144,36 +144,32 @@ interface MobileLandscapePlayerProps {
 /**
  * Width of the Exit / Invite / Mute control strip, in CSS px.
  *
- * Narrowed from 56 → 44 to match the client-supplied reference screenshot:
- * the strip should read as a slim rail hugging the edge, wide enough for a
- * pill button with a rotated label + icon, but no wider. The Exit/Invite
- * pills below fill almost the entire strip width (a couple of px of margin
- * per side, same as the reference), and the iframe is still inset by
- * exactly this many pixels (see the game-area wrapper below), so the
- * game's own canvas starts precisely where the narrower strip ends.
+ * Narrowed from 56 → 44 → 36 to match strip-2 reference screenshot:
+ * the strip is a very slim rail hugging the left edge, wide enough for a
+ * compact pill button with a rotated label + icon, but no wider.
+ * The iframe is inset by exactly this many px so the game canvas starts
+ * precisely where the strip ends — no overlap, no clipping.
  */
-const CONTROL_STRIP_WIDTH = 44;
+const CONTROL_STRIP_WIDTH = 36;
 
 /**
- * Width (CSS px) of the Exit / Invite pill buttons. Inset a couple of px
- * from each edge of CONTROL_STRIP_WIDTH so the pill's rounded sides don't
- * get clipped by the strip's own edge.
+ * Width (CSS px) of the Exit / Invite pill buttons. Inset 4 px from each
+ * edge of CONTROL_STRIP_WIDTH so the pill's rounded ends don't get clipped.
  */
-const PILL_WIDTH = 36;
+const PILL_WIDTH = 28;
 
 /**
  * Height (CSS px) of the Exit / Invite pill buttons — tall enough to stack
- * a `writing-mode: vertical-rl` text label above the icon, matching the
- * reference screenshot's proportions (roughly 2:1 height:width).
+ * a `writing-mode: vertical-rl` text label above the icon at the new
+ * narrower pill width (~2.3:1 height:width ratio, matching strip-2).
  */
-const PILL_HEIGHT = 76;
+const PILL_HEIGHT = 64;
 
 /**
  * Diameter (CSS px) of the icon-only Mute badge near the bottom of the
- * strip. Smaller than the old BUTTON_DIAMETER (40) so it comfortably fits
- * the narrower CONTROL_STRIP_WIDTH.
+ * strip. Scaled down to fit comfortably in the narrower CONTROL_STRIP_WIDTH.
  */
-const MUTE_DIAMETER = 34;
+const MUTE_DIAMETER = 28;
 
 /**
  * Builds an inline style object for the neutral graphite Mute badge: a
@@ -206,7 +202,7 @@ function button3DStyle(
   return {
     width: MUTE_DIAMETER,
     height: MUTE_DIAMETER,
-    borderRadius: 10,
+    borderRadius: 8,
     background: pressed
       ? "linear-gradient(180deg, #202126 0%, #17181c 100%)"
       : "linear-gradient(160deg, #3a3c44 0%, #26272d 55%, #1b1c21 100%)",
@@ -216,16 +212,16 @@ function button3DStyle(
     boxShadow: pressed
       ? [
           "0 1px 0 rgba(0,0,0,0.55)",
-          "0 1px 3px rgba(0,0,0,0.5)",
-          "inset 0 2px 4px rgba(0,0,0,0.55)",
+          "0 1px 2px rgba(0,0,0,0.5)",
+          "inset 0 2px 3px rgba(0,0,0,0.55)",
           "inset 0 -1px 1px rgba(255,255,255,0.05)",
         ].join(", ")
       : [
           "0 2px 0 rgba(0,0,0,0.5)",
-          "0 3px 6px rgba(0,0,0,0.45)",
-          active ? `0 0 0 3px ${accent}26` : "0 0 0 0 transparent",
+          "0 2px 5px rgba(0,0,0,0.45)",
+          active ? `0 0 0 2px ${accent}26` : "0 0 0 0 transparent",
           "inset 0 1px 0 rgba(255,255,255,0.16)",
-          "inset 0 -3px 5px rgba(0,0,0,0.28)",
+          "inset 0 -2px 4px rgba(0,0,0,0.28)",
         ].join(", "),
     transform: pressed ? "translateY(2px) scale(0.96)" : "translateY(0) scale(1)",
     transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
@@ -250,16 +246,16 @@ function pillButtonStyle(accent: string, pressed: boolean): React.CSSProperties 
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 4,
     background: pressed
       ? `linear-gradient(180deg, ${accent}cc 0%, ${accent}aa 100%)`
       : `linear-gradient(160deg, ${accent} 0%, ${accent}e6 100%)`,
     border: "1px solid rgba(255,255,255,0.28)",
     boxShadow: pressed
-      ? ["0 1px 0 rgba(0,0,0,0.4)", "inset 0 2px 4px rgba(0,0,0,0.35)"].join(", ")
+      ? ["0 1px 0 rgba(0,0,0,0.4)", "inset 0 2px 3px rgba(0,0,0,0.35)"].join(", ")
       : [
           "0 2px 0 rgba(0,0,0,0.35)",
-          "0 3px 8px rgba(0,0,0,0.4)",
+          "0 2px 6px rgba(0,0,0,0.4)",
           "inset 0 1px 0 rgba(255,255,255,0.35)",
         ].join(", "),
     transform: pressed ? "translateY(2px) scale(0.97)" : "translateY(0) scale(1)",
@@ -350,6 +346,16 @@ export function MobileLandscapePlayer({
   const [pressedButton, setPressedButton] = useState<
     "exit" | "invite" | "mute" | null
   >(null);
+
+  /**
+   * Tracks whether a mute toggle should fire when the pointer is released.
+   * Set to true on pointerdown, cleared on pointerup (fires) or
+   * pointercancel (gesture aborted by the OS / browser).
+   *
+   * We use a ref rather than state so the flag never triggers a re-render
+   * and is always synchronously readable inside the pointer-event handlers.
+   */
+  const muteActionPendingRef = useRef(false);
 
   /**
    * Posts the mute state into the iframe.
@@ -780,7 +786,7 @@ export function MobileLandscapePlayer({
           {/* ── EXIT + INVITE — anchored to the TOP of the strip ────────── */}
           <div
             className="flex flex-col items-center"
-            style={{ paddingTop: "max(10px, env(safe-area-inset-top))", gap: 3 }}
+            style={{ paddingTop: "max(8px, env(safe-area-inset-top))", gap: 2 }}
           >
             {/* ── EXIT — violet pill, label + icon ────────────────────── */}
             <button
@@ -805,15 +811,15 @@ export function MobileLandscapePlayer({
               <span
                 style={{
                   writingMode: "vertical-rl",
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.2,
                   lineHeight: 1,
                 }}
               >
                 Exit
               </span>
-              <LogOut size={15} strokeWidth={2.4} />
+              <LogOut size={13} strokeWidth={2.4} />
             </button>
 
             {/* ── INVITE — green pill, label + icon ───────────────────── */}
@@ -838,21 +844,21 @@ export function MobileLandscapePlayer({
                 }}
               >
                 {inviteCopied ? (
-                  <Check size={15} strokeWidth={2.4} />
+                  <Check size={13} strokeWidth={2.4} />
                 ) : (
                   <>
                     <span
                       style={{
                         writingMode: "vertical-rl",
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: 700,
-                        letterSpacing: 0.3,
+                        letterSpacing: 0.2,
                         lineHeight: 1,
                       }}
                     >
                       Invite
                     </span>
-                    <UserPlus size={15} strokeWidth={2.4} />
+                    <UserPlus size={13} strokeWidth={2.4} />
                   </>
                 )}
               </button>
@@ -877,38 +883,95 @@ export function MobileLandscapePlayer({
            * Anchored near the bottom (not flush against the edge, and
            * nowhere near the top) — see the file-level comment above.
            *
-           *  ROOT CAUSE OF "works once, then stops" ───────────────────
-           *  The previous version fired the actual toggle from
-           *  onPointerDown instead of onClick (to dodge a legacy 300ms
-           *  tap delay), while Exit/Invite correctly kept onClick as the
-           *  action and onPointerDown as *only* the cosmetic "pressed"
-           *  state. onPointerDown does NOT have the same one-tap-one-
-           *  event guarantee onClick has: pointer capture, a
-           *  pointerleave fired mid-press by the button's own
-           *  translateY/scale press animation shifting it out from under
-           *  the finger, or a delayed compatibility mouse/click event
-           *  the browser still sends after a touch — any of these can
-           *  fire (or fail to fire) independently of a real second tap,
-           *  which is exactly what made the button feel "stuck" after
-           *  the first press.
+           * ─── WHY THIS BUTTON USES onPointerDown/Up INSTEAD OF onClick ──
            *
-           *  FIX: back to the same proven pattern as Exit/Invite — onClick
-           *  is the ONLY thing that toggles state, so every tap maps to
-           *  exactly one toggle, forever. This isn't slower: the strip
-           *  already sets touchAction:"manipulation" on every button,
-           *  which is what actually removes the old 300ms delay on every
-           *  modern mobile browser — the click fires within a frame of
-           *  the tap. onPointerDown/Up/Leave/Cancel are kept, but now do
-           *  nothing except drive the visual "pressed" dome effect.
+           * SYMPTOM: tapping the speaker button paused the game and
+           * opened the game's settings screen; the game's own sound
+           * toggle inside that settings screen also stopped responding.
+           *
+           * ROOT CAUSE — iframe focus loss:
+           * onClick fires only AFTER the browser has already shifted
+           * focus from the iframe to whichever element received the tap.
+           * That focus shift is the default action of the browser's
+           * pointerdown processing. The instant the iframe loses focus,
+           * its contentWindow receives a blur event. Many HTML5 games
+           * (particularly racing games and anything built on the
+           * GameDistribution SDK) wire window.onblur → auto-pause + show
+           * settings, so the game was already paused by the time our
+           * toggle ran. The game's own sound button then appeared
+           * unresponsive because the game was waiting for a tap to
+           * "resume" before routing input normally again.
+           *
+           * FIX — three-part:
+           *
+           * 1. e.preventDefault() on onPointerDown tells the browser NOT
+           *    to perform the default "shift focus to this element" action.
+           *    The iframe retains focus and never fires blur — the game
+           *    stays running.
+           *
+           * 2. Because preventDefault() on pointerdown also suppresses the
+           *    synthetic click event on mobile touch (the browser won't
+           *    generate it if the gesture's default was cancelled), we
+           *    can no longer use onClick as the action trigger. The action
+           *    moves to onPointerUp, which fires at the same real-world
+           *    moment as click (finger lifts) but is not gated on the
+           *    browser's click-generation logic.
+           *
+           * 3. e.currentTarget.setPointerCapture(e.pointerId) on
+           *    onPointerDown locks all subsequent pointer events to this
+           *    button for the lifetime of the gesture. Without capture the
+           *    button's own translateY(2px)/scale(0.96) press animation
+           *    can nudge the bounding rect just enough to fire a spurious
+           *    pointerleave, which in the previous approach would reset the
+           *    visual state mid-press and could cancel the pending action.
+           *    With capture, pointerup is guaranteed to arrive here even
+           *    if the pointer has physically moved off the button.
+           *
+           * 4. iframeRef.current?.focus() in onPointerUp is a safety net
+           *    for browsers (notably older WebKit) that shift focus before
+           *    preventDefault takes full effect. Re-focusing the iframe
+           *    element in the parent document re-routes input back to the
+           *    game and triggers its own focus event, letting it auto-
+           *    resume if it had already paused.
+           *
+           * onPointerCancel clears the pending flag so the action is NOT
+           * fired if the OS interrupts the gesture (incoming call, home
+           * gesture, etc.).
+           * onPointerLeave is kept only for the cosmetic "released" look;
+           * it never cancels the pending action because setPointerCapture
+           * keeps all events on this element for the duration of the press.
            */}
           <div style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); handleMuteToggle(); }}
-              onPointerDown={(e) => { e.stopPropagation(); setPressedButton("mute"); }}
-              onPointerUp={() => setPressedButton(null)}
-              onPointerLeave={() => setPressedButton(null)}
-              onPointerCancel={() => setPressedButton(null)}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                // ① Prevent the browser from shifting focus away from the iframe.
+                //    This stops the game's blur-triggered auto-pause before it starts.
+                e.preventDefault();
+                // ② Lock all pointer events to this button for the full gesture so
+                //    the press animation can't accidentally fire pointerleave.
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setPressedButton("mute");
+                muteActionPendingRef.current = true;
+              }}
+              onPointerUp={(e) => {
+                e.stopPropagation();
+                setPressedButton(null);
+                if (muteActionPendingRef.current) {
+                  muteActionPendingRef.current = false;
+                  handleMuteToggle();
+                  // ④ Safety net: re-focus the iframe in case older WebKit shifted
+                  //    focus before our preventDefault could prevent it.
+                  iframeRef.current?.focus({ preventScroll: true });
+                }
+              }}
+              onPointerLeave={() => setPressedButton(null)}  // cosmetic only
+              onPointerCancel={() => {
+                // OS interrupted the gesture (call, home swipe, etc.) — do not fire.
+                setPressedButton(null);
+                muteActionPendingRef.current = false;
+              }}
               aria-label={muted ? "Unmute sound" : "Mute sound"}
               aria-pressed={muted}
               style={{
@@ -929,7 +992,7 @@ export function MobileLandscapePlayer({
                 ...button3DStyle("#ef4444", pressedButton === "mute", muted),
               }}
             >
-              {muted ? <VolumeX size={16} strokeWidth={2.4} /> : <Volume2 size={16} strokeWidth={2.4} />}
+              {muted ? <VolumeX size={14} strokeWidth={2.4} /> : <Volume2 size={14} strokeWidth={2.4} />}
             </button>
           </div>
         </div>
