@@ -546,6 +546,8 @@ export const listCommentsAdminQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   gameSlug: z.string().trim().max(80).optional(),
   q: z.string().trim().max(200).optional(),
+  /** pending = awaiting approval (default); approved = already live; all = both */
+  status: z.enum(["pending", "approved", "all"]).default("pending"),
 });
 
 export const listReviewsAdminQuerySchema = z.object({

@@ -229,28 +229,24 @@ export function GameDetailsSection({
           intentionally aren't repeated here — they live in the
           "Game controls" popover on the play screen (PlayerActionBar).
           ══════════════════════════════════════════════════════════════ */}
-      <div className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-5">
-        <p className="text-sm leading-relaxed text-text-muted">
-          {game.description && game.description.trim().length > 0 ? (
-            game.description
-          ) : (
-            <>
-              Jump into {game.title}, a {category.name.toLowerCase()} pick from MofiGames.{" "}
-              {category.description} No download, no install — it runs straight in your browser on
-              desktop, tablet, or phone.
-            </>
+      {((game.description && game.description.trim().length > 0) ||
+        (game.content && game.content.trim().length > 0) ||
+        (game.instructions && game.instructions.trim().length > 0)) && (
+        <div className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-5">
+          {game.description && game.description.trim().length > 0 && (
+            <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
           )}
-        </p>
 
-        <GameContentSection html={game.content} />
+          <GameContentSection html={game.content} />
 
-        {game.instructions && game.instructions.trim().length > 0 && (
-          <div>
-            <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
-            <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
-          </div>
-        )}
-      </div>
+          {game.instructions && game.instructions.trim().length > 0 && (
+            <div>
+              <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
+              <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {!isRealGame && (
         <div>

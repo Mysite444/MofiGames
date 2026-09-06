@@ -4,19 +4,18 @@ import { useCallback, useSyncExternalStore } from "react";
 
 // Comments, backed by the real `comments` / `comment_likes` tables via
 // src/app/api/comments/** (see that folder for the route handlers and
-// supabase/migrations/0004_comments_and_plays.sql for the schema). This
-// used to be a plain localStorage mock (no backend at all) — the exported
-// function/hook names and call shapes are kept the same as that version so
-// CommentsSection.tsx barely had to change, but everything now persists
-// server-side, is visible to every visitor (not just the one browser that
-// posted it), and is protected by RLS + server-side validation regardless
-// of what any client sends.
+// supabase/migrations/0004_comments_and_plays.sql for the schema).
 //
-// Mutations (add/delete/like) update the local cache optimistically —
-// instantly, before the network round-trip — then reconcile with the
-// server response, rolling back on failure. Same interaction pattern the
-// old localStorage version had (writes felt instant), just now backed by
-// a real request instead of a synchronous disk write.
+// Since migration 0077, new comments land in a pending state on the server
+// (is_approved = false) and are only publicly visible after an admin approves
+// them.  From the author's perspective:
+//   1. They submit → we show the comment immediately as "Pending moderation"
+//      (optimistic UI with a visual flag).
+//   2. The POST resolves → if is_approved is false (always for new posts),
+//      we mark the entry as pendingApproval: true so the UI can badge it.
+//   3. On the next page load the GET won't return the comment (RLS only
+//      serves approved rows), so the pending entry disappears — this is
+//      expected and mirrors every site that has a moderation queue.
 
 export interface Comment {
   id: string;
@@ -32,6 +31,10 @@ export interface Comment {
   likeCount: number;
   /** Whether the current viewer has liked this comment. */
   likedByMe: boolean;
+  /** True when this comment was just submitted and is awaiting admin approval.
+   * Only exists in the current browser session — disappears on page reload
+   * because the GET endpoint only returns approved comments. */
+  pendingApproval?: boolean;
 }
 
 interface CommentDto {
@@ -45,6 +48,7 @@ interface CommentDto {
   createdAt: string;
   likeCount: number;
   likedByMe: boolean;
+  isApproved: boolean;
 }
 
 function fromDto(dto: CommentDto): Comment {
@@ -59,6 +63,8 @@ function fromDto(dto: CommentDto): Comment {
     createdAt: dto.createdAt,
     likeCount: dto.likeCount,
     likedByMe: dto.likedByMe,
+    // Propagate approval state so the UI can badge pending comments.
+    pendingApproval: !dto.isApproved,
   };
 }
 
@@ -66,9 +72,7 @@ const EMPTY: Comment[] = [];
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
-// Per-game-slug cache. A comments section is only ever mounted for one
-// game at a time in practice, but nothing stops multiple from existing
-// (e.g. prefetching), so this is keyed rather than a single flat list.
+// Per-game-slug cache.
 const cache = new Map<string, Comment[]>();
 const loadState = new Map<string, LoadState>();
 const postErrors = new Map<string, string>();
@@ -91,12 +95,16 @@ async function ensureLoaded(gameSlug: string) {
     const res = await fetch(`/api/comments?gameSlug=${encodeURIComponent(gameSlug)}`);
     const json = (await res.json()) as { comments?: CommentDto[]; error?: string };
     if (!res.ok || !json.comments) throw new Error(json.error ?? "Failed to load comments.");
-    cache.set(gameSlug, json.comments.map(fromDto));
+
+    // Merge server results with any locally-pending comments still in the
+    // cache (the user may have posted while the game was already loaded).
+    // Server never returns pending comments, so this union is safe.
+    const pending = (cache.get(gameSlug) ?? EMPTY).filter((c) => c.pendingApproval);
+    const approved = json.comments.map(fromDto);
+    cache.set(gameSlug, [...approved, ...pending]);
     loadState.set(gameSlug, "loaded");
   } catch (err) {
     console.error(`Failed to load comments for "${gameSlug}":`, err);
-    // Mark as errored (not stuck "loading") so the UI shows "no comments"
-    // instead of spinning forever — a retry can be added later if needed.
     loadState.set(gameSlug, "error");
     if (!cache.has(gameSlug)) cache.set(gameSlug, EMPTY);
   }
@@ -111,14 +119,17 @@ function findSlugForComment(id: string): string | null {
 }
 
 function makeTempId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `temp_${crypto.randomUUID()}`;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    return `temp_${crypto.randomUUID()}`;
   return `temp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Posts a new comment (or reply, if parentId is given). Returns an
- * optimistic copy immediately; the real server-assigned id/likeCount/etc.
- * replace it in the store once the request resolves. Rolls back (removes
- * the optimistic entry) if the request fails. */
+/** Posts a new comment (or reply, if parentId is given).
+ *
+ * The comment is shown immediately with pendingApproval: true (optimistic).
+ * Once the server confirms, we keep the pending flag set (the comment won't
+ * appear publicly until an admin approves it, so there's no need to flip it
+ * to a "real" approved comment in the local cache). */
 export function addComment(
   gameSlug: string,
   authorId: string,
@@ -140,6 +151,7 @@ export function addComment(
     createdAt: new Date().toISOString(),
     likeCount: 0,
     likedByMe: false,
+    pendingApproval: true,
   };
 
   cache.set(gameSlug, [...(cache.get(gameSlug) ?? EMPTY), optimistic]);
@@ -155,6 +167,10 @@ export function addComment(
       });
       const json = (await res.json()) as { comment?: CommentDto; error?: string };
       if (!res.ok || !json.comment) throw new Error(json.error ?? "Failed to post comment.");
+
+      // Replace the temp entry with the real one from the server.
+      // fromDto() will carry over pendingApproval: true because the server
+      // always returns is_approved: false for new comments.
       const real = fromDto(json.comment);
       cache.set(
         gameSlug,
@@ -162,7 +178,10 @@ export function addComment(
       );
     } catch (err) {
       console.error("Failed to post comment:", err);
-      postErrors.set(gameSlug, err instanceof Error ? err.message : "Failed to post comment.");
+      postErrors.set(
+        gameSlug,
+        err instanceof Error ? err.message : "Failed to post comment."
+      );
       cache.set(
         gameSlug,
         (cache.get(gameSlug) ?? EMPTY).filter((c) => c.id !== tempId)
@@ -174,9 +193,7 @@ export function addComment(
   return optimistic;
 }
 
-/** The error from the most recent failed post/reply for a game, if any —
- * cleared automatically on the next successful post, or manually via
- * clearCommentPostError() (e.g. when the user edits their draft again). */
+/** The error from the most recent failed post/reply for a game, if any. */
 export function useCommentPostError(gameSlug: string): string | null {
   const subscribe = useCallback((listener: () => void) => {
     listeners.add(listener);
@@ -184,7 +201,6 @@ export function useCommentPostError(gameSlug: string): string | null {
   }, []);
   const getSnapshot = useCallback(() => postErrors.get(gameSlug) ?? null, [gameSlug]);
   const getServerSnapshot = useCallback(() => null, []);
-
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
@@ -194,10 +210,9 @@ export function clearCommentPostError(gameSlug: string) {
   notify();
 }
 
-/** Deletes a comment (and, if it's a top-level comment, its replies too —
- * the server cascades this, the local removal mirrors it for an instant
- * UI update). No-op if requesterId doesn't match the comment's author
- * (the API enforces this too; this check just avoids a doomed request). */
+/** Deletes a comment (and its replies via cascade). The author-check guards
+ * against accidental deletes of others' pending-approval comments that may
+ * be in the local cache.  The API enforces ownership too. */
 export function deleteComment(id: string, requesterId: string) {
   const slug = findSlugForComment(id);
   if (!slug) return;
@@ -217,34 +232,40 @@ export function deleteComment(id: string, requesterId: string) {
       if (!res.ok) throw new Error("Failed to delete comment.");
     } catch (err) {
       console.error("Failed to delete comment:", err);
-      // Roll back — restore the full previous list for this game.
       cache.set(slug, current);
       notify();
     }
   })();
 }
 
-/** Toggles whether the given user has liked a comment. */
+/** Toggles whether the given user has liked a comment.
+ * Pending comments can't be liked (no server row in the approved set),
+ * so we guard against acting on them here. */
 export function toggleCommentLike(id: string, userId: string) {
-  void userId; // identity comes from the authenticated session server-side
+  void userId;
   const slug = findSlugForComment(id);
   if (!slug) return;
   const current = cache.get(slug) ?? EMPTY;
   const target = current.find((c) => c.id === id);
-  if (!target) return;
+  // Don't attempt to like a pending comment — it isn't in the public set yet.
+  if (!target || target.pendingApproval) return;
 
   const wasLiked = target.likedByMe;
   cache.set(
     slug,
     current.map((c) =>
-      c.id === id ? { ...c, likedByMe: !wasLiked, likeCount: c.likeCount + (wasLiked ? -1 : 1) } : c
+      c.id === id
+        ? { ...c, likedByMe: !wasLiked, likeCount: c.likeCount + (wasLiked ? -1 : 1) }
+        : c
     )
   );
   notify();
 
   (async () => {
     try {
-      const res = await fetch(`/api/comments/${id}/like`, { method: wasLiked ? "DELETE" : "POST" });
+      const res = await fetch(`/api/comments/${id}/like`, {
+        method: wasLiked ? "DELETE" : "POST",
+      });
       if (!res.ok) throw new Error("Failed to update like.");
     } catch (err) {
       console.error("Failed to update comment like:", err);
@@ -257,8 +278,7 @@ export function toggleCommentLike(id: string, userId: string) {
   })();
 }
 
-/** Subscribes to every comment + reply for a single game, load order.
- * Kicks off the initial fetch the first time it's used for a given slug. */
+/** Subscribes to every comment + reply for a single game, oldest first. */
 export function useGameComments(gameSlug: string): Comment[] {
   const subscribe = useCallback(
     (listener: () => void) => {
@@ -270,6 +290,5 @@ export function useGameComments(gameSlug: string): Comment[] {
   );
   const getSnapshot = useCallback(() => getSlugSnapshot(gameSlug), [gameSlug]);
   const getServerSnapshot = useCallback(() => EMPTY, []);
-
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

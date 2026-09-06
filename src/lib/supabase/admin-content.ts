@@ -1297,6 +1297,7 @@ export async function updateMediaAsset(
 // comments UI uses — it already allows either the comment's author or an
 // admin (see migration 0005 + that route), so there's no need for a
 // separate admin-only delete endpoint.
+// Approval goes through PATCH /api/admin/comments/:id (migration 0077).
 
 export interface AdminComment {
   id: string;
@@ -1306,6 +1307,8 @@ export interface AdminComment {
   authorName: string;
   body: string;
   createdAt: string;
+  /** Whether this comment has been approved and is publicly visible. */
+  isApproved: boolean;
 }
 
 export interface AdminCommentsPage {
@@ -1315,18 +1318,36 @@ export interface AdminCommentsPage {
   pageSize: number;
 }
 
+export type AdminCommentsStatusFilter = "pending" | "approved" | "all";
+
 export async function fetchCommentsAdmin(options: {
   page?: number;
   gameSlug?: string;
   q?: string;
+  /** Defaults to "pending" — the moderation queue that needs action. */
+  status?: AdminCommentsStatusFilter;
 }): Promise<AdminCommentsPage> {
   const params = new URLSearchParams();
   params.set("page", String(options.page ?? 1));
   if (options.gameSlug) params.set("gameSlug", options.gameSlug);
   if (options.q) params.set("q", options.q);
+  if (options.status) params.set("status", options.status);
 
   const response = await fetch(`/api/admin/comments?${params.toString()}`);
   return (await parseJsonOrThrow(response)) as AdminCommentsPage;
+}
+
+/** Approve (or revoke approval for) a single comment. */
+export async function approveCommentAdmin(
+  id: string,
+  approved: boolean
+): Promise<void> {
+  const response = await fetch(`/api/admin/comments/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ approved }),
+  });
+  await parseJsonOrThrow(response);
 }
 
 export async function deleteCommentAdmin(id: string): Promise<void> {

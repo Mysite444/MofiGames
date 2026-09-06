@@ -26,6 +26,7 @@ import { SITE_URL } from "@/lib/seo";
 import { formatPlays } from "@/lib/format-plays";
 import { toggleFavorite, useIsFavorited } from "@/lib/game-library";
 import { getControlsList } from "@/lib/game-controls";
+import { SOUND_BUTTON_ENABLED } from "@/lib/player-feature-flags";
 import { IconButton, Popover as PopoverPanel } from "@/components/ActionBarControls";
 import { RewardAdButton } from "@/components/RewardAdButton";
 import { useAuth } from "@/lib/auth-context";
@@ -314,13 +315,18 @@ export function PlayerActionBar({
           )}
         </div>
 
-        <IconButton
-          aria-label={muted ? "Unmute" : "Mute"}
-          label={muted ? "Unmute" : "Mute"}
-          onClick={onToggleMute}
-        >
-          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-        </IconButton>
+        {/* Sound button — temporarily hidden, see lib/player-feature-flags.ts
+         * for why. `muted`/`onToggleMute` stay fully wired above; only the
+         * control itself is hidden. */}
+        {SOUND_BUTTON_ENABLED && (
+          <IconButton
+            aria-label={muted ? "Unmute" : "Mute"}
+            label={muted ? "Unmute" : "Mute"}
+            onClick={onToggleMute}
+          >
+            {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </IconButton>
+        )}
 
         {rewardAds && (
           <RewardAdButton

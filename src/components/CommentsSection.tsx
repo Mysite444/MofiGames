@@ -2,10 +2,18 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { MessageSquare, ThumbsUp, CornerDownRight, Trash2 } from "lucide-react";
+import { Clock, MessageSquare, ThumbsUp, CornerDownRight, Trash2 } from "lucide-react";
 import { VerifiedBadge } from "./VerifiedBadge";
 import { useAuth } from "@/lib/auth-context";
-import { addComment, deleteComment, toggleCommentLike, useGameComments, useCommentPostError, clearCommentPostError, type Comment } from "@/lib/comments";
+import {
+  addComment,
+  deleteComment,
+  toggleCommentLike,
+  useGameComments,
+  useCommentPostError,
+  clearCommentPostError,
+  type Comment,
+} from "@/lib/comments";
 import { Avatar } from "./Avatar";
 import type { Game } from "@/lib/types";
 
@@ -30,11 +38,11 @@ function timeAgo(iso: string): string {
 /**
  * Comments for a single game — one flat post box up top, then top-level
  * comments (sortable Newest/Top) each with one level of replies, likes, and
- * delete-own. Rendered once inside the desktop game page and once inside
- * MobileGamePage; both instances read/write the same server-backed store
- * via lib/comments.ts (see src/app/api/comments/**) so they always agree,
- * even though each keeps its own local UI state (draft text, sort, open
- * reply box).
+ * delete-own.
+ *
+ * Since migration 0077, new comments are held for admin approval before they
+ * become publicly visible. The author sees their own comment immediately
+ * with a "Pending moderation" badge for the duration of the current session.
  */
 export function CommentsSection({ game }: { game: Game }) {
   const { user, ready } = useAuth();
@@ -47,20 +55,23 @@ export function CommentsSection({ game }: { game: Game }) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
 
-  const topLevel = useMemo(() => {
-    const list = comments.filter((c) => c.parentId === null);
-    return [...list].sort((a, b) => {
+  // Separate approved and pending top-level comments.
+  const { approved: topLevel, pending: pendingTopLevel } = useMemo(() => {
+    const all = comments.filter((c) => c.parentId === null);
+    const approved = [...all.filter((c) => !c.pendingApproval)].sort((a, b) => {
       if (sort === "top") {
         const diff = b.likeCount - a.likeCount;
         if (diff !== 0) return diff;
       }
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+    const pending = all.filter((c) => c.pendingApproval);
+    return { approved, pending };
   }, [comments, sort]);
 
   function repliesFor(parentId: string) {
     return comments
-      .filter((c) => c.parentId === parentId)
+      .filter((c) => c.parentId === parentId && !c.pendingApproval)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }
 
@@ -80,6 +91,8 @@ export function CommentsSection({ game }: { game: Game }) {
 
   const visible = topLevel.slice(0, visibleCount);
   const hasMore = topLevel.length > visible.length;
+  // Public comment count: only approved, not pending.
+  const approvedCount = comments.filter((c) => !c.pendingApproval).length;
 
   return (
     <section className="flex flex-col gap-4">
@@ -87,9 +100,9 @@ export function CommentsSection({ game }: { game: Game }) {
         <h2 className="flex items-center gap-2 font-display text-lg font-bold text-text sm:text-xl">
           <MessageSquare size={18} />
           Comments
-          <span className="text-text-faint">({comments.length})</span>
+          <span className="text-text-faint">({approvedCount})</span>
         </h2>
-        {comments.length > 1 && (
+        {topLevel.length > 1 && (
           <div className="glass flex items-center gap-1 rounded-full p-1 text-xs font-semibold">
             <button
               type="button"
@@ -113,6 +126,7 @@ export function CommentsSection({ game }: { game: Game }) {
         )}
       </div>
 
+      {/* Post box */}
       {ready && user && (
         <form onSubmit={handlePost} className="flex items-start gap-3">
           <Avatar name={user.name} size={36} />
@@ -127,7 +141,9 @@ export function CommentsSection({ game }: { game: Game }) {
               rows={2}
               className="w-full resize-none bg-transparent text-sm text-white placeholder:text-text-faint focus:outline-none"
             />
-            {postError && <p className="text-xs font-medium text-hot">{postError}</p>}
+            {postError && (
+              <p className="text-xs font-medium text-hot">{postError}</p>
+            )}
             <div className="flex justify-end">
               <button
                 type="submit"
@@ -144,17 +160,30 @@ export function CommentsSection({ game }: { game: Game }) {
       {ready && !user && (
         <div className="glass flex items-center justify-between gap-3 rounded-2xl p-4 text-sm">
           <span className="text-text-muted">Log in to join the conversation.</span>
-          <Link href="/login" className="glass-strong shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white">
+          <Link
+            href="/login"
+            className="glass-strong shrink-0 rounded-full px-4 py-2 text-xs font-bold text-white"
+          >
             Log In
           </Link>
         </div>
       )}
 
-      {topLevel.length === 0 ? (
+      {/* Author's own pending comments — shown only in current session */}
+      {pendingTopLevel.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {pendingTopLevel.map((c) => (
+            <PendingCommentRow key={c.id} comment={c} userId={user?.id ?? null} />
+          ))}
+        </div>
+      )}
+
+      {/* Approved comment list */}
+      {topLevel.length === 0 && pendingTopLevel.length === 0 ? (
         <p className="py-6 text-center text-sm text-text-faint">
           No comments yet — be the first to say something.
         </p>
-      ) : (
+      ) : topLevel.length === 0 ? null : (
         <div className="flex flex-col gap-5">
           {visible.map((c) => (
             <CommentItem
@@ -190,6 +219,46 @@ export function CommentsSection({ game }: { game: Game }) {
   );
 }
 
+/** Renders a comment the current user just submitted that is awaiting admin
+ * approval. Styled with an amber tint and a "Pending moderation" badge so
+ * it's clear the author can see their own comment but others cannot. */
+function PendingCommentRow({
+  comment,
+  userId,
+}: {
+  comment: Comment;
+  userId: string | null;
+}) {
+  const isOwn = Boolean(userId) && userId === comment.authorId;
+  return (
+    <div className="flex items-start gap-3 opacity-80">
+      <Avatar name={comment.authorName} size={36} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-2">
+          <span className="font-semibold text-text">{comment.authorName}</span>
+          <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400">
+            <Clock size={9} />
+            Pending moderation
+          </span>
+        </div>
+        <p className="break-words text-sm text-text-muted">{comment.text}</p>
+        {isOwn && (
+          <div className="mt-0.5 flex items-center gap-4 text-xs font-semibold text-text-faint">
+            <button
+              type="button"
+              onClick={() => userId && deleteComment(comment.id, userId)}
+              className="flex items-center gap-1.5 hover:text-hot"
+            >
+              <Trash2 size={13} />
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CommentItem({
   comment,
   replies,
@@ -215,7 +284,11 @@ function CommentItem({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <CommentRow comment={comment} userId={userId} onReply={canReply ? () => onStartReply() : undefined} />
+      <CommentRow
+        comment={comment}
+        userId={userId}
+        onReply={canReply ? () => onStartReply() : undefined}
+      />
 
       {isReplying && (
         <div className="ml-12 flex items-start gap-2.5">
@@ -284,7 +357,9 @@ function CommentRow({
         <div className="flex flex-wrap items-baseline gap-x-2">
           <span className="inline-flex items-center gap-1 font-semibold text-text">
             {comment.authorName}
-            {comment.authorIsAdmin && <VerifiedBadge size={14} className="translate-y-[1px]" />}
+            {comment.authorIsAdmin && (
+              <VerifiedBadge size={14} className="translate-y-[1px]" />
+            )}
           </span>
           <span className="text-xs text-text-faint">{timeAgo(comment.createdAt)}</span>
         </div>
@@ -303,7 +378,11 @@ function CommentRow({
             {comment.likeCount > 0 ? comment.likeCount : "Like"}
           </button>
           {onReply && (
-            <button type="button" onClick={onReply} className="flex items-center gap-1.5 hover:text-text">
+            <button
+              type="button"
+              onClick={onReply}
+              className="flex items-center gap-1.5 hover:text-text"
+            >
               <CornerDownRight size={13} />
               Reply
             </button>

@@ -115,6 +115,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { RotateCcw, LogOut, UserPlus, Volume2, VolumeX, Check } from "lucide-react";
+import { SOUND_BUTTON_ENABLED } from "@/lib/player-feature-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -954,60 +955,67 @@ export function MobileLandscapePlayer({
            * it never cancels the pending action because setPointerCapture
            * keeps all events on this element for the duration of the press.
            */}
-          <div style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
-            <button
-              type="button"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                // ① Prevent the browser from shifting focus away from the iframe.
-                //    This stops the game's blur-triggered auto-pause before it starts.
-                e.preventDefault();
-                // ② Lock all pointer events to this button for the full gesture so
-                //    the press animation can't accidentally fire pointerleave.
-                e.currentTarget.setPointerCapture(e.pointerId);
-                setPressedButton("mute");
-                muteActionPendingRef.current = true;
-              }}
-              onPointerUp={(e) => {
-                e.stopPropagation();
-                setPressedButton(null);
-                if (muteActionPendingRef.current) {
+          {/* Sound button — temporarily hidden, see
+           * lib/player-feature-flags.ts for why. The mute state, the
+           * postMessage broadcast, and all the pointer-event handling
+           * documented above stay fully intact; only the control itself is
+           * hidden. Flip SOUND_BUTTON_ENABLED to bring it straight back. */}
+          {SOUND_BUTTON_ENABLED && (
+            <div style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  // ① Prevent the browser from shifting focus away from the iframe.
+                  //    This stops the game's blur-triggered auto-pause before it starts.
+                  e.preventDefault();
+                  // ② Lock all pointer events to this button for the full gesture so
+                  //    the press animation can't accidentally fire pointerleave.
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setPressedButton("mute");
+                  muteActionPendingRef.current = true;
+                }}
+                onPointerUp={(e) => {
+                  e.stopPropagation();
+                  setPressedButton(null);
+                  if (muteActionPendingRef.current) {
+                    muteActionPendingRef.current = false;
+                    handleMuteToggle();
+                    // ④ Safety net: re-focus the iframe in case older WebKit shifted
+                    //    focus before our preventDefault could prevent it.
+                    iframeRef.current?.focus({ preventScroll: true });
+                  }
+                }}
+                onPointerLeave={() => setPressedButton(null)}  // cosmetic only
+                onPointerCancel={() => {
+                  // OS interrupted the gesture (call, home swipe, etc.) — do not fire.
+                  setPressedButton(null);
                   muteActionPendingRef.current = false;
-                  handleMuteToggle();
-                  // ④ Safety net: re-focus the iframe in case older WebKit shifted
-                  //    focus before our preventDefault could prevent it.
-                  iframeRef.current?.focus({ preventScroll: true });
-                }
-              }}
-              onPointerLeave={() => setPressedButton(null)}  // cosmetic only
-              onPointerCancel={() => {
-                // OS interrupted the gesture (call, home swipe, etc.) — do not fire.
-                setPressedButton(null);
-                muteActionPendingRef.current = false;
-              }}
-              aria-label={muted ? "Unmute sound" : "Mute sound"}
-              aria-pressed={muted}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                color: muted ? "#f87171" : "#e7e7ea",
-                cursor: "pointer",
-                WebkitTapHighlightColor: "transparent",
-                touchAction: "manipulation",
-                userSelect: "none",
-                flexShrink: 0,
-                // Same neutral graphite body at all times — only a thin red
-                // ring (the `active` state) and the icon's own colour
-                // communicate "muted", instead of flipping the whole
-                // button to a loud solid red.
-                ...button3DStyle("#ef4444", pressedButton === "mute", muted),
-              }}
-            >
-              {muted ? <VolumeX size={14} strokeWidth={2.4} /> : <Volume2 size={14} strokeWidth={2.4} />}
-            </button>
-          </div>
+                }}
+                aria-label={muted ? "Unmute sound" : "Mute sound"}
+                aria-pressed={muted}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  color: muted ? "#f87171" : "#e7e7ea",
+                  cursor: "pointer",
+                  WebkitTapHighlightColor: "transparent",
+                  touchAction: "manipulation",
+                  userSelect: "none",
+                  flexShrink: 0,
+                  // Same neutral graphite body at all times — only a thin red
+                  // ring (the `active` state) and the icon's own colour
+                  // communicate "muted", instead of flipping the whole
+                  // button to a loud solid red.
+                  ...button3DStyle("#ef4444", pressedButton === "mute", muted),
+                }}
+              >
+                {muted ? <VolumeX size={14} strokeWidth={2.4} /> : <Volume2 size={14} strokeWidth={2.4} />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
