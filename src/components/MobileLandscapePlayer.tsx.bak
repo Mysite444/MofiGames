@@ -144,32 +144,32 @@ interface MobileLandscapePlayerProps {
 /**
  * Width of the Exit / Invite / Mute control strip, in CSS px.
  *
- * Narrowed from 56 → 44 → 36 → 30: tighter black rail, buttons scaled
- * down proportionally (PILL_WIDTH = 24, MUTE_DIAMETER = 22) to keep
- * 3 px breathing room on each side.
+ * Narrowed from 56 → 44 → 36 to match strip-2 reference screenshot:
+ * the strip is a very slim rail hugging the left edge, wide enough for a
+ * compact pill button with a rotated label + icon, but no wider.
  * The iframe is inset by exactly this many px so the game canvas starts
  * precisely where the strip ends — no overlap, no clipping.
  */
-const CONTROL_STRIP_WIDTH = 30;
+const CONTROL_STRIP_WIDTH = 36;
 
 /**
- * Width (CSS px) of the Exit / Invite rect buttons. 3 px inset from each
- * edge of the 30 px strip → 24 px button face.
+ * Width (CSS px) of the Exit / Invite pill buttons. Inset 4 px from each
+ * edge of CONTROL_STRIP_WIDTH so the pill's rounded ends don't get clipped.
  */
-const PILL_WIDTH = 24;
+const PILL_WIDTH = 28;
 
 /**
- * Height (CSS px) of the Exit / Invite rect buttons — tall enough to stack
- * a `writing-mode: vertical-rl` text label above the icon at the narrower
- * strip width (~2.1:1 height:width ratio).
+ * Height (CSS px) of the Exit / Invite pill buttons — tall enough to stack
+ * a `writing-mode: vertical-rl` text label above the icon at the new
+ * narrower pill width (~2.3:1 height:width ratio, matching strip-2).
  */
-const PILL_HEIGHT = 62;
+const PILL_HEIGHT = 64;
 
 /**
  * Diameter (CSS px) of the icon-only Mute badge near the bottom of the
- * strip. 22 px fits comfortably in the 30 px strip with 4 px margins each side.
+ * strip. Scaled down to fit comfortably in the narrower CONTROL_STRIP_WIDTH.
  */
-const MUTE_DIAMETER = 22;
+const MUTE_DIAMETER = 28;
 
 /**
  * Builds an inline style object for the neutral graphite Mute badge: a
@@ -229,48 +229,37 @@ function button3DStyle(
 }
 
 /**
- * CrazyGames-style rounded-rectangle button (Exit / Invite).
- *
- * Key visual change: borderRadius is now a fixed 8 px (was PILL_WIDTH/2,
- * which produced a full capsule/pill). 8 px gives the short rounded-rect
- * shape used by CrazyGames in-game HUD controls — clearly rectangular,
- * with friendly softened corners rather than fully round ends.
- *
- * The press language (shadow inversion + translateY) is kept consistent
- * with button3DStyle so all three strip controls feel like one family.
+ * Builds an inline style object for the Exit / Invite pill buttons,
+ * matching the reference screenshot: a solid-colour vertical capsule
+ * (rounded ends, PILL_WIDTH × PILL_HEIGHT) rather than the Mute badge's
+ * neutral graphite square. `accent` is the pill's own solid fill colour
+ * (violet for Exit, green for Invite) — full-strength when idle, dimmed
+ * slightly and inset-shadowed when pressed, same press language as
+ * button3DStyle so every control in the strip feels like one family.
  */
 function pillButtonStyle(accent: string, pressed: boolean): React.CSSProperties {
   return {
     width: PILL_WIDTH,
     height: PILL_HEIGHT,
-    // 8 px fixed radius → CrazyGames rounded-rect (old: PILL_WIDTH/2 = full capsule)
-    borderRadius: 8,
+    borderRadius: PILL_WIDTH / 2,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 4,
     background: pressed
-      ? `linear-gradient(180deg, ${accent}bb 0%, ${accent}99 100%)`
-      : `linear-gradient(160deg, ${accent}f2 0%, ${accent}d0 100%)`,
-    // Brighter top border for a subtle bevel that reads well at 30 px wide.
-    border: pressed
-      ? "1px solid rgba(255,255,255,0.18)"
-      : "1px solid rgba(255,255,255,0.32)",
+      ? `linear-gradient(180deg, ${accent}cc 0%, ${accent}aa 100%)`
+      : `linear-gradient(160deg, ${accent} 0%, ${accent}e6 100%)`,
+    border: "1px solid rgba(255,255,255,0.28)",
     boxShadow: pressed
-      ? [
-          "0 1px 0 rgba(0,0,0,0.45)",
-          "inset 0 2px 4px rgba(0,0,0,0.40)",
-          "inset 0 -1px 0 rgba(255,255,255,0.06)",
-        ].join(", ")
+      ? ["0 1px 0 rgba(0,0,0,0.4)", "inset 0 2px 3px rgba(0,0,0,0.35)"].join(", ")
       : [
-          "0 2px 0 rgba(0,0,0,0.40)",
-          "0 3px 8px rgba(0,0,0,0.35)",
-          "inset 0 1px 0 rgba(255,255,255,0.40)",
-          "inset 0 -1px 0 rgba(0,0,0,0.12)",
+          "0 2px 0 rgba(0,0,0,0.35)",
+          "0 2px 6px rgba(0,0,0,0.4)",
+          "inset 0 1px 0 rgba(255,255,255,0.35)",
         ].join(", "),
     transform: pressed ? "translateY(2px) scale(0.97)" : "translateY(0) scale(1)",
-    transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
+    transition: "transform 60ms ease, box-shadow 60ms ease",
   };
 }
 
@@ -752,8 +741,8 @@ export function MobileLandscapePlayer({
          * put anything there at all:
          *
          *   ┌──────┐
-         *   │ Exit │  ← rect, blue,   icon + rotated "Exit" label
-         *   │Invite│  ← rect, brown,  icon + rotated "Invite" label (black text)
+         *   │ Exit │  ← pill, violet, icon + rotated "Exit" label
+         *   │Invite│  ← pill, green,  icon + rotated "Invite" label
          *   │      │
          *   │      │  ← deliberately empty — camera-cutout zone
          *   │      │
@@ -789,9 +778,9 @@ export function MobileLandscapePlayer({
           style={{
             width: CONTROL_STRIP_WIDTH,
             touchAction: "auto",
-            background: "#000",
-            borderRight: "1px solid rgba(255,255,255,0.10)",
-            boxShadow: "3px 0 12px rgba(0,0,0,0.60)",
+            background: "linear-gradient(180deg, #0c0c14 0%, #141420 40%, #141420 60%, #0c0c14 100%)",
+            borderRight: "1px solid rgba(255,255,255,0.07)",
+            boxShadow: "3px 0 14px rgba(0,0,0,0.55)",
           }}
         >
           {/* ── EXIT + INVITE — anchored to the TOP of the strip ────────── */}
@@ -799,7 +788,7 @@ export function MobileLandscapePlayer({
             className="flex flex-col items-center"
             style={{ paddingTop: "max(8px, env(safe-area-inset-top))", gap: 2 }}
           >
-            {/* ── EXIT — blue rect, label + icon ──────────────────────── */}
+            {/* ── EXIT — violet pill, label + icon ────────────────────── */}
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -816,7 +805,7 @@ export function MobileLandscapePlayer({
                 touchAction: "manipulation",
                 userSelect: "none",
                 flexShrink: 0,
-                ...pillButtonStyle("#3b82f6", pressedButton === "exit"),
+                ...pillButtonStyle("#a855f7", pressedButton === "exit"),
               }}
             >
               <span
@@ -826,7 +815,6 @@ export function MobileLandscapePlayer({
                   fontWeight: 700,
                   letterSpacing: 0.2,
                   lineHeight: 1,
-                  color: "#fff",
                 }}
               >
                 Exit
@@ -834,7 +822,7 @@ export function MobileLandscapePlayer({
               <LogOut size={13} strokeWidth={2.4} />
             </button>
 
-            {/* ── INVITE — brown rect, black label + icon ─────────────── */}
+            {/* ── INVITE — green pill, label + icon ───────────────────── */}
             <div style={{ position: "relative" }}>
               <button
                 type="button"
@@ -846,13 +834,13 @@ export function MobileLandscapePlayer({
                 aria-label="Invite a friend"
                 style={{
                   padding: 0,
-                  color: "#000",
+                  color: "#fff",
                   cursor: "pointer",
                   WebkitTapHighlightColor: "transparent",
                   touchAction: "manipulation",
                   userSelect: "none",
                   flexShrink: 0,
-                  ...pillButtonStyle("#a0522d", pressedButton === "invite"),
+                  ...pillButtonStyle("#34d399", pressedButton === "invite"),
                 }}
               >
                 {inviteCopied ? (
@@ -866,7 +854,6 @@ export function MobileLandscapePlayer({
                         fontWeight: 700,
                         letterSpacing: 0.2,
                         lineHeight: 1,
-                        color: "#000",
                       }}
                     >
                       Invite
