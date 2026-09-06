@@ -9,6 +9,7 @@ import { InGameInterstitial } from "./InGameInterstitial";
 import { recordPlayed, usePlayTimeTracking } from "@/lib/game-library";
 import { shouldShowInGameAd } from "@/lib/ingame-ad-frequency";
 import { useAuth } from "@/lib/auth-context";
+import { useEmbedMute } from "@/lib/use-embed-mute";
 import type { AdPlacementConfig } from "./AdUnit";
 import type { Category, Game } from "@/lib/types";
 
@@ -59,6 +60,7 @@ export function GamePlayerPanel({
 }) {
   const { user, ready } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [noticeVisible, setNoticeVisible] = useState(true);
   const [barHidden, setBarHidden] = useState(false);
@@ -69,7 +71,12 @@ export function GamePlayerPanel({
   // elapsed seconds to the signed-in account while `playing` is true.
   usePlayTimeTracking(playing);
 
-
+  // Sound button: broadcasts the mute postMessage contract into the game
+  // iframe — same contract + retry behavior the mobile player uses (see
+  // lib/use-embed-mute.ts). Previously this button only flipped its own
+  // icon and never reached the iframe at all, which is why muting a real
+  // embedded game did nothing on desktop.
+  const { muted, toggleMute, handleIframeLoad } = useEmbedMute(iframeRef);
 
   // Signed-in visitors (including guest/anonymous sessions — see
   // lib/game-library.ts) already have their progress-adjacent data written
@@ -136,6 +143,8 @@ export function GamePlayerPanel({
           previewVideoUrl={game.previewVideoUrl}
           orientation={game.orientation}
           title={game.title}
+          iframeRef={iframeRef}
+          onIframeLoad={handleIframeLoad}
         />
 
         {showNotice && (
@@ -170,6 +179,8 @@ export function GamePlayerPanel({
             onHideBar={() => setBarHidden(true)}
             fullscreenEnabled={game.fullscreenEnabled !== false}
             saveProgressEnabled={game.saveProgressEnabled !== false}
+            muted={muted}
+            onToggleMute={toggleMute}
             rewardAds={rewardAds}
             adsenseClientId={adsenseClientId}
             adsenseReady={adsenseReady}

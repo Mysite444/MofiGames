@@ -17,6 +17,8 @@ export function PlayFrame({
   title,
   previewVideoUrl,
   orientation = "landscape",
+  iframeRef,
+  onIframeLoad,
 }: {
   category: Category;
   /** Edge-to-edge, no rounding/ring. */
@@ -53,6 +55,15 @@ export function PlayFrame({
    * automatically rotate according to game need" behavior. Has no visual
    * effect for landscape games (the default). */
   orientation?: "landscape" | "portrait";
+  /** Ref onto the underlying game iframe — lets the caller (GamePlayerPanel)
+   * reach into `contentWindow` to broadcast the mute postMessage contract.
+   * See lib/use-embed-mute.ts for why this is necessary: a cross-origin
+   * iframe can't be muted any other way from the parent page. */
+  iframeRef?: React.Ref<HTMLIFrameElement>;
+  /** Fires on the iframe's native `load` event — used to re-broadcast the
+   * current mute state once the game has actually finished initialising
+   * (see lib/use-embed-mute.ts). */
+  onIframeLoad?: () => void;
 }) {
   const [playingState, setPlayingState] = useState(false);
   const playing = playingProp ?? playingState;
@@ -115,6 +126,7 @@ export function PlayFrame({
       ) : playUrl ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <iframe
+            ref={iframeRef}
             src={playUrl}
             title={title ?? "Game"}
             className={
@@ -124,6 +136,7 @@ export function PlayFrame({
             }
             allow="gamepad *; fullscreen *; autoplay *"
             allowFullScreen
+            onLoad={onIframeLoad}
           />
         </div>
       ) : (

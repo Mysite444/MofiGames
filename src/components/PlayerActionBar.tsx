@@ -40,10 +40,13 @@ type Popover = "qr" | "feedback" | "save" | "controls" | null;
  * fullscreen. Same nine buttons in both places, just the left side swaps
  * between the site logo and the logo + game title + "Hide this bar".
  *
- * Like/dislike/sound are optimistic, local-only UI — there's no backend yet
- * to actually persist any of it (same as the mobile action row). Favorite
- * is real, though — it's backed by localStorage via lib/game-library.ts and
- * feeds the /favorites page.
+ * Like/dislike are optimistic, local-only UI — there's no backend yet to
+ * actually persist any of it (same as the mobile action row). Favorite is
+ * real, though — it's backed by localStorage via lib/game-library.ts and
+ * feeds the /favorites page. Sound is real too — `muted`/`onToggleMute` are
+ * controlled by the parent (GamePlayerPanel), which owns the iframe ref and
+ * broadcasts the mute postMessage contract via lib/use-embed-mute.ts (the
+ * same contract the mobile player uses).
  */
 export function PlayerActionBar({
   variant,
@@ -57,6 +60,8 @@ export function PlayerActionBar({
   onHideBar,
   fullscreenEnabled = true,
   saveProgressEnabled = true,
+  muted,
+  onToggleMute,
   rewardAds,
   adsenseClientId,
   adsenseReady,
@@ -85,6 +90,11 @@ export function PlayerActionBar({
    * Save Progress button for embed games that handle saving internally.
    * Defaults to true (visible) to preserve existing behaviour. */
   saveProgressEnabled?: boolean;
+  /** Current mute state — owned by the parent so it can be broadcast into
+   * the game iframe (see lib/use-embed-mute.ts). */
+  muted: boolean;
+  /** Flips the mute state in the parent. */
+  onToggleMute: () => void;
   /** Admin → Monetization → Advertisement Management → Reward Ads.
    * Omitted (or disabled) hides the gift button entirely. */
   rewardAds?: AdPlacementConfig & { rewardLabel: string };
@@ -94,7 +104,6 @@ export function PlayerActionBar({
   const { user } = useAuth();
   const [vote, setVote] = useState<"up" | "down" | null>(null);
   const favorited = useIsFavorited(gameId);
-  const [muted, setMuted] = useState(false);
   const [popover, setPopover] = useState<Popover>(null);
 
   // Save Progress button state: signed-in users have progress saved
@@ -308,7 +317,7 @@ export function PlayerActionBar({
         <IconButton
           aria-label={muted ? "Unmute" : "Mute"}
           label={muted ? "Unmute" : "Mute"}
-          onClick={() => setMuted((m) => !m)}
+          onClick={onToggleMute}
         >
           {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
         </IconButton>
