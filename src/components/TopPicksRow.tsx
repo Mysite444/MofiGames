@@ -2,11 +2,12 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, ThumbsUp } from "lucide-react";
 import { FeaturedBanner } from "./FeaturedBanner";
 import { GameThumbnail } from "./GameThumbnail";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game } from "@/lib/types";
 
 const tagStyles: Record<string, string> = {
@@ -24,10 +25,10 @@ const UNIT_HEIGHT = "h-[208px] xl:h-[232px]";
 const GRID_WIDTH = "w-[326px] xl:w-[366px]";
 
 // Small captionless tile used only inside the Top Picks grid — same visual
-// language as GameCard (tag badge, thick hover ring, no lift/play-button)
-// but with the title burned onto the art like FeaturedBanner, instead of a
-// caption row below. That's what lets four of these stack 2x2 to exactly
-// match the big tile's height, mirroring the reference layout pixel-for-pixel.
+// language as every other card on the site now (hover-grow + colored ring +
+// blue glow + a plays/likes row that fades in), just with the title burned
+// onto the art like FeaturedBanner instead of a caption row below. That's
+// what lets four of these stack 2x2 to exactly match the big tile's height.
 function MiniTile({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
   // Prefer the square cover → thumbnailUrl → coverImageUrl fallback chain.
@@ -39,7 +40,7 @@ function MiniTile({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 hover:scale-[1.03] hover:ring-2 hover:ring-white hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-[0.97]"
+      className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.15] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.15] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] active:scale-[0.97]"
     >
       {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -66,16 +67,32 @@ function MiniTile({ game }: { game: Game }) {
         </span>
       )}
 
-      <p className="absolute inset-x-2 bottom-1.5 truncate font-display text-[11px] font-bold leading-tight text-white">
+      <p className="absolute inset-x-2 bottom-1.5 truncate font-display text-[11px] font-bold leading-tight text-white transition-opacity duration-200 group-hover:opacity-0 group-focus-visible:opacity-0">
         {game.title}
       </p>
+
+      {/* Same hover-reveal stats row as every other card on the site —
+          replaces the always-on title above while hovered/focused. */}
+      <div className="pointer-events-none absolute inset-x-1.5 bottom-1.5 flex translate-y-1 flex-col gap-0.5 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+        <p className="truncate font-display text-[11px] font-bold leading-tight text-white">{game.title}</p>
+        <div className="flex items-center gap-1.5 text-[9px] font-semibold text-white/85">
+          <span className="flex shrink-0 items-center gap-0.5">
+            <Play size={8} className="fill-white" strokeWidth={0} />
+            {formatPlays(game.plays)}
+          </span>
+          <span className="flex shrink-0 items-center gap-0.5">
+            <ThumbsUp size={8} />
+            {formatPlays(Math.round(game.plays * 0.92))}
+          </span>
+        </div>
+      </div>
     </Link>
   );
 }
 
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
-    <div className={`flex shrink-0 snap-card gap-3 ${UNIT_HEIGHT}`}>
+    <div className={`relative flex shrink-0 snap-card gap-3 hover:z-40 focus-within:z-40 ${UNIT_HEIGHT}`}>
       <div className="aspect-[16/9] h-full shrink-0">
         <FeaturedBanner game={banner} hideWatermark />
       </div>
@@ -128,10 +145,18 @@ export function TopPicksRow({
           <ChevronLeft size={26} />
         </button>
 
+        {/* Same px-7/py-6 padding fix as CategoryRow's scroller — overflow-y
+            always computes to `auto` (still clips) once overflow-x is auto,
+            no matter what you set it to, so padding is the only thing that
+            keeps a hovered banner/mini-tile's grow+glow from being cut off
+            here too. See the long comment in CategoryRow.tsx for the why.
+            scroll-pl-* matches that padding for the same reason CategoryRow
+            needs it: scroll-snap-align:start otherwise eats the start-side
+            padding once the row actually scrolls, clipping the first unit's
+            hover ring on the left. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-4 overflow-x-auto px-4 pt-1 pb-1 md:px-6"
-          style={{ scrollPaddingLeft: "1rem" }}
+          className="snap-rail scrollbar-hide flex gap-4 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
         >
           {banners.map((banner, i) => (
             <PickUnit key={banner.id} banner={banner} grid={grids[i] ?? []} />

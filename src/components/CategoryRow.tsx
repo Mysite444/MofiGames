@@ -88,10 +88,19 @@ export function CategoryRow({
             below were sized for exactly that, verified in a real browser —
             don't shrink them without re-checking the hover effect still
             shows on all 4 sides, especially the first/last card in a row. */}
+        {/* scroll-pl-* matches the px-7/md:px-8 padding above exactly.
+            Without it, CSS scroll-snap (scroll-snap-align: start on each
+            .snap-card) computes its snap position against the scrollport
+            edge and ignores this element's own padding once the row
+            actually has enough cards to scroll — silently "eating" the
+            padding we rely on to keep the hover-grow ring from clipping on
+            the first card. Confirmed by testing scrollLeft on load: without
+            a matching scroll-padding, the browser auto-scrolls to exactly
+            cancel out the visual padding, even before any user interaction.
+            Keep this in lockstep with px-7/md:px-8 above if either changes. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 md:px-8"
-          style={{ scrollPaddingLeft: "1rem" }}
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
         >
           {games.map((game) =>
             isOriginals ? (
