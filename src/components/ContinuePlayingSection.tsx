@@ -39,7 +39,13 @@ export function ContinuePlayingDesktop() {
           <ArrowRight size={13} />
         </Link>
       </div>
-      <ContinuePlayingCard game={games[0]} />
+      {/* py-4 gives the hover-grow (scale-[1.15]) room to breathe on all
+          four sides without being visually clipped by adjacent sections.
+          hover:z-40 lifts the card above siblings in the page stack so the
+          scaled ring/glow paints on top of whatever is directly below. */}
+      <div className="relative inline-block py-4 hover:z-40 focus-within:z-40">
+        <ContinuePlayingCard game={games[0]} />
+      </div>
     </section>
   );
 }

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { Share2, ChevronRight, Bookmark, Info, Tag as TagIcon } from "lucide-react";
 import { getGameMeta } from "@/lib/gameMeta";
 import { useGamesByCategory } from "@/lib/games-merged";
+import { getGameCover } from "@/lib/game-cover";
 import { GameContentSection } from "./GameContentSection";
 import { RatingStars } from "./RatingStars";
 import { GamePostAdSlot } from "./GamePostAdSlot";
+import { TrailerPlayer } from "./TrailerPlayer";
 import type { AdPlacementConfig } from "./AdUnit";
 import type { Category, Game } from "@/lib/types";
 
@@ -231,8 +233,16 @@ export function GameDetailsSection({
           ══════════════════════════════════════════════════════════════ */}
       {((game.description && game.description.trim().length > 0) ||
         (game.content && game.content.trim().length > 0) ||
-        (game.instructions && game.instructions.trim().length > 0)) && (
+        (game.instructions && game.instructions.trim().length > 0) ||
+        (game.videoTrailerUrl && game.videoTrailerUrl.trim().length > 0)) && (
         <div className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-5">
+          {game.videoTrailerUrl && game.videoTrailerUrl.trim().length > 0 && (
+            <div>
+              <h2 className="mb-2 font-display text-base font-bold text-text">Trailer</h2>
+              <TrailerPlayer url={game.videoTrailerUrl} posterFallback={getGameCover(game, "landscape")} />
+            </div>
+          )}
+
           {game.description && game.description.trim().length > 0 && (
             <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
           )}

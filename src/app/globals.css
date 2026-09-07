@@ -51,16 +51,22 @@
   /* Primary CTA blue — the "Back to Game" pill's color (game page, mobile +
      desktop). Now the single shared accent for every standalone action pill
      site-wide: Random Game / Back to Top (homepage, PC + mobile), Back to
-     Game (game page content, PC + mobile), and pagination (.pagination-btn /
-     .pagination-arrow). Deliberately its own token, separate from
-     --color-menu-blue above (that lighter blue, #3da9fc, stays reserved for
-     icon states — bookmarks etc. — and lacks CTA weight on a dark bg).
-     #2563EB is Tailwind blue-600: 4.97:1 contrast vs. white text (WCAG AA).
+     Game (game page content, PC + mobile), pagination (.pagination-btn /
+     .pagination-arrow), and every game-card hover ring/glow. Deliberately
+     its own token, separate from --color-menu-blue above (that lighter
+     blue, #3da9fc, stays reserved for icon states — bookmarks etc. — and
+     lacks CTA weight on a dark bg).
+     #6842FF matches CrazyGames' own card-hover indigo/violet exactly
+     (sampled from a reference screenshot of crazygames.com's hover state:
+     solid RGB 104,66,255). 5.51:1 contrast vs. white text (WCAG AA).
+     --color-cta-blue-hover is a ~15%-darker shade of the same hue, used on
+     :hover/:active of solid CTA buttons (cards use the base color, not the
+     hover shade, since the ring only ever needs one state).
      --color-cta-blue-rgb duplicates the same color as an r,g,b triplet so
      box-shadow glows can use rgba(var(--color-cta-blue-rgb), alpha). */
-  --color-cta-blue: #2563eb;
-  --color-cta-blue-hover: #1d4ed8;
-  --color-cta-blue-rgb: 37, 99, 235;
+  --color-cta-blue: #6842ff;
+  --color-cta-blue-hover: #5838d9;
+  --color-cta-blue-rgb: 104, 66, 255;
 
   /* Fonts */
   --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
@@ -698,7 +704,7 @@ h1, h2, h3, h4, .font-display {
 /* ── Primary CTA pill button (.btn-cta) ──────────────────────────────────────
    Single source of truth for all standalone action pills:
    "Random Game", "Back to Top" (home), "Back to Game" (game page), etc.
-   Color: --color-cta-blue (#2563EB) — matches the "Back to Game" pill on the
+   Color: --color-cta-blue (#6842FF) — matches the "Back to Game" pill on the
    game page exactly, so every primary CTA pill site-wide reads as the same
    action color instead of some being black and some being blue.
    Layout utilities (flex, gap, padding, width) are still applied via Tailwind

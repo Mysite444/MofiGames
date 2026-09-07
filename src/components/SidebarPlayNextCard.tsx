@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Sparkles, Trophy, Flame } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game, Tag } from "@/lib/types";
@@ -38,7 +39,6 @@ const badgeIcons: Record<Exclude<Tag, null>, typeof RefreshCw> = {
 export function SidebarPlayNextCard({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
   const [previewActive, setPreviewActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   // Landscape cover (16:9) matches the 300px-wide 16:9 "Play next" tile.
   // Falls back to thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "landscape");
@@ -49,19 +49,11 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
   function startPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(true);
-    videoRef.current?.play().catch(() => {
-      // Autoplay can be blocked in rare cases even when muted — fine, the
-      // static thumbnail just stays visible underneath.
-    });
   }
 
   function stopPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
   }
 
   return (
@@ -73,7 +65,7 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
+      <div className="tile-shine relative h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -86,17 +78,7 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
         )}
 
         {game.previewVideoUrl && (
-          <video
-            ref={videoRef}
-            src={game.previewVideoUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-              previewActive ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          />
+          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
         )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" aria-hidden />

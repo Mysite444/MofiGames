@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { getGameCover } from "@/lib/game-cover";
 import { formatPlays } from "@/lib/format-plays";
 import type { Game, Category, Tag } from "@/lib/types";
@@ -33,7 +34,6 @@ const badgeIcons: Record<Exclude<Tag, null>, typeof RefreshCw> = {
  */
 export function BrowseGameCard({ game, category }: { game: Game; category: Category | undefined }) {
   const [previewActive, setPreviewActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   // Landscape cover (16:9) matches this aspect-video container — falls back
   // to thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "landscape");
@@ -44,16 +44,11 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
   function startPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(true);
-    videoRef.current?.play().catch(() => {});
   }
 
   function stopPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
   }
 
   return (
@@ -75,17 +70,7 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
         )}
 
         {game.previewVideoUrl && (
-          <video
-            ref={videoRef}
-            src={game.previewVideoUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-              previewActive ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          />
+          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
         )}
 
         {game.tag && BadgeIcon && (

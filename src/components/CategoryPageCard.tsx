@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import { formatPlays } from "@/lib/format-plays";
@@ -45,7 +46,6 @@ const badgeIcons: Record<Exclude<Tag, null>, typeof RefreshCw> = {
 export function CategoryPageCard({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
   const [previewActive, setPreviewActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Landscape cover (16:9) matches this aspect-video tile — falls back to
   // thumbnailUrl → coverImageUrl → gradient placeholder.
@@ -57,18 +57,11 @@ export function CategoryPageCard({ game }: { game: Game }) {
   function startPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(true);
-    videoRef.current?.play().catch(() => {
-      // Autoplay blocked by browser — fine, static thumbnail stays visible.
-    });
   }
 
   function stopPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
   }
 
   return (
@@ -104,17 +97,7 @@ export function CategoryPageCard({ game }: { game: Game }) {
 
         {/* Hover video preview (silent, looping clip) */}
         {game.previewVideoUrl && (
-          <video
-            ref={videoRef}
-            src={game.previewVideoUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-              previewActive ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          />
+          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
         )}
 
         {/* TAG badge — TOP / HOT / NEW / UPDATED */}

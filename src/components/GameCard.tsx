@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game } from "@/lib/types";
@@ -17,7 +18,6 @@ const tagStyles: Record<string, string> = {
 export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: boolean }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
   const [previewActive, setPreviewActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   // Square cover (1:1) matches this card's aspect-square container.
   // Falls back to thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "square");
@@ -26,23 +26,17 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
   // Hover-preview: a short, silent, looping clip that plays over the
   // thumbnail on hover/focus, same behavior as CrazyGames' game cards.
   // Only real (database-backed) games can have one — placeholder/demo
-  // games never set previewVideoUrl.
+  // games never set previewVideoUrl. Actual play/pause (and the MP4-vs-
+  // YouTube branching) lives in HoverPreviewVideo — this component just
+  // tracks whether the card is hovered/focused.
   function startPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(true);
-    videoRef.current?.play().catch(() => {
-      // Autoplay can be blocked in rare cases even when muted — fine,
-      // the static thumbnail just stays visible underneath.
-    });
   }
 
   function stopPreview() {
     if (!game.previewVideoUrl) return;
     setPreviewActive(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
   }
 
   return (
@@ -54,7 +48,7 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-white group-hover:shadow-[0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-white group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -67,17 +61,7 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
         )}
 
         {game.previewVideoUrl && (
-          <video
-            ref={videoRef}
-            src={game.previewVideoUrl}
-            muted
-            loop
-            playsInline
-            preload="none"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-              previewActive ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          />
+          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
         )}
 
         {game.tag && (

@@ -92,13 +92,20 @@ function MiniTile({ game }: { game: Game }) {
 
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
-    <div className={`relative flex shrink-0 snap-card gap-3 hover:z-40 focus-within:z-40 ${UNIT_HEIGHT}`}>
-      <div className="aspect-[16/9] h-full shrink-0">
+    <div className={`relative flex shrink-0 snap-card gap-3 ${UNIT_HEIGHT}`}>
+      {/* relative + z-0 establishes this as a positioned sibling so
+          the hovered mini-tile wrappers (z-40) correctly paint above it. */}
+      <div className="relative z-0 aspect-[16/9] h-full shrink-0">
         <FeaturedBanner game={banner} hideWatermark />
       </div>
+      {/* Each cell gets its own hover:z-40 so the scaled tile always
+          renders above the FeaturedBanner and its neighbouring cells —
+          the same pattern CategoryRow uses for GenreGameCard wrappers. */}
       <div className={`grid h-full shrink-0 grid-cols-2 grid-rows-2 gap-2 ${GRID_WIDTH}`}>
         {grid.map((g) => (
-          <MiniTile key={g.id} game={g} />
+          <div key={g.id} className="relative hover:z-40 focus-within:z-40">
+            <MiniTile game={g} />
+          </div>
         ))}
       </div>
     </div>
