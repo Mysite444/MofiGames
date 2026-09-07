@@ -82,6 +82,14 @@ export function OriginalsGameCard({ game }: { game: Game }) {
             wordmark text stays legible sitting directly on the art. */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
 
+        {/* Site-wide blue hover accent — same cta-blue panel every other
+            card reveals on hover, layered on top of the permanent fade
+            above so the wordmark stays legible either way. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+          aria-hidden
+        />
+
         {game.tag && BadgeIcon && (
           <span
             className={`absolute left-2 top-2 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${badgeStyles[game.tag]}`}

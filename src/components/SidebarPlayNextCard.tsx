@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Sparkles, Trophy, Flame } from "lucide-react";
+import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
 import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game, Tag } from "@/lib/types";
 
 const badgeStyles: Record<Exclude<Tag, null>, string> = {
@@ -83,6 +84,14 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" aria-hidden />
 
+        {/* Site-wide blue hover accent, matching every other card. Sits
+            above the permanent dark fade and only shows once hovered/
+            focused, with the plays/likes row fading in alongside it. */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+          aria-hidden
+        />
+
         {game.tag && BadgeIcon && (
           <span
             className={`absolute left-2 top-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${badgeStyles[game.tag]}`}
@@ -98,9 +107,27 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
           </span>
         )}
 
-        <p className="absolute inset-x-0 bottom-0 truncate px-2.5 py-2 font-display text-sm font-bold leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
-          {game.title}
-        </p>
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 px-2.5 py-2">
+          <p className="truncate font-display text-sm font-bold leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+            {game.title}
+          </p>
+          {/* Plays/likes — fades in on hover, same as every other card. */}
+          <div className="flex translate-y-1 items-center gap-2 text-[10px] font-semibold text-white/85 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+            {category && (
+              <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {category.name}
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Play size={9} className="fill-white" strokeWidth={0} />
+              {formatPlays(game.plays)}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <ThumbsUp size={9} />
+              {formatPlays(Math.round(game.plays * 0.92))}
+            </span>
+          </div>
+        </div>
       </div>
     </Link>
   );

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
 import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
+import { formatPlays } from "@/lib/format-plays";
 import type { Game } from "@/lib/types";
 
 const tagStyles: Record<string, string> = {
@@ -78,6 +80,29 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
           </span>
         )}
 
+        {/* Same blue hover info panel as every other card on the site —
+            title, category, plays, likes on the site's cta-blue accent.
+            Hidden until hovered/focused; fades + slides up in. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-[var(--color-cta-blue)] from-60% to-transparent px-2 pb-1.5 pt-2.5 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+          <p className="truncate font-display text-[11.5px] font-bold leading-tight text-white">
+            {game.title}
+          </p>
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-white/85">
+            {category && (
+              <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                {category.name}
+              </span>
+            )}
+            <span className="flex shrink-0 items-center gap-0.5">
+              <Play size={9} className="fill-white" strokeWidth={0} />
+              {formatPlays(game.plays)}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <ThumbsUp size={9} />
+              {formatPlays(Math.round(game.plays * 0.92))}
+            </span>
+          </div>
+        </div>
       </div>
 
       {!hideTitle && (

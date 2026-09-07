@@ -46,6 +46,13 @@ export function ContinuePlayingCard({ game }: { game: Game }) {
       {/* Bottom gradient so the info panel text is always legible */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-transparent" aria-hidden />
 
+      {/* Site-wide blue hover accent, matching every other card. Sits above
+          the permanent dark fade and only shows once hovered/focused. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+        aria-hidden
+      />
+
       {game.tag && (
         <span
           className={`absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide transition-opacity duration-200 group-hover:opacity-0 ${tagStyles[game.tag]}`}
