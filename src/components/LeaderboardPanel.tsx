@@ -88,15 +88,19 @@ export function LeaderboardPanel({ games }: { games: Game[] }) {
       {/* Desktop/laptop — same tile (GenreGameCard, 202x114) and sizing used
           by every other CategoryRow (Editor's Picks, Featured, etc.), so
           this row matches them instead of using square GameCard tiles.
-          overflow-y-visible + extra vertical padding, same as CategoryRow,
-          so the hover-grow effect isn't clipped. */}
-      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto overflow-y-visible py-4 pl-6 scrollbar-hide snap-rail lg:flex">
+          Same px-7/py-6 padding as CategoryRow's scroller (see the long
+          comment there) — overflow-y always clips here regardless of what
+          it's set to once overflow-x is auto, so padding is the only thing
+          keeping the hover-grow ring/glow from being cut off. The trailing
+          spacer is widened to match, so the last card's right-side glow
+          has room too. */}
+      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto py-6 pl-7 scrollbar-hide snap-rail lg:flex">
         {games.map((g) => (
           <div key={g.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DESKTOP_CARD_SIZE}>
             <GenreGameCard game={g} />
           </div>
         ))}
-        <div className="w-2 shrink-0" aria-hidden />
+        <div className="w-7 shrink-0" aria-hidden />
       </div>
     </section>
   );

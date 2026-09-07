@@ -73,15 +73,24 @@ export function CategoryRow({
           <ChevronLeft size={26} />
         </button>
 
-        {/* overflow-y-visible (explicit, alongside overflow-x-auto) is what
-            lets a hovered card's scale-up render outside the scroller
-            without being clipped or triggering a vertical scrollbar — the
-            same technique used by CrazyGames/Netflix-style hover-zoom
-            rails. The extra vertical padding gives that scale-up room to
-            breathe without crowding the row title above or the row below. */}
+        {/* IMPORTANT re: the hover-grow effect on GenreGameCard/OriginalsGameCard
+            inside this rail — browsers force overflow-y to compute as `auto`
+            (i.e. it still clips) whenever overflow-x is `auto` on the same
+            element, even if you explicitly write `overflow-y: visible`
+            (confirmed against the CSS Overflow spec + tested directly in
+            Chrome). So a hovered card's scaled-up ring/glow can NEVER
+            render past this element's own padding box, no matter what
+            overflow-y is set to — the only real fix is padding: reserve
+            enough padding here that the card's growth (computed from its
+            fixed size × the hover scale factor in GenreGameCard/
+            OriginalsGameCard) always fits *inside* the padding, comfortably
+            short of this box's actual edge. px-7/py-6 (plus the md: bump)
+            below were sized for exactly that, verified in a real browser —
+            don't shrink them without re-checking the hover effect still
+            shows on all 4 sides, especially the first/last card in a row. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto overflow-y-visible px-4 py-4 md:px-6"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 md:px-8"
           style={{ scrollPaddingLeft: "1rem" }}
         >
           {games.map((game) =>

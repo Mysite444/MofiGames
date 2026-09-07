@@ -84,7 +84,7 @@ export function CategoryPageCard({ game }: { game: Game }) {
       {/* ── Thumbnail ── 16:9, fills the column. With the 17px grid gap this
           computes to ~195px wide on a 1366px-viewport window — the exact
           column width measured off the CrazyGames reference screenshot.  */}
-      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.22] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_18px_38px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.22] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-video w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.22] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.22] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] group-active:scale-[0.97]">
 
         {/* Static thumbnail or generated placeholder */}
         {imageSrc ? (
