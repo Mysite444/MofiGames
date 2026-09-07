@@ -90,8 +90,11 @@ export function BrowseGameCard({ game, category }: { game: Game; category: Categ
 
         {/* CrazyGames-style hover info panel — title, genre tag, plays,
             likes. Hidden until hovered/focused; fades + slides up in. The
-            permanent caption below the thumbnail stays too (see docstring). */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-black/92 via-black/55 to-transparent px-2 pb-1.5 pt-7 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+            permanent caption below the thumbnail stays too (see docstring).
+            Uses the site's own blue accent (--color-cta-blue) for the panel
+            fill, matching the glow ring above, instead of a plain black
+            fade. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-[var(--color-cta-blue)] via-[var(--color-cta-blue)]/70 to-transparent px-2 pb-1.5 pt-7 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
           <p className="truncate font-display text-[11.5px] font-bold leading-tight text-white">
             {game.title}
           </p>
