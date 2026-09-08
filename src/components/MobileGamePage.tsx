@@ -18,6 +18,7 @@ import {
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
 import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { GameThumbnail } from "./GameThumbnail";
+import { getGameCover } from "@/lib/game-cover";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
 import { CommentsSection } from "./CommentsSection";
@@ -58,6 +59,15 @@ export function MobileGamePage({
   // localStorage via lib/game-library.ts (see /favorites and /recently-played).
   const [playing, setPlaying] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
+
+  // 16:9 cover — same source PlayFrame uses on the PC game page
+  // (landscapeCoverUrl → thumbnailUrl → coverImageUrl → undefined). Used
+  // as the hero's resting-state background (in place of the bare category
+  // gradient) and by the centered thumbnail card below, so both places
+  // show the game's real artwork instead of a decorative placeholder.
+  const heroCoverUrl = getGameCover(game, "landscape");
+  const [heroVideoError, setHeroVideoError] = useState(false);
+  const hasHeroVideo = Boolean(game.previewVideoUrl?.trim()) && !heroVideoError;
 
   // Real playtime tracking — see lib/game-library.ts. Streams actual
   // elapsed seconds to the signed-in account while `playing` is true.
@@ -130,8 +140,17 @@ export function MobileGamePage({
        * ── Mobile hero — CrazyGames-style full-bleed background video ────
        *
        * Layout (bottom-to-top stacking order):
-       *   1. Category gradient   — always-visible fallback (inline style)
-       *   2. previewVideoUrl     — muted + looped, always "active" here
+       *   1. Category gradient   — always-visible base fallback (inline style),
+       *                            used only when the game has no cover image
+       *                            of its own either.
+       *   2. heroCoverUrl        — the game's real 16:9 cover (getGameCover),
+       *                            same source PlayFrame's resting state uses
+       *                            on the PC game page. Always rendered under
+       *                            the video (also doubles as its poster), so
+       *                            the moment the video is missing, blocked,
+       *                            or errors out, the real artwork shows
+       *                            instead of the bare gradient.
+       *   3. previewVideoUrl     — muted + looped, always "active" here
        *                            since there's no hover concept on a
        *                            touch screen. Renders via the same
        *                            HoverPreviewVideo used by the hover
@@ -142,9 +161,9 @@ export function MobileGamePage({
        *                            videoTrailerUrl — that field only ever
        *                            renders in the dedicated "Trailer"
        *                            section further down the page.
-       *   3. Dark scrim          — bg-black/45, keeps thumbnail legible
-       *   4. Bottom fade         — dissolves hero into the page background
-       *   5. Thumbnail card      — centred game artwork + title
+       *   4. Dark scrim          — bg-black/45, keeps thumbnail legible
+       *   5. Bottom fade         — dissolves hero into the page background
+       *   6. Thumbnail card      — centred game artwork (same cover) + title
        *
        * PlayFrame is intentionally absent here: on mobile the actual game
        * runs inside MobileLandscapePlayer (portal, full-screen), so PlayFrame
@@ -168,12 +187,32 @@ export function MobileGamePage({
         />
 
         {/*
-         * Background video — previewVideoUrl only (see comment above).
-         * Category gradient (inline style on the parent div) is the
-         * fallback, always visible beneath it.
+         * Static cover — always rendered first (when the game has one) so
+         * it's the resting-state background, exactly like PlayFrame's
+         * coverImageUrl on the PC game page. Category gradient (inline
+         * style on the parent div) is the last-resort fallback beneath it.
          */}
-        {game.previewVideoUrl && game.previewVideoUrl.trim().length > 0 && (
-          <HoverPreviewVideo src={game.previewVideoUrl} active />
+        {heroCoverUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroCoverUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+
+        {/*
+         * Background video — previewVideoUrl only (see comment above).
+         * Sits on top of the cover image and hides it while playing; if
+         * the clip errors out, onError flips hasHeroVideo off and the
+         * cover underneath is what's left visible.
+         */}
+        {hasHeroVideo && (
+          <HoverPreviewVideo
+            src={game.previewVideoUrl!}
+            active
+            onError={() => setHeroVideoError(true)}
+          />
         )}
 
         {/* Dark scrim — dims video/gradient so content stays readable */}
@@ -189,7 +228,16 @@ export function MobileGamePage({
         {!playing && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="relative w-56 overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">
-              <GameThumbnail category={category} variant={game.variant} className="aspect-video w-full" />
+              {heroCoverUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={heroCoverUrl}
+                  alt=""
+                  className="aspect-video w-full object-cover"
+                />
+              ) : (
+                <GameThumbnail category={category} variant={game.variant} className="aspect-video w-full" />
+              )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-3 pt-7 pb-2">
                 <span className="block truncate text-sm font-bold text-white">{game.title}</span>
               </div>

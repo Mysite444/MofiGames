@@ -31,10 +31,18 @@ export function HoverPreviewVideo({
   src,
   active,
   className = "",
+  onError,
 }: {
   src: string;
   active: boolean;
   className?: string;
+  /** Fires if the underlying <video> fails to load (bad URL, unsupported
+   * codec, network error, etc.). Optional — existing call sites that don't
+   * pass it are unaffected. Callers use this to fall back to the static
+   * cover image instead of leaving a black box on screen (see
+   * MobileGamePage's hero, which is the first consumer). Has no effect on
+   * the YouTube-embed branch, which doesn't surface a comparable error. */
+  onError?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const youtubeId = getYoutubeVideoId(src);
@@ -89,6 +97,7 @@ export function HoverPreviewVideo({
       loop
       playsInline
       preload="none"
+      onError={onError}
       className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
         active ? "opacity-100" : "pointer-events-none opacity-0"
       } ${className}`}
