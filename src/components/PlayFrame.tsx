@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Code2 } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
+import { YouTubeBackground } from "./YouTubeBackground";
 import type { Category } from "@/lib/types";
 
 export function PlayFrame({
@@ -16,6 +17,7 @@ export function PlayFrame({
   playUrl,
   title,
   previewVideoUrl,
+  youtubeTrailerUrl,
   orientation = "landscape",
   iframeRef,
   onIframeLoad,
@@ -50,6 +52,12 @@ export function PlayFrame({
    * Sits behind the play button (still clickable) and is skipped
    * entirely once the iframe/build starts. */
   previewVideoUrl?: string;
+  /**
+   * YouTube trailer URL — takes priority over previewVideoUrl when both
+   * are set. Any standard YouTube link is accepted (watch, youtu.be,
+   * shorts). Source: Admin → Edit Game → "Video Trailer" field.
+   */
+  youtubeTrailerUrl?: string;
   /** Portrait games get letterboxed and rotated to fit a landscape
    * container so they aren't stretched sideways — the "orientation…
    * automatically rotate according to game need" behavior. Has no visual
@@ -102,7 +110,17 @@ export function PlayFrame({
 
       {!playing ? (
         <>
-          {previewVideoUrl && (
+          {/*
+           * Background video — priority order:
+           * 1. YouTubeBackground  (youtubeTrailerUrl — any YouTube link)
+           *    Admin → Edit Game → "Video Trailer" field
+           * 2. Direct <video>     (previewVideoUrl — raw MP4 / WebM)
+           *    Admin → Edit Game → "Preview Video" field
+           * 3. Category gradient fallback (always visible beneath both)
+           */}
+          <YouTubeBackground url={youtubeTrailerUrl} />
+
+          {!youtubeTrailerUrl && previewVideoUrl && (
             <video
               src={previewVideoUrl}
               autoPlay
@@ -113,6 +131,7 @@ export function PlayFrame({
               className="absolute inset-0 h-full w-full object-cover"
             />
           )}
+
           <button
             type="button"
             onClick={startPlaying}

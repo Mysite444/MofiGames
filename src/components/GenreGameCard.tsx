@@ -57,13 +57,15 @@ export function GenreGameCard({ game }: { game: Game }) {
 
   const BadgeIcon = game.tag ? badgeIcons[game.tag] : null;
 
+  const hoverSrc = game.previewVideoUrl ?? game.videoTrailerUrl;
+
   function startPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(true);
   }
 
   function stopPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(false);
   }
 
@@ -89,8 +91,8 @@ export function GenreGameCard({ game }: { game: Game }) {
           <GameThumbnail category={category!} variant={game.variant} className="absolute inset-0 h-full w-full" />
         )}
 
-        {game.previewVideoUrl && (
-          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
+        {hoverSrc && (
+          <HoverPreviewVideo src={hoverSrc} active={previewActive} />
         )}
 
         {game.tag && BadgeIcon && (

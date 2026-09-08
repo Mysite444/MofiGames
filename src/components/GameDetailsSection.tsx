@@ -236,13 +236,6 @@ export function GameDetailsSection({
         (game.instructions && game.instructions.trim().length > 0) ||
         (game.videoTrailerUrl && game.videoTrailerUrl.trim().length > 0)) && (
         <div className="game-post-card-2 glass flex flex-col gap-4 rounded-2xl p-5">
-          {game.videoTrailerUrl && game.videoTrailerUrl.trim().length > 0 && (
-            <div>
-              <h2 className="mb-2 font-display text-base font-bold text-text">Trailer</h2>
-              <TrailerPlayer url={game.videoTrailerUrl} posterFallback={getGameCover(game, "landscape")} />
-            </div>
-          )}
-
           {game.description && game.description.trim().length > 0 && (
             <p className="text-sm leading-relaxed text-text-muted">{game.description}</p>
           )}
@@ -253,6 +246,13 @@ export function GameDetailsSection({
             <div>
               <h2 className="mb-1 font-display text-base font-bold text-text">How to play</h2>
               <p className="text-sm leading-relaxed text-text-muted">{game.instructions}</p>
+            </div>
+          )}
+
+          {game.videoTrailerUrl && game.videoTrailerUrl.trim().length > 0 && (
+            <div>
+              <h2 className="mb-2 font-display text-base font-bold text-text">Trailer</h2>
+              <TrailerPlayer url={game.videoTrailerUrl} posterFallback={getGameCover(game, "landscape")} />
             </div>
           )}
         </div>

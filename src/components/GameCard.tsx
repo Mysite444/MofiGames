@@ -27,17 +27,18 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
 
   // Hover-preview: a short, silent, looping clip that plays over the
   // thumbnail on hover/focus, same behavior as CrazyGames' game cards.
-  // Only real (database-backed) games can have one — placeholder/demo
-  // games never set previewVideoUrl. Actual play/pause (and the MP4-vs-
-  // YouTube branching) lives in HoverPreviewVideo — this component just
-  // tracks whether the card is hovered/focused.
+  // Priority: previewVideoUrl (direct MP4 — instant) → videoTrailerUrl
+  // (YouTube link — slight load delay on first hover, but works).
+  // Actual play/pause and MP4-vs-YouTube branching lives in HoverPreviewVideo.
+  const hoverSrc = game.previewVideoUrl ?? game.videoTrailerUrl;
+
   function startPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(true);
   }
 
   function stopPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(false);
   }
 
@@ -62,8 +63,8 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
           <GameThumbnail category={category!} variant={game.variant} className="absolute inset-0 h-full w-full" />
         )}
 
-        {game.previewVideoUrl && (
-          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
+        {hoverSrc && (
+          <HoverPreviewVideo src={hoverSrc} active={previewActive} />
         )}
 
         {game.tag && (

@@ -54,13 +54,15 @@ export function CategoryPageCard({ game }: { game: Game }) {
 
   const BadgeIcon = game.tag ? badgeIcons[game.tag] : null;
 
+  const hoverSrc = game.previewVideoUrl ?? game.videoTrailerUrl;
+
   function startPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(true);
   }
 
   function stopPreview() {
-    if (!game.previewVideoUrl) return;
+    if (!hoverSrc) return;
     setPreviewActive(false);
   }
 
@@ -96,8 +98,8 @@ export function CategoryPageCard({ game }: { game: Game }) {
         )}
 
         {/* Hover video preview (silent, looping clip) */}
-        {game.previewVideoUrl && (
-          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
+        {hoverSrc && (
+          <HoverPreviewVideo src={hoverSrc} active={previewActive} />
         )}
 
         {/* TAG badge — TOP / HOT / NEW / UPDATED */}

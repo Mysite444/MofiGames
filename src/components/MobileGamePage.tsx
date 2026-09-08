@@ -15,8 +15,8 @@ import {
   Info,
   Tag as TagIcon,
 } from "lucide-react";
-import { PlayFrame } from "./PlayFrame";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
+import { YouTubeBackground } from "./YouTubeBackground";
 import { GameThumbnail } from "./GameThumbnail";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
@@ -126,29 +126,78 @@ export function MobileGamePage({
         />
       )}
 
-      {/* Hero — always shows the thumbnail preview.
-          PlayFrame is kept here for its preview-video background and the
-          in-frame Play button tap (which also calls handlePlay).
-          We never pass `playing={true}` here: the iframe lives exclusively
-          inside MobileLandscapePlayer above, keeping this hero as a clean
-          thumbnail/preview area even after the player is closed. */}
-      <div id={HERO_ID} className="relative w-full overflow-hidden">
-        <PlayFrame
-          category={category}
-          bleed
-          heightClassName="aspect-[4/3]"
-          playing={false}
-          onPlay={handlePlay}
-          previewVideoUrl={game.previewVideoUrl}
-          orientation={game.orientation}
-          title={game.title}
+      {/*
+       * ── Mobile hero — CrazyGames-style full-bleed background video ────
+       *
+       * Layout (bottom-to-top stacking order):
+       *   1. Category gradient   — always-visible fallback (inline style)
+       *   2. <video>             — previewVideoUrl, muted + looped autoplay
+       *                            Paste the direct MP4/WebM URL into
+       *                            Admin → Edit Game → "Preview Video" field.
+       *   3. Dark scrim          — bg-black/45, keeps thumbnail legible
+       *   4. Bottom fade         — dissolves hero into the page background
+       *   5. Thumbnail card      — centred game artwork + title
+       *
+       * PlayFrame is intentionally absent here: on mobile the actual game
+       * runs inside MobileLandscapePlayer (portal, full-screen), so PlayFrame
+       * would only be a decorative background box with a nested <video> —
+       * keeping the video at this level gives true full-bleed coverage with
+       * no intermediate wrapper clipping or gradient conflicts.
+       */}
+      <div
+        id={HERO_ID}
+        className="relative w-full overflow-hidden aspect-[4/3]"
+        style={{
+          background: `linear-gradient(135deg, ${category.colorTo}, ${category.colorFrom})`,
+        }}
+      >
+        {/* Decorative category icon — mirrors PlayFrame's watermark */}
+        <Icon
+          size={220}
+          strokeWidth={1}
+          className="pointer-events-none absolute -right-8 -bottom-10 text-white/10"
+          aria-hidden
         />
 
+        {/*
+         * Background video (priority order)
+         * ──────────────────────────────────
+         * 1. YouTubeBackground  — if videoTrailerUrl is a YouTube link.
+         *    Paste the YouTube URL into:
+         *      Admin → Edit Game → "Video Trailer" field (videoTrailerUrl)
+         *
+         * 2. Direct <video> fallback — if previewVideoUrl is a raw MP4/WebM.
+         *    Paste the file URL into:
+         *      Admin → Edit Game → "Preview Video" field (previewVideoUrl)
+         *
+         * 3. Category gradient (inline style on the parent div) — always
+         *    visible beneath both video layers; no action needed.
+         */}
+        <YouTubeBackground url={game.videoTrailerUrl} />
+
+        {/* MP4 fallback — only shown when no YouTube trailer is configured */}
+        {!game.videoTrailerUrl && game.previewVideoUrl && game.previewVideoUrl.trim().length > 0 && (
+          <video
+            src={game.previewVideoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+
+        {/* Dark scrim — dims video/gradient so content stays readable */}
+        <div aria-hidden className="absolute inset-0 bg-black/45" />
+
+        {/* Bottom fade — dissolves the hero into the dark page background */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[var(--color-base)] to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-[var(--color-base)] to-transparent"
         />
 
+        {/* Centred thumbnail card */}
         {!playing && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="relative w-56 overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">

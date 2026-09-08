@@ -140,6 +140,7 @@ export function GamePlayerPanel({
           playing={playing}
           onPlay={handlePlay}
           playUrl={game.playUrl}
+          youtubeTrailerUrl={game.videoTrailerUrl}
           previewVideoUrl={game.previewVideoUrl}
           orientation={game.orientation}
           title={game.title}
