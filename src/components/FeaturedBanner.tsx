@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Play } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import type { Game, Category } from "@/lib/types";
@@ -33,6 +35,7 @@ export function FeaturedBanner({
   // still takes precedence when the caller has already resolved it.
   const mergedCategory = useMergedCategoryBySlug(game.categorySlug);
   const category = categoryOverride ?? mergedCategory;
+  const [previewActive, setPreviewActive] = useState(false);
   if (!category) return null;
   const Icon = iconMap[category.icon];
   // Landscape cover (16:9) fills the banner background when available.
@@ -44,9 +47,24 @@ export function FeaturedBanner({
   // crops would distort the game's logo or character at that size.
   const iconSrc = getGameCover(game, "square");
 
+  // Hover-preview: same behavior + previewVideoUrl-only independence as
+  // every other card (GameCard, GenreGameCard, CategoryPageCard, …).
+  function startPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(true);
+  }
+  function stopPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(false);
+  }
+
   return (
     <Link
       href={`/${game.slug}`}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+      onFocus={startPreview}
+      onBlur={stopPreview}
       className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99]"
     >
       {/* Base layer: actual landscape cover when available; gradient otherwise */}
@@ -62,6 +80,14 @@ export function FeaturedBanner({
           className="absolute inset-0"
           style={{ background: `linear-gradient(120deg, ${category.colorTo}, ${category.colorFrom})` }}
         />
+      )}
+
+      {/* Hover-preview clip — previewVideoUrl only, independent of the
+          trailer. Sits above the cover image but below the mesh/gradient
+          overlays and text below, so the banner's title/play button stay
+          legible whether or not the clip is playing. */}
+      {game.previewVideoUrl && (
+        <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
       )}
       <div
         className="mesh-bg absolute inset-0 opacity-90"

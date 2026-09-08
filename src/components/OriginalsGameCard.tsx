@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Sparkles, Trophy, Flame, Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import { formatPlays } from "@/lib/format-plays";
@@ -60,12 +62,32 @@ export function OriginalsGameCard({ game }: { game: Game }) {
   // Portrait cover (2:3) matches this 202×304px tile exactly — falls back to
   // thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "portrait");
+  const [previewActive, setPreviewActive] = useState(false);
   if (!imageSrc && !category) return null;
 
   const BadgeIcon = game.tag ? badgeIcons[game.tag] : null;
 
+  // Hover-preview: previewVideoUrl only, same independence as every other
+  // card on the site (this tile's other hover effects stay pure-CSS via
+  // group-hover; only the video needs React state to play/pause).
+  function startPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(true);
+  }
+  function stopPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(false);
+  }
+
   return (
-    <Link href={`/${game.slug}`} className="group block h-full w-full focus-visible:outline-none">
+    <Link
+      href={`/${game.slug}`}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+      onFocus={startPreview}
+      onBlur={stopPreview}
+      className="group block h-full w-full focus-visible:outline-none"
+    >
       <div className="tile-shine relative h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.1] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_32px_rgba(0,0,0,0.6)] group-focus-visible:scale-[1.1] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_32px_rgba(0,0,0,0.6)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -76,6 +98,13 @@ export function OriginalsGameCard({ game }: { game: Game }) {
           />
         ) : (
           <GameThumbnail category={category!} variant={game.variant} className="absolute inset-0 h-full w-full" />
+        )}
+
+        {/* Hover-preview clip — previewVideoUrl only, independent of the
+            trailer, layered above the cover art and below the fade/badge/
+            wordmark overlays so they stay legible either way. */}
+        {game.previewVideoUrl && (
+          <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
         )}
 
         {/* Stronger bottom fade than the small grid cards — needed so the

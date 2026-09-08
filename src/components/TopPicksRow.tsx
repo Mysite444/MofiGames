@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Play, ThumbsUp } from "lucide-react";
 import { FeaturedBanner } from "./FeaturedBanner";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import { formatPlays } from "@/lib/format-plays";
@@ -34,12 +35,28 @@ function MiniTile({ game }: { game: Game }) {
   // Prefer the square cover → thumbnailUrl → coverImageUrl fallback chain.
   // Only fall back to the gradient GameThumbnail when no image is available.
   const imageSrc = getGameCover(game, "square");
+  const [previewActive, setPreviewActive] = useState(false);
 
   if (!imageSrc && !category) return null;
+
+  // Hover-preview: previewVideoUrl only, same independence as every other
+  // card on the site.
+  function startPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(true);
+  }
+  function stopPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(false);
+  }
 
   return (
     <Link
       href={`/${game.slug}`}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+      onFocus={startPreview}
+      onBlur={stopPreview}
       className="tile-shine group relative block h-full w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.15] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.15] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] active:scale-[0.97]"
     >
       {imageSrc ? (
@@ -57,6 +74,14 @@ function MiniTile({ game }: { game: Game }) {
           className="absolute inset-0 h-full w-full"
         />
       )}
+
+      {/* Hover-preview clip — previewVideoUrl only, independent of the
+          trailer, sitting above the static cover and below the fade/info
+          overlays below so the title/stats stay legible either way. */}
+      {game.previewVideoUrl && (
+        <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
+      )}
+
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-transparent" aria-hidden />
 
       {/* Site-wide blue hover accent, matching every other card. Sits above

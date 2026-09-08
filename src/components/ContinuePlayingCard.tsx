@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Play, ThumbsUp } from "lucide-react";
 import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
 import { getGameCover } from "@/lib/game-cover";
 import { formatPlays } from "@/lib/format-plays";
@@ -25,7 +27,19 @@ export function ContinuePlayingCard({ game }: { game: Game }) {
   // Square cover (1:1) matches this 88×88px tile — falls back to
   // thumbnailUrl → coverImageUrl → gradient placeholder.
   const imageSrc = getGameCover(game, "square");
+  const [previewActive, setPreviewActive] = useState(false);
   if (!imageSrc && !category) return null;
+
+  // Hover-preview: previewVideoUrl only, same independence as every other
+  // card on the site.
+  function startPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(true);
+  }
+  function stopPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(false);
+  }
 
   return (
     // overflow-hidden is intentionally on the <a> tag (same as MiniTile /
@@ -34,6 +48,10 @@ export function ContinuePlayingCard({ game }: { game: Game }) {
     <Link
       href={`/${game.slug}`}
       aria-label={game.title}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+      onFocus={startPreview}
+      onBlur={stopPreview}
       className="tile-shine group relative block h-[88px] w-[88px] overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.15] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.15] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_14px_30px_rgba(0,0,0,0.6)] active:scale-[0.97]"
     >
       {imageSrc ? (
@@ -41,6 +59,12 @@ export function ContinuePlayingCard({ game }: { game: Game }) {
         <img src={imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <GameThumbnail category={category!} variant={game.variant} className="absolute inset-0 h-full w-full" />
+      )}
+
+      {/* Hover-preview clip — previewVideoUrl only, independent of the
+          trailer. */}
+      {game.previewVideoUrl && (
+        <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
       )}
 
       {/* Bottom gradient so the info panel text is always legible */}
