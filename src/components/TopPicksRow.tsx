@@ -125,9 +125,15 @@ function MiniTile({ game }: { game: Game }) {
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
     <div className={`relative flex shrink-0 snap-card gap-3 ${UNIT_HEIGHT}`}>
-      {/* relative + z-0 establishes this as a positioned sibling so
-          the hovered mini-tile wrappers (z-40) correctly paint above it. */}
-      <div className="relative z-0 aspect-[16/9] h-full shrink-0">
+      {/* relative + z-0 establishes this as a positioned sibling so the
+          hovered mini-tile wrappers (z-40) correctly paint above it at
+          rest. hover:z-40/focus-within:z-40 is the other half of that
+          deal: the banner's own hover:scale-[1.08] grows it by ~15-16px
+          per side, more than the 12px gap-3 to the grid, so without this
+          the grown ring/glow on its right edge got painted over by the
+          (merely later-in-DOM, non-hovered) mini-tiles next to it — same
+          fix as the grid cells below, just applied in the other direction. */}
+      <div className="relative z-0 aspect-[16/9] h-full shrink-0 hover:z-40 focus-within:z-40">
         <FeaturedBanner game={banner} hideWatermark />
       </div>
       {/* Each cell gets its own hover:z-40 so the scaled tile always
