@@ -106,6 +106,19 @@ export function FeaturedBanner({
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" aria-hidden />
 
+      {/* Site-wide blue hover accent — same token/wash GameCard, MiniTile,
+          GenreGameCard and CategoryPageCard all use. Those cards reveal
+          previously-hidden title/stats text on hover, so their blue div
+          IS the info panel. Here the icon/title/Play button are already
+          visible at rest (this is the "big" banner tile, not a compact
+          card), so this is just the color wash on its own, faded in
+          behind that always-on content rather than replacing it. Sits
+          above the permanent black fade and below the info row below. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-40% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+        aria-hidden
+      />
+
       {game.tag && (
         <span
           className={`absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
