@@ -323,7 +323,7 @@ export function MobileGamePage({
             type="button"
             onClick={() => setVote((v) => (v === "up" ? null : "up"))}
             aria-pressed={vote === "up"}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-black px-3.5 py-2 text-sm font-semibold text-white transition-colors"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/40 bg-black px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:border-white/70"
           >
             <ThumbsUp size={16} className={vote === "up" ? "fill-white" : ""} />
             {formatPlays(baseLikes + (vote === "up" ? 1 : 0))}
@@ -334,7 +334,7 @@ export function MobileGamePage({
             onClick={() => setVote((v) => (v === "down" ? null : "down"))}
             aria-pressed={vote === "down"}
             aria-label="Dislike"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white transition-colors"
+            className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2.5 text-white transition-colors hover:border-white/70"
           >
             <ThumbsDown size={16} className={vote === "down" ? "fill-white" : ""} />
           </button>
@@ -344,8 +344,8 @@ export function MobileGamePage({
             onClick={() => toggleFavorite(game.slug)}
             aria-pressed={favorited}
             aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
-            className={`flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 transition-colors ${
-              favorited ? "text-[#3DA9FC]" : "text-white"
+            className={`flex shrink-0 items-center justify-center rounded-lg border bg-black p-2.5 transition-colors hover:border-white/70 ${
+              favorited ? "border-[#3DA9FC]/60 text-[#3DA9FC]" : "border-white/40 text-white"
             }`}
           >
             <Bookmark size={16} className={favorited ? "fill-[#3DA9FC]" : ""} />
@@ -355,7 +355,7 @@ export function MobileGamePage({
             type="button"
             onClick={handleShare}
             aria-label="Share"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white"
+            className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2.5 text-white transition-colors hover:border-white/70"
           >
             <Share2 size={16} />
           </button>
@@ -363,7 +363,7 @@ export function MobileGamePage({
           <Link
             href="/contact"
             aria-label="Send feedback"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white"
+            className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2.5 text-white transition-colors hover:border-white/70"
           >
             <MessageSquare size={16} />
           </Link>
