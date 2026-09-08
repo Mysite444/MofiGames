@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Code2 } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
-import { YouTubeBackground } from "./YouTubeBackground";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import type { Category } from "@/lib/types";
 
 export function PlayFrame({
@@ -16,8 +16,8 @@ export function PlayFrame({
   onPlay,
   playUrl,
   title,
+  coverImageUrl,
   previewVideoUrl,
-  youtubeTrailerUrl,
   orientation = "landscape",
   iframeRef,
   onIframeLoad,
@@ -47,17 +47,20 @@ export function PlayFrame({
   playUrl?: string;
   /** Used as the iframe's accessible title. */
   title?: string;
-  /** Short, silent, looping clip shown as the background of the "not
-   * playing yet" state — the CrazyGames-style preview-video behavior.
-   * Sits behind the play button (still clickable) and is skipped
-   * entirely once the iframe/build starts. */
+  /** Static cover image shown as the resting state of the "not playing
+   * yet" panel — the game's own artwork instead of the bare gradient.
+   * Source: getGameCover(game, …) in the caller. */
+  coverImageUrl?: string;
+  /** Short, silent, looping clip revealed over the cover image ONLY
+   * while the visitor's cursor is over the frame — the same
+   * hover-preview behavior as the homepage game cards (see
+   * HoverPreviewVideo, which this delegates to, so any direct MP4/WebM
+   * *or* YouTube link works here exactly like it does on a card).
+   * Completely independent of the trailer: `videoTrailerUrl` is never
+   * read here at all — it only ever renders in the dedicated "Trailer"
+   * section further down the game page (GameDetailsSection).
+   * Source: Admin → Edit Game → "Preview Video" field. */
   previewVideoUrl?: string;
-  /**
-   * YouTube trailer URL — takes priority over previewVideoUrl when both
-   * are set. Any standard YouTube link is accepted (watch, youtu.be,
-   * shorts). Source: Admin → Edit Game → "Video Trailer" field.
-   */
-  youtubeTrailerUrl?: string;
   /** Portrait games get letterboxed and rotated to fit a landscape
    * container so they aren't stretched sideways — the "orientation…
    * automatically rotate according to game need" behavior. Has no visual
@@ -74,6 +77,7 @@ export function PlayFrame({
   onIframeLoad?: () => void;
 }) {
   const [playingState, setPlayingState] = useState(false);
+  const [hovering, setHovering] = useState(false);
   const playing = playingProp ?? playingState;
   const Icon = iconMap[category.icon];
 
@@ -109,27 +113,36 @@ export function PlayFrame({
       />
 
       {!playing ? (
-        <>
+        <div
+          className="absolute inset-0"
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+        >
           {/*
-           * Background video — priority order:
-           * 1. YouTubeBackground  (youtubeTrailerUrl — any YouTube link)
-           *    Admin → Edit Game → "Video Trailer" field
-           * 2. Direct <video>     (previewVideoUrl — raw MP4 / WebM)
-           *    Admin → Edit Game → "Preview Video" field
-           * 3. Category gradient fallback (always visible beneath both)
+           * "Not playing yet" panel — two independent layers:
+           * 1. Resting state: the game's own cover image (coverImageUrl),
+           *    always visible. No video plays here until the visitor
+           *    actually hovers — this is the "image, not autoplaying
+           *    video" behavior for the desktop game post.
+           * 2. Hover state: previewVideoUrl fades in over the cover image
+           *    only while `hovering` is true, exactly like a homepage
+           *    game card (delegates to the same HoverPreviewVideo, so
+           *    both raw MP4/WebM and YouTube links work here). The
+           *    trailer field is never involved in this panel at all.
+           * The category gradient set on the outer container is the
+           * final fallback when neither a cover nor a preview clip exists.
            */}
-          <YouTubeBackground url={youtubeTrailerUrl} />
-
-          {!youtubeTrailerUrl && previewVideoUrl && (
-            <video
-              src={previewVideoUrl}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="none"
+          {coverImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverImageUrl}
+              alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
+          )}
+
+          {previewVideoUrl && (
+            <HoverPreviewVideo src={previewVideoUrl} active={hovering} />
           )}
 
           <button
@@ -141,7 +154,7 @@ export function PlayFrame({
               Play
             </span>
           </button>
-        </>
+        </div>
       ) : playUrl ? (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
           <iframe

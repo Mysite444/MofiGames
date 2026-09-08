@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronUp } from "lucide-react";
 import { PlayFrame } from "./PlayFrame";
+import { getGameCover } from "@/lib/game-cover";
 import { ProgressNoticeBar } from "./ProgressNoticeBar";
 import { PlayerActionBar } from "./PlayerActionBar";
 import { InGameInterstitial } from "./InGameInterstitial";
@@ -78,6 +79,12 @@ export function GamePlayerPanel({
   // embedded game did nothing on desktop.
   const { muted, toggleMute, handleIframeLoad } = useEmbedMute(iframeRef);
 
+  // Resting-state artwork for the "not playing yet" panel — same cover
+  // picked for every other landscape/portrait placement of this game, so
+  // it matches what visitors already saw on the card that brought them
+  // here. Independent of the hover-preview clip below it.
+  const coverImageUrl = getGameCover(game, game.orientation === "portrait" ? "portrait" : "landscape");
+
   // Signed-in visitors (including guest/anonymous sessions — see
   // lib/game-library.ts) already have their progress-adjacent data written
   // through to their account, so the "won't be saved" warning is only
@@ -140,7 +147,7 @@ export function GamePlayerPanel({
           playing={playing}
           onPlay={handlePlay}
           playUrl={game.playUrl}
-          youtubeTrailerUrl={game.videoTrailerUrl}
+          coverImageUrl={coverImageUrl}
           previewVideoUrl={game.previewVideoUrl}
           orientation={game.orientation}
           title={game.title}

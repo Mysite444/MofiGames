@@ -16,7 +16,7 @@ import {
   Tag as TagIcon,
 } from "lucide-react";
 import { MobileLandscapePlayer } from "./MobileLandscapePlayer";
-import { YouTubeBackground } from "./YouTubeBackground";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
 import { GameThumbnail } from "./GameThumbnail";
 import { MobileRelatedGrid } from "./MobileRelatedGrid";
 import { BackToGameButton } from "./BackToGameButton";
@@ -131,9 +131,17 @@ export function MobileGamePage({
        *
        * Layout (bottom-to-top stacking order):
        *   1. Category gradient   — always-visible fallback (inline style)
-       *   2. <video>             — previewVideoUrl, muted + looped autoplay
-       *                            Paste the direct MP4/WebM URL into
-       *                            Admin → Edit Game → "Preview Video" field.
+       *   2. previewVideoUrl     — muted + looped, always "active" here
+       *                            since there's no hover concept on a
+       *                            touch screen. Renders via the same
+       *                            HoverPreviewVideo used by the hover
+       *                            preview elsewhere, so a direct MP4/WebM
+       *                            *or* a YouTube link both work. Paste
+       *                            either into Admin → Edit Game →
+       *                            "Preview Video" field. Independent of
+       *                            videoTrailerUrl — that field only ever
+       *                            renders in the dedicated "Trailer"
+       *                            section further down the page.
        *   3. Dark scrim          — bg-black/45, keeps thumbnail legible
        *   4. Bottom fade         — dissolves hero into the page background
        *   5. Thumbnail card      — centred game artwork + title
@@ -160,32 +168,12 @@ export function MobileGamePage({
         />
 
         {/*
-         * Background video (priority order)
-         * ──────────────────────────────────
-         * 1. YouTubeBackground  — if videoTrailerUrl is a YouTube link.
-         *    Paste the YouTube URL into:
-         *      Admin → Edit Game → "Video Trailer" field (videoTrailerUrl)
-         *
-         * 2. Direct <video> fallback — if previewVideoUrl is a raw MP4/WebM.
-         *    Paste the file URL into:
-         *      Admin → Edit Game → "Preview Video" field (previewVideoUrl)
-         *
-         * 3. Category gradient (inline style on the parent div) — always
-         *    visible beneath both video layers; no action needed.
+         * Background video — previewVideoUrl only (see comment above).
+         * Category gradient (inline style on the parent div) is the
+         * fallback, always visible beneath it.
          */}
-        <YouTubeBackground url={game.videoTrailerUrl} />
-
-        {/* MP4 fallback — only shown when no YouTube trailer is configured */}
-        {!game.videoTrailerUrl && game.previewVideoUrl && game.previewVideoUrl.trim().length > 0 && (
-          <video
-            src={game.previewVideoUrl}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="none"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
+        {game.previewVideoUrl && game.previewVideoUrl.trim().length > 0 && (
+          <HoverPreviewVideo src={game.previewVideoUrl} active />
         )}
 
         {/* Dark scrim — dims video/gradient so content stays readable */}

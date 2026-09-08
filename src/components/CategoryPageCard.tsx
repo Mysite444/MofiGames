@@ -54,7 +54,9 @@ export function CategoryPageCard({ game }: { game: Game }) {
 
   const BadgeIcon = game.tag ? badgeIcons[game.tag] : null;
 
-  const hoverSrc = game.previewVideoUrl ?? game.videoTrailerUrl;
+  // previewVideoUrl only — independent of videoTrailerUrl (that field is
+  // reserved for the dedicated "Trailer" section on the game page).
+  const hoverSrc = game.previewVideoUrl;
 
   function startPreview() {
     if (!hoverSrc) return;

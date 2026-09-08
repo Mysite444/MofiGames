@@ -918,14 +918,14 @@ export function GameEditorClient({
                   <div className="space-y-3">
                     <MediaField
                       label="Preview Video"
-                      sublabel="Autoplay on hover (MP4, WebM)"
+                      sublabel="YouTube / MP4 URL — plays on hover"
                       value={form.preview_video_url}
                       onChange={(v) => setField("preview_video_url", v)}
                       isVideo
                     />
                     <MediaField
                       label="Trailer"
-                      sublabel="YouTube / MP4 URL"
+                      sublabel="YouTube / MP4 URL — shown in the About section"
                       value={form.video_trailer_url}
                       onChange={(v) => setField("video_trailer_url", v)}
                       isVideo

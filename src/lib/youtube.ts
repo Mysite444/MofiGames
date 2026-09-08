@@ -1,5 +1,5 @@
 /**
- * YouTube helpers — shared by HoverPreviewVideo, TrailerPlayer, and YouTubeBackground.
+ * YouTube helpers — shared by HoverPreviewVideo and TrailerPlayer.
  *
  * getYoutubeVideoId      — extract the 11-char ID from any YouTube URL
  * getYoutubeEmbedUrl     — build an embed URL for a given mode
@@ -38,8 +38,9 @@ export function getYoutubeVideoId(url?: string | null): string | null {
  *              Used by TrailerPlayer (user clicks play themselves).
  *
  *   "loop"   — chromeless, muted, autoplaying, looping clip.
- *              Used by HoverPreviewVideo (card hover) and
- *              YouTubeBackground (game-page hero background).
+ *              Used by HoverPreviewVideo — homepage card hover-preview,
+ *              the desktop game-post frame, and the mobile game-page
+ *              hero background.
  */
 export function getYoutubeEmbedUrl(videoId: string, mode: "watch" | "loop"): string {
   if (mode === "watch") {
