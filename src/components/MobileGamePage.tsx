@@ -287,14 +287,14 @@ export function MobileGamePage({
           <button
             type="button"
             onClick={handlePlay}
-            className="-mx-2 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
+            className="-mx-2 flex items-center justify-center gap-2 rounded-xl py-4 text-base font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
             style={{
               background: "var(--color-cta-blue)",
               boxShadow:
                 "0 4px 20px rgba(var(--color-cta-blue-rgb), 0.35), 0 2px 8px rgba(0,0,0,0.3)",
             }}
           >
-            <Play size={16} className="fill-white" />
+            <Play size={18} className="fill-white" />
             Play now
           </button>
           {game.multiplayer ? (
@@ -323,9 +323,9 @@ export function MobileGamePage({
             type="button"
             onClick={() => setVote((v) => (v === "up" ? null : "up"))}
             aria-pressed={vote === "up"}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-gray-800 transition-colors"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-black px-3.5 py-2 text-sm font-semibold text-white transition-colors"
           >
-            <ThumbsUp size={16} className={vote === "up" ? "fill-gray-800" : ""} />
+            <ThumbsUp size={16} className={vote === "up" ? "fill-white" : ""} />
             {formatPlays(baseLikes + (vote === "up" ? 1 : 0))}
           </button>
 
@@ -334,9 +334,9 @@ export function MobileGamePage({
             onClick={() => setVote((v) => (v === "down" ? null : "down"))}
             aria-pressed={vote === "down"}
             aria-label="Dislike"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800 transition-colors"
+            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white transition-colors"
           >
-            <ThumbsDown size={16} className={vote === "down" ? "fill-gray-800" : ""} />
+            <ThumbsDown size={16} className={vote === "down" ? "fill-white" : ""} />
           </button>
 
           <button
@@ -344,8 +344,8 @@ export function MobileGamePage({
             onClick={() => toggleFavorite(game.slug)}
             aria-pressed={favorited}
             aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
-            className={`flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 transition-colors ${
-              favorited ? "text-[#3DA9FC]" : "text-gray-800"
+            className={`flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 transition-colors ${
+              favorited ? "text-[#3DA9FC]" : "text-white"
             }`}
           >
             <Bookmark size={16} className={favorited ? "fill-[#3DA9FC]" : ""} />
@@ -355,7 +355,7 @@ export function MobileGamePage({
             type="button"
             onClick={handleShare}
             aria-label="Share"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800"
+            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white"
           >
             <Share2 size={16} />
           </button>
@@ -363,7 +363,7 @@ export function MobileGamePage({
           <Link
             href="/contact"
             aria-label="Send feedback"
-            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800"
+            className="flex shrink-0 items-center justify-center rounded-lg bg-black p-2.5 text-white"
           >
             <MessageSquare size={16} />
           </Link>

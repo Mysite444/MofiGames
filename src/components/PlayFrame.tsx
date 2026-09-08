@@ -150,7 +150,14 @@ export function PlayFrame({
             onClick={startPlaying}
             className="group absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25"
           >
-            <span className="rounded-full bg-white px-9 py-3.5 text-lg font-extrabold tracking-wide text-[#0b0c14] shadow-xl transition-transform group-hover:scale-105">
+            <span
+              className="rounded-full px-9 py-3.5 text-lg font-extrabold tracking-wide text-white shadow-xl transition-transform group-hover:scale-105"
+              style={{
+                background: "var(--color-cta-blue)",
+                boxShadow:
+                  "0 4px 20px rgba(var(--color-cta-blue-rgb), 0.35), 0 2px 8px rgba(0,0,0,0.3)",
+              }}
+            >
               Play
             </span>
           </button>
