@@ -252,8 +252,7 @@ export function MobileGamePage({
           <h1 className="font-display text-xl font-bold text-text">{game.title}</h1>
           <Link
             href={`/${category.slug}`}
-            className="flex items-center gap-1.5 text-xs font-medium"
-            style={{ color: category.colorFrom }}
+            className="flex items-center gap-1.5 text-xs font-medium text-white"
           >
             <Icon size={12} />
             {category.name}
@@ -264,7 +263,7 @@ export function MobileGamePage({
               {game.rating}
             </span>
             <span aria-hidden>·</span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 text-white">
               <Eye size={14} />
               {formatPlays(game.plays)} plays
             </span>
@@ -278,14 +277,24 @@ export function MobileGamePage({
 
         {/* Play now / Play with friends — both just start the same
             front-end placeholder above since there's no multiplayer backend
-            yet either, but kept as two distinct CTAs to match the reference. */}
+            yet either, but kept as two distinct CTAs to match the reference.
+            "Play now" is the primary CTA: shorter + a touch wider than the
+            pill below it, squared-off corners (rounded-xl, not rounded-full)
+            and the site's shared CTA blue (--color-cta-blue — same token as
+            "Back to Game" / pagination) instead of white, so it reads as a
+            big, wide, CrazyGames-style play button rather than a slim pill. */}
         <div className="flex flex-col gap-2.5">
           <button
             type="button"
             onClick={handlePlay}
-            className="flex items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-[#0b0c14] shadow-lg transition-transform active:scale-[0.98]"
+            className="-mx-2 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
+            style={{
+              background: "var(--color-cta-blue)",
+              boxShadow:
+                "0 4px 20px rgba(var(--color-cta-blue-rgb), 0.35), 0 2px 8px rgba(0,0,0,0.3)",
+            }}
           >
-            <Play size={16} className="fill-[#0b0c14]" />
+            <Play size={16} className="fill-white" />
             Play now
           </button>
           {game.multiplayer ? (
@@ -314,11 +323,9 @@ export function MobileGamePage({
             type="button"
             onClick={() => setVote((v) => (v === "up" ? null : "up"))}
             aria-pressed={vote === "up"}
-            className={`glass flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
-              vote === "up" ? "text-gold" : "text-text-muted"
-            }`}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-semibold text-gray-800 transition-colors"
           >
-            <ThumbsUp size={16} className={vote === "up" ? "fill-gold" : ""} />
+            <ThumbsUp size={16} className={vote === "up" ? "fill-gray-800" : ""} />
             {formatPlays(baseLikes + (vote === "up" ? 1 : 0))}
           </button>
 
@@ -327,11 +334,9 @@ export function MobileGamePage({
             onClick={() => setVote((v) => (v === "down" ? null : "down"))}
             aria-pressed={vote === "down"}
             aria-label="Dislike"
-            className={`glass flex shrink-0 items-center justify-center rounded-full p-2.5 transition-colors ${
-              vote === "down" ? "text-hot" : "text-text-muted"
-            }`}
+            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800 transition-colors"
           >
-            <ThumbsDown size={16} className={vote === "down" ? "fill-hot" : ""} />
+            <ThumbsDown size={16} className={vote === "down" ? "fill-gray-800" : ""} />
           </button>
 
           <button
@@ -339,8 +344,8 @@ export function MobileGamePage({
             onClick={() => toggleFavorite(game.slug)}
             aria-pressed={favorited}
             aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
-            className={`glass flex shrink-0 items-center justify-center rounded-full p-2.5 transition-colors ${
-              favorited ? "text-[#3DA9FC]" : "text-text-muted"
+            className={`flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 transition-colors ${
+              favorited ? "text-[#3DA9FC]" : "text-gray-800"
             }`}
           >
             <Bookmark size={16} className={favorited ? "fill-[#3DA9FC]" : ""} />
@@ -350,7 +355,7 @@ export function MobileGamePage({
             type="button"
             onClick={handleShare}
             aria-label="Share"
-            className="glass flex shrink-0 items-center justify-center rounded-full p-2.5 text-text-muted"
+            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800"
           >
             <Share2 size={16} />
           </button>
@@ -358,7 +363,7 @@ export function MobileGamePage({
           <Link
             href="/contact"
             aria-label="Send feedback"
-            className="glass flex shrink-0 items-center justify-center rounded-full p-2.5 text-text-muted"
+            className="flex shrink-0 items-center justify-center rounded-lg bg-white p-2.5 text-gray-800"
           >
             <MessageSquare size={16} />
           </Link>
