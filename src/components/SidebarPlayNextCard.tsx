@@ -66,7 +66,7 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative h-full w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97]">
+      <div className="tile-shine relative h-full w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-300 ease-tile group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97] group-active:duration-150 group-active:ease-out">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -88,13 +88,13 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
             above the permanent dark fade and only shows once hovered/
             focused, with the plays/likes row fading in alongside it. */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-300 ease-tile group-hover:opacity-100 group-focus-visible:opacity-100"
           aria-hidden
         />
 
         {game.tag && BadgeIcon && (
           <span
-            className={`absolute left-2 top-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity duration-100 group-hover:opacity-0 group-active:opacity-0 ${badgeStyles[game.tag]}`}
+            className={`absolute left-2 top-2 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0 ${badgeStyles[game.tag]}`}
           >
             <BadgeIcon size={10} strokeWidth={2.5} />
             {game.tag}
@@ -102,7 +102,7 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
         )}
 
         {game.isSponsored && (
-          <span className="absolute right-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-100 group-hover:opacity-0 group-active:opacity-0">
+          <span className="absolute right-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0">
             {game.sponsorLabel || "Sponsored"}
           </span>
         )}
@@ -112,7 +112,7 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
             {game.title}
           </p>
           {/* Plays/likes — fades in on hover, same as every other card. */}
-          <div className="flex translate-y-1 items-center gap-2 text-[10px] font-semibold text-white/85 opacity-0 transition-all duration-100 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+          <div className="flex translate-y-1 items-center gap-2 text-[10px] font-semibold text-white/85 opacity-0 transition-all duration-300 ease-tile group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
             {category && (
               <span className="truncate rounded bg-white/15 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide">
                 {category.name}

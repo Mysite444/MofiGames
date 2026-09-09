@@ -80,6 +80,20 @@
      it once here and every thumbnail on the site updates together. */
   --radius-thumb: 14px;
 
+  /* Single source of truth for every game-thumbnail card's hover-in easing
+     (image zoom, ring, glow, overlay fade/slide-up), exposed as the
+     `ease-tile` utility below and paired with Tailwind's built-in
+     `duration-300` on every card. Replaces the old 100ms transition with
+     cubic-bezier(0.16,1,0.3,1), which was fast enough to read as an
+     instant cut rather than a motion. 300ms sits inside the 250-350ms
+     "feels smooth, not sluggish" range, and cubic-bezier(0.22,1,0.36,1)
+     starts quick and settles gently, giving the zoom/fade a soft landing
+     instead of a hard stop. group-active (the press-down state)
+     intentionally overrides this with a snappier duration-150 — see each
+     card's `active:duration-150 active:ease-out` — so hover feels smooth
+     while clicks still feel immediate. */
+  --ease-tile: cubic-bezier(0.22, 1, 0.36, 1);
+
   /* Fonts */
   --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
@@ -107,6 +121,7 @@
   --color-cta-blue: var(--color-cta-blue);
   --color-cta-blue-hover: var(--color-cta-blue-hover);
   --radius-thumb: var(--radius-thumb);
+  --ease-tile: var(--ease-tile);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-category: var(--font-category);
