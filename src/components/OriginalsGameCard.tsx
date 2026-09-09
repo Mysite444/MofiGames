@@ -111,14 +111,6 @@ export function OriginalsGameCard({ game }: { game: Game }) {
             wordmark text stays legible sitting directly on the art. */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" aria-hidden />
 
-        {/* Site-wide blue hover accent — same cta-blue panel every other
-            card reveals on hover, layered on top of the permanent fade
-            above so the wordmark stays legible either way. */}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-50% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
-          aria-hidden
-        />
-
         {game.tag && BadgeIcon && (
           <span
             className={`absolute left-2 top-2 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${badgeStyles[game.tag]}`}
@@ -128,7 +120,16 @@ export function OriginalsGameCard({ game }: { game: Game }) {
           </span>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-3">
+        {/* Site-wide blue hover accent, matching CrazyGames' Originals tiles:
+            a solid color block sized to hug just this text content (not a
+            separate oversized gradient overlay), so it reads as a tight,
+            solid "blue area" behind the caption instead of a soft wash
+            bleeding a long way up into the artwork. bg-color (not a
+            gradient) is used deliberately — Tailwind's transition-colors
+            only animates background-color smoothly, not background-image,
+            so this is what actually fades in cleanly on hover/focus. The
+            wordmark above keeps its own opacity untouched by this. */}
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-[var(--color-cta-blue)]/0 p-3 transition-colors duration-200 group-hover:bg-[var(--color-cta-blue)] group-focus-visible:bg-[var(--color-cta-blue)]">
           <Wordmark title={game.title} />
 
           {/* Plays/likes — fades in on hover, matching every other card's
