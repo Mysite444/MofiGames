@@ -65,7 +65,7 @@ export function FeaturedBanner({
       onMouseLeave={stopPreview}
       onFocus={startPreview}
       onBlur={stopPreview}
-      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99]"
+      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99]"
     >
       {/* Base layer: actual landscape cover when available; gradient otherwise */}
       {landscapeSrc ? (
