@@ -31,7 +31,7 @@ function FixedGridCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="group relative block aspect-square w-full overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97]"
+      className="group relative block aspect-square w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97]"
     >
       {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element

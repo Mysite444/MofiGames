@@ -72,7 +72,7 @@ function HeroGameCard({ game }: { game: Game }) {
   if (!category && !posterSrc) return null;
 
   return (
-    <div ref={containerRef} className="relative w-full overflow-hidden rounded-2xl ring-1 ring-white/10">
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-thumb ring-1 ring-white/10">
       {/* Aspect box — 16:9 */}
       <div className="relative aspect-video w-full">
         {/* Background gradient (always rendered) */}

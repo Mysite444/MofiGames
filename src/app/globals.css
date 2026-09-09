@@ -68,6 +68,18 @@
   --color-cta-blue-hover: #5838d9;
   --color-cta-blue-rgb: 104, 66, 255;
 
+  /* Single source of truth for every game-thumbnail card's corner radius
+     (GameCard, GenreGameCard, OriginalsGameCard, FeaturedBanner, the Top
+     Picks mini-tiles, ContinuePlayingCard, BrowseGameCard, CategoryPageCard,
+     SidebarPlayNextCard, MobileGameRow, and all the mobile home templates).
+     14px was measured pixel-for-pixel off a reference thumbnail at the
+     site's own 202x114 tile size — see GenreGameCard.tsx for the full
+     writeup. Exposed as the `rounded-thumb` utility below so every one of
+     those cards (and their loading-skeleton stand-ins) shares the exact
+     same curve instead of each picking its own rounded-lg/xl/2xl. Change
+     it once here and every thumbnail on the site updates together. */
+  --radius-thumb: 14px;
+
   /* Fonts */
   --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
@@ -94,6 +106,7 @@
   --color-menu-blue: var(--color-menu-blue);
   --color-cta-blue: var(--color-cta-blue);
   --color-cta-blue-hover: var(--color-cta-blue-hover);
+  --radius-thumb: var(--radius-thumb);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-category: var(--font-category);

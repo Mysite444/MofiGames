@@ -35,7 +35,7 @@ function DesktopHomeSkeleton() {
       {/* Continue playing */}
       <section className="px-4 md:px-6">
         <Bone className="mb-3 h-4 w-36" />
-        <Bone className="h-[88px] w-[88px] rounded-xl" />
+        <Bone className="h-[88px] w-[88px] rounded-thumb" />
       </section>
 
       {/* Top picks: big banner + 2x2 small grid, repeated */}
@@ -46,10 +46,10 @@ function DesktopHomeSkeleton() {
         <div className="flex gap-3 overflow-hidden">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="flex h-[208px] shrink-0 gap-2 xl:h-[232px]">
-              <Bone className="aspect-[16/9] h-full rounded-xl" />
+              <Bone className="aspect-[16/9] h-full rounded-thumb" />
               <div className="grid w-[326px] grid-cols-2 grid-rows-2 gap-2 xl:w-[366px]">
                 {Array.from({ length: 4 }).map((_, j) => (
-                  <Bone key={j} className="h-full w-full rounded-xl" />
+                  <Bone key={j} className="h-full w-full rounded-thumb" />
                 ))}
               </div>
             </div>

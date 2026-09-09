@@ -52,7 +52,7 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
       onFocus={startPreview}
       onBlur={stopPreview}
     >
-      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97]">
+      <div className="tile-shine relative aspect-square w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03] group-hover:ring-2 group-hover:ring-[var(--color-cta-blue)] group-hover:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-focus-visible:ring-2 group-focus-visible:ring-[var(--color-cta-blue)] group-focus-visible:shadow-[0_0_20px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_6px_20px_rgba(0,0,0,0.4)] group-active:scale-[0.97]">
         {imageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -70,14 +70,14 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
 
         {game.tag && (
           <span
-            className={`absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
+            className={`absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide transition-opacity duration-100 group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
           >
             {game.tag}
           </span>
         )}
 
         {game.isSponsored && (
-          <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0">
+          <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-100 group-hover:opacity-0 group-active:opacity-0">
             {game.sponsorLabel || "Sponsored"}
           </span>
         )}
@@ -85,7 +85,7 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
         {/* Same blue hover info panel as every other card on the site —
             title, category, plays, likes on the site's cta-blue accent.
             Hidden until hovered/focused; fades + slides up in. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-[var(--color-cta-blue)] from-60% to-transparent px-2 pb-1.5 pt-2.5 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex translate-y-1.5 flex-col gap-1 bg-gradient-to-t from-[var(--color-cta-blue)] from-60% to-transparent px-2 pb-1.5 pt-2.5 opacity-0 transition-all duration-100 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
           <p className="truncate font-display text-[11.5px] font-bold leading-tight text-white">
             {game.title}
           </p>

@@ -73,7 +73,7 @@ function RelatedGridSkeleton({ count }: { count: number }) {
     <div className="grid grid-cols-3 gap-2.5">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2">
-          <Bone className="aspect-square w-full rounded-2xl" />
+          <Bone className="aspect-square w-full rounded-thumb" />
           <Bone className="h-3 w-4/5" />
         </div>
       ))}

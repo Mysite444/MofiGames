@@ -35,7 +35,7 @@ function ColorCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block w-[84px] shrink-0 snap-card overflow-hidden rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.4)] ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[92px]"
+      className="tile-shine group relative block w-[84px] shrink-0 snap-card overflow-hidden rounded-thumb shadow-[0_4px_12px_rgba(0,0,0,0.4)] ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[92px]"
     >
       <div className="aspect-square w-full">
         {imageSrc ? (

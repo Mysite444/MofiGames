@@ -98,7 +98,7 @@ export function HoverPreviewVideo({
       playsInline
       preload="none"
       onError={onError}
-      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
+      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-100 ${
         active ? "opacity-100" : "pointer-events-none opacity-0"
       } ${className}`}
     />

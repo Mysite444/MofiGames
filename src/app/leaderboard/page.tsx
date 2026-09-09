@@ -77,13 +77,13 @@ export default async function LeaderboardPage() {
               <img
                 src={game.thumbnailUrl}
                 alt=""
-                className="h-12 w-12 shrink-0 rounded-lg object-cover sm:h-14 sm:w-14"
+                className="h-12 w-12 shrink-0 rounded-thumb object-cover sm:h-14 sm:w-14"
               />
             ) : (
               <GameThumbnail
                 category={category!}
                 variant={game.variant}
-                className="h-12 w-12 shrink-0 rounded-lg sm:h-14 sm:w-14"
+                className="h-12 w-12 shrink-0 rounded-thumb sm:h-14 sm:w-14"
               />
             )}
             <div className="min-w-0 flex-1">
@@ -148,13 +148,13 @@ export default async function LeaderboardPage() {
                   <img
                     src={game.thumbnailUrl}
                     alt=""
-                    className="h-12 w-12 shrink-0 rounded-lg object-cover sm:h-14 sm:w-14"
+                    className="h-12 w-12 shrink-0 rounded-thumb object-cover sm:h-14 sm:w-14"
                   />
                 ) : (
                   <GameThumbnail
                     category={category!}
                     variant={game.variant}
-                    className="h-12 w-12 shrink-0 rounded-lg sm:h-14 sm:w-14"
+                    className="h-12 w-12 shrink-0 rounded-thumb sm:h-14 sm:w-14"
                   />
                 )}
                 <div className="min-w-0 flex-1">

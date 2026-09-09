@@ -34,7 +34,7 @@ function RectCard({ game }: { game: Game }) {
   return (
     <Link
       href={`/${game.slug}`}
-      className="tile-shine group relative block w-[108px] shrink-0 snap-card overflow-hidden rounded-xl ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[118px]"
+      className="tile-shine group relative block w-[108px] shrink-0 snap-card overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-200 active:scale-[0.97] min-[400px]:w-[118px]"
       style={{ aspectRatio: "2/3" }}
     >
       {imageSrc ? (

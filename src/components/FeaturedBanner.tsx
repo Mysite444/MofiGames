@@ -65,7 +65,7 @@ export function FeaturedBanner({
       onMouseLeave={stopPreview}
       onFocus={startPreview}
       onBlur={stopPreview}
-      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99]"
+      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-100 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99]"
     >
       {/* Base layer: actual landscape cover when available; gradient otherwise */}
       {landscapeSrc ? (
@@ -115,13 +115,13 @@ export function FeaturedBanner({
           behind that always-on content rather than replacing it. Sits
           above the permanent black fade and below the info row below. */}
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-40% to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-40% to-transparent opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100"
         aria-hidden
       />
 
       {game.tag && (
         <span
-          className={`absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide transition-opacity duration-200 group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
+          className={`absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide transition-opacity duration-100 group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
         >
           {game.tag}
         </span>
