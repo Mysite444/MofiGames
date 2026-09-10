@@ -22,8 +22,16 @@ const tagStyles: Record<string, string> = {
 // width is derived from this via aspect-[16/9]; the small grid is given an
 // explicit pixel width that, split 2x2 with the gap below, reads close to
 // the small-thumbnail proportions in the reference screenshots.
+//
+// GRID_WIDTH is deliberately picked so each of the four mini-tiles lands on
+// the *same* 16:9 ratio as the big banner tile — measured directly off the
+// CrazyGames "Top picks" row (its two stacked mini-tiles are just as
+// landscape as its big cards, not the near-square ~1.6:1 this used to
+// produce). With a fixed cell height of (UNIT_HEIGHT - gap) / 2, solving
+// width = height * 16/9 gives 364/408 below. Keep this formula in sync if
+// UNIT_HEIGHT or the grid gap ever changes.
 const UNIT_HEIGHT = "h-[208px] xl:h-[232px]";
-const GRID_WIDTH = "w-[326px] xl:w-[366px]";
+const GRID_WIDTH = "w-[364px] xl:w-[408px]";
 
 // Small captionless tile used only inside the Top Picks grid — same visual
 // language as every other card on the site now (hover-grow + colored ring +
@@ -124,12 +132,17 @@ function MiniTile({ game }: { game: Game }) {
 
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
-    <div className={`relative flex shrink-0 snap-card gap-3 ${UNIT_HEIGHT}`}>
+    // gap-2 (8px) — matches the grid's own internal gap and the gap between
+    // units in the scroller below, so the whole row reads as one consistent
+    // tight rhythm (measured off CrazyGames, which uses the same ~8px gap
+    // everywhere) instead of the bigger/uneven 12px-and-16px spacing this
+    // used to have between the banner, the mini-grid, and the next unit.
+    <div className={`relative flex shrink-0 snap-card gap-2 ${UNIT_HEIGHT}`}>
       {/* relative + z-0 establishes this as a positioned sibling so the
           hovered mini-tile wrappers (z-40) correctly paint above it at
           rest. hover:z-40/focus-within:z-40 is the other half of that
           deal: the banner's own hover:scale-[1.08] grows it by ~15-16px
-          per side, more than the 12px gap-3 to the grid, so without this
+          per side, more than the 8px gap to the grid, so without this
           the grown ring/glow on its right edge got painted over by the
           (merely later-in-DOM, non-hovered) mini-tiles next to it — same
           fix as the grid cells below, just applied in the other direction. */}
@@ -199,9 +212,16 @@ export function TopPicksRow({
             needs it: scroll-snap-align:start otherwise eats the start-side
             padding once the row actually scrolls, clipping the first unit's
             hover ring on the left. */}
+        {/* gap-2, not gap-4: same tight ~8px rhythm as the rest of the row
+            (see PickUnit) rather than a bigger gap between units — that
+            16px was the single biggest source of "dead space" between one
+            unit's grid and the next unit's banner. Tightening it also means
+            the next unit's banner starts sooner, so a slice of it stays
+            visible at the row's right edge (the CrazyGames-style "peek")
+            instead of ending flush at the last fully-visible unit. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-4 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
         >
           {banners.map((banner, i) => (
             <PickUnit key={banner.id} banner={banner} grid={grids[i] ?? []} />
