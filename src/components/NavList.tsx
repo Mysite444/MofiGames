@@ -93,9 +93,17 @@ function SectionLabel({ collapsed, children }: { collapsed: boolean; children: s
 // Full white text always. Inactive items get the blue+yellow "lighting" hover
 // (.menu-item, defined in globals.css); active route gets a steady yellow
 // accent bar (.menu-item-active) instead of a hover effect.
+//
+// ITEM_PAD is the SAME in collapsed and expanded state — on purpose. It used
+// to switch between a centered "justify-center px-1" (collapsed) and a
+// left-aligned "px-3" (expanded), which visually snapped every icon a few
+// pixels sideways the instant the rail opened. CrazyGames' rail never does
+// this: the icon sits in one fixed column and only the label slides in next
+// to it. Keeping one constant left-aligned padding for both states is what
+// makes that true here — the icon's distance from the rail's left edge is
+// identical whether the label beside it is rendered or not.
 const ITEM_BASE = "menu-item flex items-center gap-3 rounded-lg text-sm font-medium text-white";
-const ITEM_EXPANDED_PAD = "px-3 py-2.5";
-const ITEM_COLLAPSED_PAD = "justify-center px-1 py-2";
+const ITEM_PAD = "px-3 py-2.5";
 
 export function NavList({
   collapsed = false,
@@ -132,15 +140,9 @@ export function NavList({
             href={item.href}
             onClick={onNavigate}
             title={collapsed ? item.label : undefined}
-            className={`${ITEM_BASE} ${collapsed ? ITEM_COLLAPSED_PAD : ITEM_EXPANDED_PAD} ${
-              active ? "menu-item-active" : ""
-            }`}
+            className={`${ITEM_BASE} ${ITEM_PAD} ${active ? "menu-item-active" : ""}`}
           >
-            <Icon
-              size={21}
-              strokeWidth={collapsed ? 2.75 : 2}
-              className={collapsed ? "menu-icon-rail shrink-0" : "shrink-0"}
-            />
+            <Icon size={21} strokeWidth={2.25} className="menu-icon-rail shrink-0" />
             {!collapsed && <span className="truncate">{item.label}</span>}
           </Link>
         );
@@ -157,15 +159,9 @@ export function NavList({
             href={href}
             onClick={onNavigate}
             title={collapsed ? cat.name : undefined}
-            className={`${ITEM_BASE} ${collapsed ? ITEM_COLLAPSED_PAD : ITEM_EXPANDED_PAD} ${
-              active ? "menu-item-active" : ""
-            }`}
+            className={`${ITEM_BASE} ${ITEM_PAD} ${active ? "menu-item-active" : ""}`}
           >
-            <Icon
-              size={20}
-              strokeWidth={collapsed ? 2.75 : 2}
-              className={collapsed ? "menu-icon-rail shrink-0" : "shrink-0"}
-            />
+            <Icon size={20} strokeWidth={2.25} className="menu-icon-rail shrink-0" />
             {!collapsed && <span className="flex-1 truncate">{cat.name}</span>}
             {!collapsed && showArrows && (
               <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-faint" />
@@ -185,7 +181,7 @@ export function NavList({
                 key={item.label}
                 href={item.href}
                 onClick={onNavigate}
-                className={`${ITEM_BASE} ${ITEM_EXPANDED_PAD} ${active ? "menu-item-active" : ""}`}
+                className={`${ITEM_BASE} ${ITEM_PAD} ${active ? "menu-item-active" : ""}`}
               >
                 <Icon size={18} strokeWidth={2} />
                 <span className="truncate">{item.label}</span>
@@ -201,7 +197,7 @@ export function NavList({
                 key={page.slug}
                 href={href}
                 onClick={onNavigate}
-                className={`${ITEM_BASE} ${ITEM_EXPANDED_PAD} ${active ? "menu-item-active" : ""}`}
+                className={`${ITEM_BASE} ${ITEM_PAD} ${active ? "menu-item-active" : ""}`}
               >
                 <Icon size={18} strokeWidth={2} />
                 <span className="truncate">{page.title}</span>
@@ -219,7 +215,7 @@ export function NavList({
                   onClick={onNavigate}
                   target={link.open_in_new_tab ? "_blank" : undefined}
                   rel={link.open_in_new_tab ? "noreferrer" : undefined}
-                  className={`${ITEM_BASE} ${ITEM_EXPANDED_PAD}`}
+                  className={`${ITEM_BASE} ${ITEM_PAD}`}
                 >
                   <Link2 size={18} strokeWidth={2} />
                   <span className="truncate">{link.label}</span>

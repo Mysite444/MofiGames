@@ -24,9 +24,15 @@ export function Sidebar({
         hidden ? "-translate-x-full opacity-0" : "translate-x-0 opacity-100"
       } ${expanded ? "w-[252px] shadow-[0_0_40px_rgba(0,0,0,0.7)]" : "w-[60px]"}`}
     >
+      {/* Overlay, not push — main never shifts when this expands (see
+          AppShell). Horizontal/vertical padding here is INTENTIONALLY the
+          same in both states (only the scrollbar-revealing class toggles) —
+          NavList's icons sit at a fixed px-3 offset from this container's
+          left edge, so any padding change here would itself reintroduce
+          the "icon jumps sideways on hover" bug this is fixing. */}
       <div
-        className={`menu-scroll flex-1 overflow-y-auto overflow-x-hidden ${
-          hovered ? "menu-scroll-open px-2.5 py-3" : "px-1.5 py-1.5"
+        className={`menu-scroll flex-1 overflow-y-auto overflow-x-hidden px-1.5 py-2 ${
+          hovered ? "menu-scroll-open" : ""
         }`}
       >
         <NavList collapsed={!hovered} />

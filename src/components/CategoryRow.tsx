@@ -1,63 +1,26 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { GenreGameCard } from "./GenreGameCard";
 import { OriginalsGameCard } from "./OriginalsGameCard";
 import type { Game } from "@/lib/types";
 
-// ── CrazyGames-style "peek" card widths ────────────────────────────────────
-//
-// Instead of a single fixed pixel size, card widths are now calculated so
-// that exactly N full cards + a deliberate 0.4-card peek are always visible
-// in the rail — matching the effect on CrazyGames where the next card is
-// always partially visible at the right edge, signalling scrollability.
-//
-// Formula (derived from first principles):
-//   cardWidth = (containerInnerWidth − N × gap) / (N + peekFraction)
-//
-// Where:
-//   containerInnerWidth  = flex container's content-box width
-//                          = viewportWidth − sidebar(60px) − px-padding(64px)
-//   N                    = number of *full* cards shown at that breakpoint
-//   gap                  = gap-2 = 8px between cards
-//   peekFraction         = 0.4  (40 % of the next card is always visible)
-//
-// The calc() below resolves against the flex container's content-box width
-// (what `100%` means for a flex child per the CSS spec), so it is already
-// sidebar- and padding-aware with no extra arithmetic at call sites.
-//
-// Verified peek at each breakpoint baseline:
-//   lg  (1024 px viewport): card ≈ 197 px · 40 % peek ✓
-//   xl  (1280 px viewport): card ≈ 207 px · 40 % peek ✓
-//   2xl (1536 px viewport): card ≈ 213 px · 40 % peek ✓
-//
-// Card sizes stay close to the original 202 px reference at the baseline of
-// each breakpoint and scale proportionally at wider viewports — which is
-// exactly how CrazyGames itself behaves at different screen widths.
-//
-// Heights: derived from aspect-ratio (16:9 landscape / 2:3 portrait) rather
-// than a fixed pixel value, so proportions are always perfect no matter what
-// width the breakpoint formula produces. Both GenreGameCard and
-// OriginalsGameCard use `h-full w-full` internally, so they fill whatever
-// dimensions the wrapper establishes.
-//
-// Hover-grow safety: GenreGameCard scales to 1.18× on hover. At the largest
-// card size within each breakpoint range the vertical growth per side is
-// always < py-6 (24 px), so the ring/glow never clips — the existing
-// px-7 py-6 (md:px-8) padding on the rail is still sufficient.
-//
-// Tailwind classes used on each snap-card wrapper:
-//   w-[202px]                           ← base / mobile (rail hidden at < lg)
-//   lg:w-[calc((100%_-_32px)/4.4)]     ← lg  : 4 full + 0.4 peek, gap×4=32px
-//   xl:w-[calc((100%_-_40px)/5.4)]     ← xl  : 5 full + 0.4 peek, gap×5=40px
-//   2xl:w-[calc((100%_-_48px)/6.4)]    ← 2xl : 6 full + 0.4 peek, gap×6=48px
-//
-// NOTE ON TAILWIND SYNTAX: CSS calc() requires whitespace around + and -.
-// Tailwind arbitrary values encode spaces as underscores (_), so _-_ in the
-// class name becomes " - " in the emitted CSS. Without this the browser
-// silently ignores the rule and the card stays at w-[202px].
+// Fixed exact size for every regular genre/category row (the "default"
+// variant) — measured pixel-for-pixel off CrazyGames' own regular rows:
+// 202px wide x 114px tall (~16:9). Every default row uses this same size,
+// so every category looks identical on desktop/laptop. Absolute size on
+// purpose — it doesn't scale with the viewport.
+const DEFAULT_CARD_SIZE: CSSProperties = { width: "202px", height: "114px" };
+
+// Fixed exact size for the "originals" variant (MofiGames Originals row),
+// measured pixel-for-pixel off the CrazyGames Originals screenshot you sent:
+// each tile there is 202px wide x 304px tall (a near-exact 2:3 ratio). Using
+// those measured px values directly — instead of an inch conversion — so the
+// tiles come out the same on-screen size as the reference, not just the same
+// ratio. Absolute size on purpose: it doesn't scale with the viewport.
+const ORIGINALS_CARD_SIZE: CSSProperties = { width: "202px", height: "304px" };
 
 export function CategoryRow({
   title,
@@ -141,37 +104,11 @@ export function CategoryRow({
         >
           {games.map((game) =>
             isOriginals ? (
-              <div
-                key={game.id}
-                className={[
-                  "snap-card relative shrink-0 hover:z-40 focus-within:z-40",
-                  "aspect-[2/3]",
-                  "w-[202px]",
-                  // CSS spec requires whitespace around + and - inside calc().
-                  // Tailwind encodes a space as underscore (_) inside [brackets],
-                  // so _-_ → " - " in the emitted CSS. Without this the browser
-                  // silently discards the entire declaration and falls back to
-                  // the fixed w-[202px] base above — which is why the peek was
-                  // never showing. The /4.4 divisor is fine without spaces.
-                  "lg:w-[calc((100%_-_32px)/4.4)]",
-                  "xl:w-[calc((100%_-_40px)/5.4)]",
-                  "2xl:w-[calc((100%_-_48px)/6.4)]",
-                ].join(" ")}
-              >
+              <div key={game.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={ORIGINALS_CARD_SIZE}>
                 <OriginalsGameCard game={game} />
               </div>
             ) : (
-              <div
-                key={game.id}
-                className={[
-                  "snap-card relative shrink-0 hover:z-40 focus-within:z-40",
-                  "aspect-video",
-                  "w-[202px]",
-                  "lg:w-[calc((100%_-_32px)/4.4)]",
-                  "xl:w-[calc((100%_-_40px)/5.4)]",
-                  "2xl:w-[calc((100%_-_48px)/6.4)]",
-                ].join(" ")}
-              >
+              <div key={game.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DEFAULT_CARD_SIZE}>
                 <GenreGameCard game={game} />
               </div>
             )
