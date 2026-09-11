@@ -49,10 +49,15 @@ import type { Game } from "@/lib/types";
 // px-7 py-6 (md:px-8) padding on the rail is still sufficient.
 //
 // Tailwind classes used on each snap-card wrapper:
-//   w-[202px]                       ← base / mobile (rail hidden at < lg)
-//   lg:w-[calc((100%-32px)/4.4)]    ← lg  : 4 full + 0.4 peek, gap×4=32px
-//   xl:w-[calc((100%-40px)/5.4)]    ← xl  : 5 full + 0.4 peek, gap×5=40px
-//   2xl:w-[calc((100%-48px)/6.4)]   ← 2xl : 6 full + 0.4 peek, gap×6=48px
+//   w-[202px]                           ← base / mobile (rail hidden at < lg)
+//   lg:w-[calc((100%_-_32px)/4.4)]     ← lg  : 4 full + 0.4 peek, gap×4=32px
+//   xl:w-[calc((100%_-_40px)/5.4)]     ← xl  : 5 full + 0.4 peek, gap×5=40px
+//   2xl:w-[calc((100%_-_48px)/6.4)]    ← 2xl : 6 full + 0.4 peek, gap×6=48px
+//
+// NOTE ON TAILWIND SYNTAX: CSS calc() requires whitespace around + and -.
+// Tailwind arbitrary values encode spaces as underscores (_), so _-_ in the
+// class name becomes " - " in the emitted CSS. Without this the browser
+// silently ignores the rule and the card stays at w-[202px].
 
 export function CategoryRow({
   title,
@@ -142,9 +147,15 @@ export function CategoryRow({
                   "snap-card relative shrink-0 hover:z-40 focus-within:z-40",
                   "aspect-[2/3]",
                   "w-[202px]",
-                  "lg:w-[calc((100%-32px)/4.4)]",
-                  "xl:w-[calc((100%-40px)/5.4)]",
-                  "2xl:w-[calc((100%-48px)/6.4)]",
+                  // CSS spec requires whitespace around + and - inside calc().
+                  // Tailwind encodes a space as underscore (_) inside [brackets],
+                  // so _-_ → " - " in the emitted CSS. Without this the browser
+                  // silently discards the entire declaration and falls back to
+                  // the fixed w-[202px] base above — which is why the peek was
+                  // never showing. The /4.4 divisor is fine without spaces.
+                  "lg:w-[calc((100%_-_32px)/4.4)]",
+                  "xl:w-[calc((100%_-_40px)/5.4)]",
+                  "2xl:w-[calc((100%_-_48px)/6.4)]",
                 ].join(" ")}
               >
                 <OriginalsGameCard game={game} />
@@ -156,9 +167,9 @@ export function CategoryRow({
                   "snap-card relative shrink-0 hover:z-40 focus-within:z-40",
                   "aspect-video",
                   "w-[202px]",
-                  "lg:w-[calc((100%-32px)/4.4)]",
-                  "xl:w-[calc((100%-40px)/5.4)]",
-                  "2xl:w-[calc((100%-48px)/6.4)]",
+                  "lg:w-[calc((100%_-_32px)/4.4)]",
+                  "xl:w-[calc((100%_-_40px)/5.4)]",
+                  "2xl:w-[calc((100%_-_48px)/6.4)]",
                 ].join(" ")}
               >
                 <GenreGameCard game={game} />

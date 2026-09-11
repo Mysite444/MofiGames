@@ -132,21 +132,36 @@ function MiniTile({ game }: { game: Game }) {
 
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
-    // gap-2 (8px) — matches the grid's own internal gap and the gap between
-    // units in the scroller below, so the whole row reads as one consistent
-    // tight rhythm (measured off CrazyGames, which uses the same ~8px gap
-    // everywhere) instead of the bigger/uneven 12px-and-16px spacing this
-    // used to have between the banner, the mini-grid, and the next unit.
-    <div className={`relative flex shrink-0 snap-card gap-2 ${UNIT_HEIGHT}`}>
-      {/* relative + z-0 establishes this as a positioned sibling so the
-          hovered mini-tile wrappers (z-40) correctly paint above it at
-          rest. hover:z-40/focus-within:z-40 is the other half of that
-          deal: the banner's own hover:scale-[1.08] grows it by ~15-16px
-          per side, more than the 8px gap to the grid, so without this
-          the grown ring/glow on its right edge got painted over by the
-          (merely later-in-DOM, non-hovered) mini-tiles next to it — same
-          fix as the grid cells below, just applied in the other direction. */}
-      <div className="relative z-0 aspect-[16/9] h-full shrink-0 hover:z-40 focus-within:z-40">
+    // ── Unit width: CrazyGames-style peek ─────────────────────────────────
+    // Formula: (containerInnerWidth − 1 × gap) / (1 + peekFraction)
+    //   = (100% − 8px) / 1.4
+    // "100%" resolves against the snap-rail's content-box (already
+    // sidebar- and px-padding-aware per the CSS flex spec). At a
+    // 1366 px laptop (inner ≈ 1242 px) each unit becomes 881 px, leaving
+    // exactly 40 % of the next unit's banner peeking at the right edge —
+    // the same visual cue CrazyGames uses on its "Top picks" row.
+    //
+    // Previously the unit had no explicit width; its natural size
+    // (banner ~370 px + gap 8 px + grid 364 px = 742 px) left 66 % of
+    // the next unit visible at 1366 px — almost a full second unit —
+    // which looked intentional rather than like a scroll hint.
+    //
+    // gap-2 (8px) keeps the tight inter-element rhythm unchanged.
+    //
+    // CSS calc() requires whitespace around "-"; Tailwind encodes that
+    // as _-_ inside [brackets] so the generated CSS is valid.
+    <div className={`relative flex shrink-0 snap-card gap-2 ${UNIT_HEIGHT} w-[calc((100%_-_8px)/1.4)]`}>
+      {/* Banner: flex-1 fills whatever width remains after the
+          fixed-width mini-grid is placed (unit_width − gap − GRID_WIDTH).
+          Previously aspect-[16/9] + h-full derived the width from
+          UNIT_HEIGHT alone, making the unit too narrow. With flex-1 the
+          banner adapts to the calc-driven unit width instead.
+          FeaturedBanner uses h-full w-full + object-cover internally so
+          it renders correctly at any aspect ratio.
+          relative z-0 / hover:z-40: same z-index trick as before so the
+          banner's hover-grow ring is never painted over by adjacent
+          mini-tiles. */}
+      <div className="relative z-0 flex-1 min-w-0 h-full hover:z-40 focus-within:z-40">
         <FeaturedBanner game={banner} hideWatermark />
       </div>
       {/* Each cell gets its own hover:z-40 so the scaled tile always
