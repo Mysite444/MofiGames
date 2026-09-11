@@ -63,16 +63,8 @@ export function AppShell({
         onToggleSidebar={toggleSidebar}
         onOpenDrawer={openDrawer}
       />
-      {/* Sidebar hover-expands from a 60px icon-rail to a 252px labelled
-          panel as a pure overlay — main's padding only ever reserves space
-          for the collapsed rail, and never changes on hover. Opening the
-          menu must not shift or reflow the page (confirmed requirement —
-          a push here was tried and explicitly rejected in favour of
-          matching CrazyGames' own rail, which overlays too). What the
-          overlay must never do is visually move: see NavList.tsx / ITEM_PAD
-          for why every icon now sits at one constant offset from the
-          rail's left edge in both states, instead of jumping from a
-          centered collapsed position to a left-aligned expanded one. */}
+      {/* Sidebar is a hover-expand overlay — it never pushes content, so main's
+          padding only needs to reserve space for the collapsed icon-rail. */}
       <Sidebar hidden={sidebarHidden} copyrightText={copyrightText} />
       <MobileDrawer open={drawerOpen} onClose={closeDrawer} copyrightText={copyrightText} />
 
