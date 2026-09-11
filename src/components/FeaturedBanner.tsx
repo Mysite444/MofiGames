@@ -89,10 +89,15 @@ export function FeaturedBanner({
       {game.previewVideoUrl && (
         <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
       )}
+      {/* Faint color/glow accent only — no dark radial here anymore. Keeping
+          this fully dark-free is what let the "Today's Best" cover art read
+          as dim/washed-out next to the plain, undimmed Featured Games tiles;
+          this wash is now light enough to add brand color without muting
+          the artwork. */}
       <div
-        className="mesh-bg absolute inset-0 opacity-90"
+        className="mesh-bg absolute inset-0 opacity-40"
         style={{
-          backgroundImage: `radial-gradient(circle at 15% 25%, ${category.colorFrom}80, transparent 45%), radial-gradient(circle at 85% 15%, #ffffff28, transparent 40%), radial-gradient(circle at 55% 95%, #00000075, transparent 55%)`,
+          backgroundImage: `radial-gradient(circle at 15% 25%, ${category.colorFrom}66, transparent 45%), radial-gradient(circle at 85% 15%, #ffffff28, transparent 40%)`,
         }}
         aria-hidden
       />
@@ -104,7 +109,14 @@ export function FeaturedBanner({
           aria-hidden
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" aria-hidden />
+      {/* Legibility scrim for the title/Play row — confined to the bottom
+          ~35% of the tile (via-stop at 35%) so it no longer washes the
+          entire cover image the way the old full-height black/15 "via"
+          did; the rest of the artwork now shows at full brightness. */}
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-black/0 via-35% to-transparent"
+        aria-hidden
+      />
 
       {/* Site-wide blue hover accent — same token/wash GameCard, MiniTile,
           GenreGameCard and CategoryPageCard all use. Those cards reveal
