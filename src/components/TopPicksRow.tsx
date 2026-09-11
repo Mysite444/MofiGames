@@ -40,9 +40,14 @@ const GRID_WIDTH = "w-[364px] xl:w-[408px]";
 // what lets four of these stack 2x2 to exactly match the big tile's height.
 function MiniTile({ game }: { game: Game }) {
   const category = useMergedCategoryBySlug(game.categorySlug);
-  // Prefer the square cover → thumbnailUrl → coverImageUrl fallback chain.
-  // Only fall back to the gradient GameThumbnail when no image is available.
-  const imageSrc = getGameCover(game, "square");
+  // These mini-tiles are 16:9 (see UNIT_HEIGHT/GRID_WIDTH comment above —
+  // sized to match the big FeaturedBanner tile's aspect ratio), so they
+  // need the landscapeCoverUrl → thumbnailUrl → coverImageUrl chain, same
+  // as game-cover.ts documents for "Today's Best". They were previously
+  // requesting the square (1:1) cover and letting object-cover crop it to
+  // fit the wide box, which is why art looked mismatched/cropped versus
+  // the landscape art shown on Featured Games.
+  const imageSrc = getGameCover(game, "landscape");
   const [previewActive, setPreviewActive] = useState(false);
 
   if (!imageSrc && !category) return null;
