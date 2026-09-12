@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 import {
   Check,
   CheckCircle2,
@@ -610,11 +611,13 @@ export function CacheSearchAdminClient() {
 
   useEffect(() => {
     Promise.all([loadSettings(), loadStats(), loadPopular()]).finally(() => setLoading(false));
-    // Light auto-refresh so the in-process cache numbers don't look
-    // frozen while an admin has this open — same as Fragment Cache.
-    const interval = setInterval(loadStats, 10000);
-    return () => clearInterval(interval);
   }, [loadSettings, loadStats, loadPopular]);
+
+  // Light auto-refresh so the in-process cache numbers don't look frozen
+  // while an admin has this open — same as Fragment Cache. Paused while
+  // the tab is hidden (see use-visible-interval.ts) so a background tab
+  // left open doesn't keep polling this endpoint indefinitely.
+  useVisibleInterval(loadStats, 10000);
 
   // ── Patch helpers ────────────────────────────────────────────────────────
 

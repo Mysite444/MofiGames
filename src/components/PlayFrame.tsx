@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Code2 } from "lucide-react";
 import { iconMap } from "@/lib/icon-map";
 import { HoverPreviewVideo } from "./HoverPreviewVideo";
+import { useMediaSessionCleanup } from "@/lib/use-media-session-cleanup";
 import type { Category } from "@/lib/types";
 
 export function PlayFrame({
@@ -80,6 +81,13 @@ export function PlayFrame({
   const [hovering, setHovering] = useState(false);
   const playing = playingProp ?? playingState;
   const Icon = iconMap[category.icon];
+
+  // Resets the browser's Media Session on unmount (leaving the game page
+  // via client-side navigation) and on visibilitychange → hidden (tab
+  // switched away from or closed) — fixes the persistent Android Chrome
+  // media-notification bar left behind after playing a game. See
+  // lib/use-media-session-cleanup.ts for the full explanation.
+  useMediaSessionCleanup();
 
   function startPlaying() {
     setPlayingState(true);
@@ -173,6 +181,15 @@ export function PlayFrame({
                 ? "aspect-[9/16] h-full max-w-full border-0"
                 : "h-full w-full border-0"
             }
+            // NOTE on Media Session: there is no Permissions-Policy /
+            // iframe `allow` directive for "media session" (it isn't a
+            // policy-controlled feature — see MDN's Permissions-Policy
+            // directive list), so it can't be scoped down here the way
+            // autoplay/fullscreen/gamepad are. Cross-origin isolation
+            // already keeps this game's `navigator.mediaSession` writes
+            // confined to its own document; the actual fix for the stuck
+            // notification is clearing THIS page's own Media Session,
+            // done above via useMediaSessionCleanup().
             allow="gamepad *; fullscreen *; autoplay *"
             allowFullScreen
             onLoad={onIframeLoad}

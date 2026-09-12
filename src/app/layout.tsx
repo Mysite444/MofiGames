@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { LibrarySync } from "@/components/LibrarySync";
 import { RealGamesSync } from "@/components/RealGamesSync";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { InstallPromptBlocker } from "@/components/InstallPromptBlocker";
 import { SessionTimeoutManager } from "@/components/SessionTimeoutManager";
 import { JsonLd } from "@/components/JsonLd";
 import { DnsPrefetchHints } from "@/components/DnsPrefetchHints";
@@ -154,6 +155,7 @@ export default async function RootLayout({
           <LibrarySync />
           <RealGamesSync />
           <ServiceWorkerRegister />
+          <InstallPromptBlocker />
           <LinkPrefetchController />
           <SessionTimeoutManager />
           <AppShell

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 import {
   Award,
   Check,
@@ -407,11 +408,13 @@ export function CacheMetadataAdminClient() {
 
   useEffect(() => {
     Promise.all([loadSettings(), loadStats(), loadFacets()]).finally(() => setLoading(false));
-    // Light auto-refresh so the in-process cache numbers don't look
-    // frozen while an admin has this open — same as Fragment/Search Cache.
-    const interval = setInterval(loadStats, 10000);
-    return () => clearInterval(interval);
   }, [loadSettings, loadStats, loadFacets]);
+
+  // Light auto-refresh so the in-process cache numbers don't look frozen
+  // while an admin has this open — same as Fragment/Search Cache. Paused
+  // while the tab is hidden (see use-visible-interval.ts) so a background
+  // tab left open doesn't keep polling this endpoint indefinitely.
+  useVisibleInterval(loadStats, 10000);
 
   // ── Patch helper ──────────────────────────────────────────────────────
 

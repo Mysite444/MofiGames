@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 import {
   Boxes,
   Check,
@@ -332,12 +333,14 @@ export function CacheFragmentAdminClient() {
 
   useEffect(() => {
     Promise.all([loadSettings(), loadStats()]).finally(() => setLoading(false));
-    // Light auto-refresh so the numbers on this dashboard don't look
-    // frozen while an admin has it open — matches the "live status"
-    // feel of the PHP OPcache page without needing a manual click.
-    const interval = setInterval(loadStats, 10000);
-    return () => clearInterval(interval);
   }, [loadSettings, loadStats]);
+
+  // Light auto-refresh so the numbers on this dashboard don't look frozen
+  // while an admin has it open — matches the "live status" feel of the
+  // PHP OPcache page without needing a manual click. Paused while the tab
+  // is hidden (see use-visible-interval.ts) so a background tab left open
+  // doesn't keep polling this endpoint indefinitely.
+  useVisibleInterval(loadStats, 10000);
 
   // ── Patch helpers ────────────────────────────────────────────────────────
 

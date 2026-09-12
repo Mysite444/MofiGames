@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useVisibleInterval } from "@/lib/use-visible-interval";
 import {
   Activity,
   AlertTriangle,
@@ -453,8 +454,6 @@ export function CacheMonitoringAdminClient() {
   const [purgeSelState, setPurgeSelState] = useState<"idle" | "purging" | "done" | "error">("idle");
   const [purgeSelMsg, setPurgeSelMsg] = useState<string | null>(null);
 
-  const statsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // ── Fetch helpers ──────────────────────────────────────────────────────────
 
   const loadSettings = useCallback(async () => {
@@ -509,16 +508,12 @@ export function CacheMonitoringAdminClient() {
     loadSettings();
     loadStats();
     loadLogs(0);
-
-    // Auto-refresh stats every 30 s while the page is open.
-    statsTimerRef.current = setInterval(() => {
-      loadStats();
-    }, 30000);
-
-    return () => {
-      if (statsTimerRef.current) clearInterval(statsTimerRef.current);
-    };
   }, [loadSettings, loadStats, loadLogs]);
+
+  // Auto-refresh stats every 30s while the page is open — paused while
+  // the tab is hidden (see use-visible-interval.ts) so a background tab
+  // left open doesn't keep polling this endpoint indefinitely.
+  useVisibleInterval(loadStats, 30000);
 
   // ── Patch helpers ──────────────────────────────────────────────────────────
 

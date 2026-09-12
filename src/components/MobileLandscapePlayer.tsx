@@ -116,6 +116,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { RotateCcw, LogOut, UserPlus, Volume2, VolumeX, Check } from "lucide-react";
 import { SOUND_BUTTON_ENABLED } from "@/lib/player-feature-flags";
+import { useMediaSessionCleanup } from "@/lib/use-media-session-cleanup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -561,6 +562,15 @@ export function MobileLandscapePlayer({
     };
   }, []);
 
+  // ── Media Session cleanup ─────────────────────────────────────────────────
+  // This overlay only exists while `playing` is true (see MobileGamePage),
+  // so its mount/unmount lifecycle IS the game's play/close lifecycle —
+  // exactly where the persistent Android Chrome media-notification bug
+  // showed up. Resets the Media Session on unmount (Exit tapped, Back
+  // pressed, or navigating away entirely) and on visibilitychange → hidden
+  // (tab switched away from or closed). See lib/use-media-session-cleanup.ts.
+  useMediaSessionCleanup();
+
   // ── Native fullscreen + orientation lock (Layer 1) ───────────────────────
   useEffect(() => {
     const el = document.documentElement;
@@ -727,6 +737,15 @@ export function MobileLandscapePlayer({
               src={playUrl}
               title={title}
               className="h-full w-full border-0"
+              // NOTE on Media Session: "media session" is not a
+              // Permissions-Policy-controlled feature, so — unlike
+              // autoplay/fullscreen/gamepad below — there's no `allow`
+              // directive that can restrict it from here. Cross-origin
+              // isolation already confines this game's own
+              // `navigator.mediaSession` writes to its own document; the
+              // fix for the stuck Android Chrome notification is clearing
+              // THIS page's Media Session on close, via
+              // useMediaSessionCleanup() above.
               allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
               allowFullScreen
               onLoad={handleIframeLoad}
