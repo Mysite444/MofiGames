@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { postUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { apiError } from "@/lib/api-error";
@@ -97,6 +99,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (responseTagIds === undefined) {
     const { data: existingTags } = await supabase.from("post_tags").select("tag_id").eq("post_id", postId);
     responseTagIds = (existingTags ?? []).map((t) => t.tag_id);
+  }
+
+  // Invalidate the blog index and the specific post page so published/
+  // unpublished/edited content is immediately reflected without waiting for
+  // the 300s ISR revalidation timer. This covers: publish, unpublish, content
+  // edits, slug renames, tag changes, and scheduled publish toggles.
+  if (post?.slug) {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+    revalidateTag(CACHE_TAGS.POSTS, "default");
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+    revalidateTag(CACHE_TAGS.FEEDS, "default");
+    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
   }
 
   return NextResponse.json({ post: { ...post, tagIds: responseTagIds } });

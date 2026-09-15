@@ -6,6 +6,7 @@ import Link from "next/link";
 
 // ─── Server data ──────────────────────────────────────────────────────────────
 import {
+  getPublicGameBySlug,
   getRealGameBySlug,
   getRealGamesByCategory,
   getPublishedGameSlugsForStaticParams,
@@ -101,8 +102,10 @@ type SlugResolution =
   | { type: "not-found" };
 
 const resolveSlug = cache(async (slug: string): Promise<SlugResolution> => {
-  // 1. Game
-  const realGame = await getRealGameBySlug(slug);
+  // 1. Game — use the ISR-safe, cookie-free lookup so this resolver never
+  // calls cookies() for public game slugs. Private/draft games return null
+  // here; GameRenderer handles those as a dynamic admin-preview fallback.
+  const realGame = await getPublicGameBySlug(slug);
   if (realGame) return { type: "game", slug };
 
   // 2. Category — check built-in catalogue first, then DB rows
@@ -122,7 +125,10 @@ const resolveSlug = cache(async (slug: string): Promise<SlugResolution> => {
   return { type: "not-found" };
 });
 
-// ISR: all public data — see homepage for rationale.
+// ISR: all public data for this catch-all route (games, categories, tags,
+// CMS pages) is cookie-free after Phase 6A. 300s matches REVALIDATE.GAME
+// in src/lib/cache-config.ts — change it there and here in sync.
+// Must stay a literal — Next.js route segment config requires static values.
 export const revalidate = 300;
 
 // ---------------------------------------------------------------------------
@@ -164,8 +170,8 @@ export async function generateMetadata({
   const settings = await getSeoSettings();
 
   if (resolution.type === "game") {
-    const real = await getRealGameBySlug(slug);
-    // getRealGameBySlug is request-deduped (see games-server.ts), so this
+    const real = await getPublicGameBySlug(slug);
+    // getPublicGameBySlug is request-deduped (see games-server.ts), so this
     // should always agree with resolveSlug's earlier check. If it ever
     // doesn't — e.g. the game was unpublished a split second ago — fall
     // back to a real site title instead of `{}`. An empty metadata object
@@ -244,18 +250,39 @@ export default async function SlugPage({
 // GAME RENDERER
 // ===========================================================================
 async function GameRenderer({ slug }: { slug: string }) {
-  const real = await getRealGameBySlug(slug);
-  if (!real) notFound();
+  // ISR-safe public path — getPublicGameBySlug() never calls cookies(), so
+  // this component stays statically renderable for all published public games.
+  // "unlisted" games (reachable by direct URL, not surfaced in grids) are
+  // included here — only "private" games are excluded.
+  const real = await getPublicGameBySlug(slug);
 
-  const { game, category } = real;
-
-  if (game.visibility === "private" && !(await isCurrentUserAdmin())) {
+  if (!real) {
+    // Slug is not in the public catalog. This means either:
+    //   a) The game is private/draft (only admins should see it), OR
+    //   b) The game doesn't exist.
+    // Check admin status only on this rare code path. Calling
+    // isCurrentUserAdmin() here makes THIS specific render dynamic — that
+    // is intentional and acceptable for admin preview of private games.
+    // Public game requests (99.9% of traffic) never reach this branch.
+    const admin = await isCurrentUserAdmin();
+    if (admin) {
+      const adminReal = await getRealGameBySlug(slug);
+      if (!adminReal) notFound();
+      const { game: adminGame, category: adminCategory } = adminReal;
+      const adminRelated = (await getRealGamesByCategory(adminCategory.slug)).filter(
+        (g) => g.id !== adminGame.id
+      );
+      return <GamePageLayout game={adminGame} category={adminCategory} related={adminRelated} />;
+    }
     notFound();
   }
 
-  const related = (await getRealGamesByCategory(category.slug)).filter((g) => g.id !== game.id);
-
-  return <GamePageLayout game={game} category={category} related={related} />;
+  // Public game found. game.visibility is "public" or "unlisted" at this
+  // point (getPublicGameBySlug filters out "private"). No admin check needed.
+  const related = (await getRealGamesByCategory(real.category.slug)).filter(
+    (g) => g.id !== real.game.id
+  );
+  return <GamePageLayout game={real.game} category={real.category} related={related} />;
 }
 
 async function GamePageLayout({

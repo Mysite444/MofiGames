@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { pageUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateNavigationFragments } from "@/lib/fragment-cache-invalidation";
@@ -54,6 +56,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   invalidateNavigationFragments();
+  // Bust the ISR cache for this CMS page so admin edits are immediately
+  // visible. Pages are addressed by slug in the [slug] catch-all route.
+  // Known static-slug pages (about, contact, terms…) also have their own
+  // dedicated routes under /src/app/<slug>/page.tsx — revalidate both the
+  // [slug] catch-all path AND the dedicated path so whichever is serving
+  // the request gets the fresh content.
+  revalidatePath(`/${data.slug}`);
+  // Well-known dedicated routes that mirror CMS-editable page slugs:
+  const dedicatedRoutes: Record<string, string> = {
+    about: "/about",
+    contact: "/contact",
+    terms: "/terms",
+    "privacy-policy": "/privacy-policy",
+    disclaimer: "/disclaimer",
+    "kids-message": "/kids-message",
+    "parents-info": "/parents-info",
+  };
+  if (dedicatedRoutes[data.slug]) revalidatePath(dedicatedRoutes[data.slug]);
+  revalidateTag(CACHE_TAGS.PAGES, "default");
+  revalidateTag(CACHE_TAGS.page(data.slug), "default");
   return NextResponse.json({ page: data });
 }
 
@@ -90,5 +112,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   });
 
   invalidateNavigationFragments();
+  if (existing?.slug) revalidatePath(`/${existing.slug}`);
+  if (existing?.slug) {
+    revalidateTag(CACHE_TAGS.PAGES, "default");
+    revalidateTag(CACHE_TAGS.page(existing.slug), "default");
+  }
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { categoryUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
@@ -54,6 +56,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
   }
 
   invalidateGameFragments();
+  // Invalidate the Next.js ISR cache for /categories and the specific
+  // category slug page so admin edits are reflected immediately rather
+  // than waiting for the 300s revalidation timer.
+  revalidatePath("/categories");
+  revalidatePath(`/${parsedParams.data.slug}`);
+  revalidateTag(CACHE_TAGS.CATEGORIES, "default");
+  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), "default");
   return NextResponse.json({ category: data });
 }
 
@@ -91,5 +100,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   });
 
   invalidateGameFragments();
+  // Deleted category: invalidate the listing page and the now-gone slug.
+  revalidatePath("/categories");
+  revalidatePath(`/${parsedParams.data.slug}`);
+  revalidateTag(CACHE_TAGS.CATEGORIES, "default");
+  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), "default");
   return NextResponse.json({ ok: true });
 }

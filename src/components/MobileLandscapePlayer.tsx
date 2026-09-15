@@ -3,15 +3,24 @@
 /**
  * MobileLandscapePlayer
  *
- * Full-screen landscape game overlay for mobile.  A small host-rendered
- * control column (Exit / Invite / Mute) sits along the LEFT edge of the
- * game — same position as the native UI shown in the reference screenshot
- * (Paint To Hide's own Exit/Invite/Sound icons) — because we can't rely on
- * every embedded game (third-party embed OR uploaded bundle) shipping its
- * own working controls, and even when a game *does* draw its own Exit
- * button, it has no way to reach through the iframe boundary and close our
- * overlay unless it happens to speak our postMessage convention. Building
- * our own guarantees Exit/Invite/Mute always work, for every game.
+ * Full-screen game overlay for mobile.  A small host-rendered control strip
+ * (Exit / Invite / Mute) is always visible at the BOTTOM of the physical
+ * screen, adapting its shape and position to the current orientation state:
+ *
+ *   Portrait game on portrait device  → horizontal rail along the BOTTOM
+ *     edge; buttons lie flat (wide × short) — `showBottomStrip`.
+ *
+ *   Landscape game CSS-rotated on portrait device  → vertical rail on the
+ *     RIGHT edge of the rotated container; after rotate(90deg) CW, RIGHT
+ *     maps to the physical BOTTOM — `showRightStrip`.
+ *
+ *   Any game on a landscape device  → vertical rail on the LEFT edge of
+ *     the game canvas (original behaviour, unchanged).
+ *
+ * We build our own controls because we can't rely on every embedded game
+ * shipping its own working Exit/Invite/Mute — and even when a game draws
+ * its own Exit button, it has no way to reach through the iframe boundary
+ * and close our overlay unless it speaks our postMessage convention.
  *
  * ── How the player is closed ─────────────────────────────────────────────
  * Four paths, all of which unmount this component and return the user to
@@ -114,8 +123,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { RotateCcw, LogOut, UserPlus, Volume2, VolumeX, Check } from "lucide-react";
-import { SOUND_BUTTON_ENABLED } from "@/lib/player-feature-flags";
+import { RotateCcw, ThumbsUp, ThumbsDown, Bookmark, Share2, MessageSquare } from "lucide-react";
+import { toggleFavorite, useIsFavorited } from "@/lib/game-library";
+import { formatPlays } from "@/lib/format-plays";
 import { useMediaSessionCleanup } from "@/lib/use-media-session-cleanup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -134,147 +144,41 @@ interface MobileLandscapePlayerProps {
    */
   orientation?: OrientationType;
   /**
-   * Called when the user taps the on-screen Exit button, presses the
-   * hardware/browser Back button, presses Escape, or the embedded game
-   * itself opts into our exit postMessage convention.
+   * Called when the hardware/browser Back button is pressed, Escape is hit,
+   * or the embedded game opts into our exit postMessage convention.
+   * (There is no longer an on-screen Exit button in the strip — the strip
+   * now mirrors the post-page action row: Like / Dislike / Bookmark / Share /
+   * Feedback.)
    */
   onClose: () => void;
+  /**
+   * Game slug — passed to useIsFavorited / toggleFavorite so the Bookmark
+   * button in the strip stays in sync with the post-page bookmark state.
+   */
+  gameId: string;
+  /**
+   * Raw play count used to derive the like-count display (baseLikes =
+   * round(basePlays × 0.92)), matching the formula on the post page.
+   */
+  basePlays: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Width of the Exit / Invite / Mute control strip, in CSS px.
- *
- * Narrowed from 56 → 44 → 36 → 30: tighter black rail, buttons scaled
- * down proportionally (PILL_WIDTH = 24, MUTE_DIAMETER = 22) to keep
- * 3 px breathing room on each side.
- * The iframe is inset by exactly this many px so the game canvas starts
- * precisely where the strip ends — no overlap, no clipping.
+ * Width (CSS px) of the vertical control strip (left/right edge strips).
+ * Sized to fit the post-page action buttons at p-2 (8 px × 2 + 16 px icon =
+ * 32 px face) with 6 px breathing room on each side.
  */
-const CONTROL_STRIP_WIDTH = 30;
+const CONTROL_STRIP_WIDTH = 44;
 
 /**
- * Width (CSS px) of the Exit / Invite rect buttons. 3 px inset from each
- * edge of the 30 px strip → 24 px button face.
+ * Height (CSS px) of the horizontal control strip at the BOTTOM of the
+ * screen in portrait mode.  Matches CONTROL_STRIP_WIDTH so the rail has
+ * the same visual weight regardless of which edge it occupies.
+ * Safe-area inset for the home indicator is added via CSS calc().
  */
-const PILL_WIDTH = 24;
-
-/**
- * Height (CSS px) of the Exit / Invite rect buttons — tall enough to stack
- * a `writing-mode: vertical-rl` text label above the icon at the narrower
- * strip width (~2.1:1 height:width ratio).
- */
-const PILL_HEIGHT = 62;
-
-/**
- * Diameter (CSS px) of the icon-only Mute badge near the bottom of the
- * strip. 22 px fits comfortably in the 30 px strip with 4 px margins each side.
- */
-const MUTE_DIAMETER = 22;
-
-/**
- * Builds an inline style object for the neutral graphite Mute badge: a
- * small dark rounded-square, NOT a bright glossy circle. Restrained in
- * colour on purpose — the accent colour only shows as a thin ring/edge
- * when the button is "active" (muted); otherwise it stays a neutral
- * graphite tone so the strip doesn't compete with the game for attention.
- *
- * Still a genuine 3D button, just a subtler one:
- *   - soft diagonal gradient face (dark graphite, faint highlight top-left)
- *   - a thin solid "wall" beneath it for keycap thickness
- *   - a crisp 1px inset highlight along the top edge
- *   - a hairline border, brighter only when `active`
- *
- * `pressed` flattens the wall, inverts to an inner shadow, and nudges the
- * button down slightly — driven by onPointerDown/Up so it tracks touch,
- * mouse, and pen. This is purely cosmetic; it never gates the action
- * itself (see the Mute button below for why that separation matters).
- *
- * @param accent  This button's low-opacity accent colour (used only for
- *                the active-state ring/glow, kept subtle everywhere else)
- * @param pressed Whether the button is currently held down
- * @param active  Whether the button is in a toggled-on state (e.g. muted)
- */
-function button3DStyle(
-  accent: string,
-  pressed: boolean,
-  active: boolean = false
-): React.CSSProperties {
-  return {
-    width: MUTE_DIAMETER,
-    height: MUTE_DIAMETER,
-    borderRadius: 8,
-    background: pressed
-      ? "linear-gradient(180deg, #202126 0%, #17181c 100%)"
-      : "linear-gradient(160deg, #3a3c44 0%, #26272d 55%, #1b1c21 100%)",
-    border: active
-      ? `1.5px solid ${accent}`
-      : "1px solid rgba(255,255,255,0.09)",
-    boxShadow: pressed
-      ? [
-          "0 1px 0 rgba(0,0,0,0.55)",
-          "0 1px 2px rgba(0,0,0,0.5)",
-          "inset 0 2px 3px rgba(0,0,0,0.55)",
-          "inset 0 -1px 1px rgba(255,255,255,0.05)",
-        ].join(", ")
-      : [
-          "0 2px 0 rgba(0,0,0,0.5)",
-          "0 2px 5px rgba(0,0,0,0.45)",
-          active ? `0 0 0 2px ${accent}26` : "0 0 0 0 transparent",
-          "inset 0 1px 0 rgba(255,255,255,0.16)",
-          "inset 0 -2px 4px rgba(0,0,0,0.28)",
-        ].join(", "),
-    transform: pressed ? "translateY(2px) scale(0.96)" : "translateY(0) scale(1)",
-    transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
-  };
-}
-
-/**
- * CrazyGames-style rounded-rectangle button (Exit / Invite).
- *
- * Key visual change: borderRadius is now a fixed 8 px (was PILL_WIDTH/2,
- * which produced a full capsule/pill). 8 px gives the short rounded-rect
- * shape used by CrazyGames in-game HUD controls — clearly rectangular,
- * with friendly softened corners rather than fully round ends.
- *
- * The press language (shadow inversion + translateY) is kept consistent
- * with button3DStyle so all three strip controls feel like one family.
- */
-function pillButtonStyle(accent: string, pressed: boolean): React.CSSProperties {
-  return {
-    width: PILL_WIDTH,
-    height: PILL_HEIGHT,
-    // 8 px fixed radius → CrazyGames rounded-rect (old: PILL_WIDTH/2 = full capsule)
-    borderRadius: 8,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    background: pressed
-      ? `linear-gradient(180deg, ${accent}bb 0%, ${accent}99 100%)`
-      : `linear-gradient(160deg, ${accent}f2 0%, ${accent}d0 100%)`,
-    // Brighter top border for a subtle bevel that reads well at 30 px wide.
-    border: pressed
-      ? "1px solid rgba(255,255,255,0.18)"
-      : "1px solid rgba(255,255,255,0.32)",
-    boxShadow: pressed
-      ? [
-          "0 1px 0 rgba(0,0,0,0.45)",
-          "inset 0 2px 4px rgba(0,0,0,0.40)",
-          "inset 0 -1px 0 rgba(255,255,255,0.06)",
-        ].join(", ")
-      : [
-          "0 2px 0 rgba(0,0,0,0.40)",
-          "0 3px 8px rgba(0,0,0,0.35)",
-          "inset 0 1px 0 rgba(255,255,255,0.40)",
-          "inset 0 -1px 0 rgba(0,0,0,0.12)",
-        ].join(", "),
-    transform: pressed ? "translateY(2px) scale(0.97)" : "translateY(0) scale(1)",
-    transition: "transform 60ms ease, box-shadow 60ms ease, border-color 60ms ease",
-  };
-}
+const CONTROL_STRIP_HEIGHT = 44;
 
 /** True when the current viewport is taller than it is wide (portrait). */
 function detectPortrait(): boolean {
@@ -301,6 +205,8 @@ export function MobileLandscapePlayer({
   title,
   orientation = "landscape",
   onClose,
+  gameId,
+  basePlays,
 }: MobileLandscapePlayerProps) {
   // SSR-safe guard — createPortal needs document.body to exist.
   const [mounted, setMounted] = useState(false);
@@ -349,178 +255,102 @@ export function MobileLandscapePlayer({
   // Only CSS-rotate landscape games when the device is physically portrait.
   const needsRotation = orientation === "landscape" && isPortrait;
 
-  // ── Exit / Invite / Mute control column ──────────────────────────────────
+  // ── Control-strip placement ───────────────────────────────────────────────
+  //
+  // There are three possible strip positions depending on orientation state:
+  //
+  //  showBottomStrip (portrait game on portrait device)
+  //    No CSS rotation is applied. The overlay IS portrait, so the strip sits
+  //    along the BOTTOM edge as a horizontal row of "lying" buttons — the most
+  //    thumb-friendly position for one-handed portrait play.
+  //
+  //  showRightStrip (landscape game CSS-rotated on portrait device)
+  //    The game container is rotated 90° clockwise.  Under that transform:
+  //      container's LEFT  → physical TOP  (wrong for controls)
+  //      container's RIGHT → physical BOTTOM  ← desired
+  //    Moving the strip to the container's RIGHT edge therefore makes it appear
+  //    at the PHYSICAL BOTTOM of the portrait screen — the same goal as
+  //    showBottomStrip, but achieved through container-coordinate remapping
+  //    rather than explicit layout changes.  The buttons stay in their vertical
+  //    layout; the 90° rotation makes them LOOK horizontal to the user.
+  //
+  //  default — LEFT strip (landscape device, any orientation)
+  //    Original behaviour: strip along the LEFT edge of the game canvas.
+  //
+  const showBottomStrip = !needsRotation && isPortrait;
+  const showRightStrip  = needsRotation; // LEFT in rotated container ≡ physical BOTTOM
+
+  // Precomputed className + style for the game area div and the strip div so
+  // the JSX stays readable.
+  const gameAreaClass = showBottomStrip
+    ? "absolute left-0 right-0 top-0"
+    : showRightStrip
+    ? "absolute bottom-0 left-0 top-0"
+    : "absolute bottom-0 right-0 top-0";
+
+  const gameAreaStyle: React.CSSProperties = showBottomStrip
+    ? { bottom: `calc(${CONTROL_STRIP_HEIGHT}px + env(safe-area-inset-bottom, 0px))` }
+    : showRightStrip
+    ? { right: CONTROL_STRIP_WIDTH }
+    : { left: CONTROL_STRIP_WIDTH };
+
+  const stripClass = showBottomStrip
+    ? "absolute bottom-0 left-0 right-0 z-10 flex flex-row items-center"
+    : showRightStrip
+    ? "absolute bottom-0 right-0 top-0 z-10 flex flex-col items-center"
+    : "absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center";
+
+  const stripStyle: React.CSSProperties = showBottomStrip
+    ? {
+        // Total visual height = content rail + home-indicator safe area.
+        // With box-sizing:border-box (Tailwind default) height includes the
+        // paddingBottom, so the CONTENT area stays CONTROL_STRIP_HEIGHT px
+        // while the strip background extends down to cover the home indicator.
+        height: `calc(${CONTROL_STRIP_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        touchAction: "auto",
+        background: "#000",
+        borderTop: "1px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 -3px 12px rgba(0,0,0,0.60)",
+      }
+    : {
+        width: CONTROL_STRIP_WIDTH,
+        touchAction: "auto",
+        background: "#000",
+        ...(showRightStrip
+          ? {
+              borderLeft:  "1px solid rgba(255,255,255,0.10)",
+              boxShadow:   "-3px 0 12px rgba(0,0,0,0.60)",
+            }
+          : {
+              borderRight: "1px solid rgba(255,255,255,0.10)",
+              boxShadow:   "3px 0 12px rgba(0,0,0,0.60)",
+            }),
+      };
+
+  // ── Action-bar state — mirrors the mobile game-post action row ───────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [muted, setMuted] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState(false);
-  // Which strip button is currently being physically pressed, for the 3D
-  // "pushed in" state. Pointer events (not click) so the depressed look
-  // tracks the finger/cursor in real time on touch, mouse, and pen alike.
-  const [pressedButton, setPressedButton] = useState<
-    "exit" | "invite" | "mute" | null
-  >(null);
 
-  /**
-   * Tracks whether a mute toggle should fire when the pointer is released.
-   * Set to true on pointerdown, cleared on pointerup (fires) or
-   * pointercancel (gesture aborted by the OS / browser).
-   *
-   * We use a ref rather than state so the flag never triggers a re-render
-   * and is always synchronously readable inside the pointer-event handlers.
-   */
-  const muteActionPendingRef = useRef(false);
+  // Like / Dislike — optimistic, local-only (no backend yet), same as the
+  // post page. Resets when the overlay unmounts (per-session intent is fine).
+  const [vote, setVote] = useState<"up" | "down" | null>(null);
 
-  /**
-   * Posts the mute state into the iframe.
-   *
-   * REAL ROOT CAUSE OF "3rd tap behaves like Pause" (found after on-device
-   * testing showed the button itself was toggling fine, but a THIRD-PARTY
-   * embedded game started pausing instead of muting) ─────────────────────
-   *
-   * This used to broadcast FIVE different guessed message shapes on every
-   * tap — our own `{ type: "mofigames:mute" }` plus generic ones we hoped
-   * some embed might recognise: bare `"mute"`/`"unmute"` strings,
-   * `{ type: "mute" }`, `{ command: "mute" }`, `{ eventName: "mute" }` —
-   * each repeated three times (immediately, +400ms, +1500ms). That's up to
-   * 15 postMessage calls per tap, into a game whose actual protocol we
-   * don't control or know.
-   *
-   * That's not a safe way to talk to arbitrary third-party content.
-   * GameDistribution — one of the largest HTML5 game embed networks —
-   * explicitly tells every game built on it to wire "pause" and "mute"
-   * to the SAME combined handler (their SDK_GAME_PAUSE event mutes AND
-   * pauses in one call, since background audio isn't allowed to keep
-   * playing under a video ad). Countless individual games follow that
-   * exact pattern internally, and many game-listing sites also send
-   * plain, generic postMessage commands like the ones above to embedded
-   * games for autoplay/viewport pausing. Our generic shapes were common
-   * enough to plausibly be recognised by a game's own combined pause+mute
-   * listener — and since we were sending several different guesses per
-   * tap, a game could register more than one "toggle" per user tap,
-   * drifting further out of sync with our own icon every time. By the
-   * third tap the embedded game's own state had likely cycled into
-   * "paused" — which is exactly what got reported.
-   *
-   * FIX: only ever send our own uniquely-namespaced message. No real
-   * game's own internal protocol will ever coincidentally match the
-   * string "mofigames:mute", so this cannot collide with a pause handler
-   * or anything else living inside someone else's embed. This remains
-   * best-effort — a cross-origin iframe's audio can't be forced silent
-   * from the parent page (no DOM API for it, unlike <video>/<audio>) — a
-   * game only goes quiet if it happens to specifically listen for this
-   * exact convention. But best-effort-and-safe beats best-effort-and-
-   * sometimes-pauses-someone-else's-game.
-   */
-  function postMuteState(next: boolean) {
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
-    try {
-      win.postMessage({ type: "mofigames:mute", muted: next }, "*");
-    } catch {
-      // Ignore — a hostile or torn-down iframe shouldn't break the UI.
-    }
-  }
+  // Bookmark — backed by localStorage via lib/game-library so it stays in
+  // sync with the post-page Bookmark button and the /favorites page.
+  const favorited = useIsFavorited(gameId);
 
-  /**
-   * REAL BUGFIX (the previous "functional updater" pass did NOT fix this —
-   * confirmed by re-testing on device: the button still froze after the
-   * first tap).
-   *
-   * ROOT CAUSE: the broadcast side effects — postMessage calls AND
-   * setTimeout scheduling — were happening *inside* the setMuted updater
-   * function itself:
-   *
-   *   setMuted((prev) => {
-   *     const next = !prev;
-   *     postMuteState(next);        // ← side effect during render
-   *     setTimeout(...)             // ← side effect during render
-   *     return next;
-   *   });
-   *
-   * React updater functions are expected to be pure and are explicitly
-   * allowed to run MORE THAN ONCE per state change — React re-invokes them
-   * to verify purity, and can call them again if a render is interrupted
-   * or replayed (Strict Mode's double-invoke in development is the most
-   * visible case, but it isn't the only one). Every extra invocation fired
-   * another full round of postMessage calls and another pair of retry
-   * timers, all racing each other. On a real device, the second tap's
-   * updater call could run while the FIRST tap's retry timers (400ms /
-   * 1500ms out) were still pending, so the outgoing messages no longer
-   * matched what the button was actually showing — from the outside this
-   * reads as "the button doesn't respond anymore," even though `muted`
-   * itself never actually got stuck.
-   *
-   * FIX: the click handler now ONLY updates state — no side effects live
-   * inside it or inside the updater. Broadcasting moved into a proper
-   * `useEffect` keyed on `muted` below, which is guaranteed to run exactly
-   * once per committed change and cleans up its own timers if `muted`
-   * flips again before they fire. This is the correct place for this kind
-   * of side effect in React, and it removes the double-invoke hazard
-   * entirely.
-   */
-  function handleMuteToggle() {
-    setMuted((prev) => !prev);
-  }
+  // Like count: same formula as the post page (baseLikes = plays × 0.92).
+  const baseLikes = Math.round(basePlays * 0.92);
 
-  // Broadcasts the current mute state into the iframe whenever it changes.
-  // Runs once per actual committed `muted` change (not per click, not per
-  // render) — see the note on handleMuteToggle above for why the broadcast
-  // used to live inside the state updater instead, and why that was wrong.
-  // Skips the very first run (mount) since there's nothing to announce yet.
-  const didMountRef = useRef(false);
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
+  /** Share the current game page via the native share sheet or clipboard. */
+  async function handleShare() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try { await navigator.share({ title: `Play ${title}`, url }); } catch {}
       return;
     }
-    postMuteState(muted);
-    // Some games only attach their message listener partway through their
-    // own startup sequence, so a single message fired the instant the icon
-    // flips can arrive before anyone is listening. Re-sending covers that
-    // race without needing to know a given game's exact init timing. If
-    // `muted` flips again before these fire, the cleanup below cancels
-    // them so a stale value is never sent.
-    const t1 = setTimeout(() => postMuteState(muted), 400);
-    const t2 = setTimeout(() => postMuteState(muted), 1500);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [muted]);
-
-  /**
-   * Re-broadcasts the current mute state once the iframe finishes loading.
-   * Covers the common case where the player taps Mute *before* the game
-   * has finished initialising — the very first postMuteState() call above
-   * would have had no listener to catch it yet. Reads `muted` directly
-   * (not a ref) — this function is recreated every render with the
-   * current value, and only the browser's real "load" event ever invokes
-   * it, so there's no stale-closure risk here.
-   */
-  function handleIframeLoad() {
-    if (muted) postMuteState(true);
-  }
-
-  async function handleInvite() {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    const shareData = { title: `Play ${title}`, text: `Come play ${title} with me!`, url };
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch {
-        // User cancelled the native share sheet — nothing to do.
-        return;
-      }
-    }
     if (typeof navigator !== "undefined" && navigator.clipboard && url) {
-      try {
-        await navigator.clipboard.writeText(url);
-        setInviteCopied(true);
-        setTimeout(() => setInviteCopied(false), 1600);
-      } catch {
-        // Clipboard permission denied — silently ignore, nothing more we can do.
-      }
+      try { await navigator.clipboard.writeText(url); } catch {}
     }
   }
 
@@ -718,18 +548,19 @@ export function MobileLandscapePlayer({
       <div style={gameContainerStyle}>
 
         {/* ── Game area ─────────────────────────────────────────────────
-         * Inset from the left by exactly CONTROL_STRIP_WIDTH so the game's
-         * own canvas starts precisely where the control strip ends, rather
-         * than running full-width underneath it. Previously the iframe
-         * filled the whole container and the strip sat on top as an
-         * overlay, which meant every game's own left-edge UI (horn button,
-         * turn-signal arrows, etc.) was partially hidden behind the strip.
-         * With this inset, nothing is covered — the strip and the game
-         * occupy separate, adjacent regions.
+         * Inset away from whichever edge the control strip occupies so the
+         * game canvas starts precisely where the strip ends and nothing is
+         * ever hidden behind it:
+         *   • portrait game on portrait device  → inset from BOTTOM
+         *   • landscape game CSS-rotated        → inset from RIGHT
+         *                                         (RIGHT in container = BOTTOM
+         *                                          of physical portrait screen
+         *                                          after rotate(90deg) CW)
+         *   • landscape device (any game)       → inset from LEFT (original)
          */}
         <div
-          className="absolute bottom-0 right-0 top-0"
-          style={{ left: CONTROL_STRIP_WIDTH }}
+          className={gameAreaClass}
+          style={gameAreaStyle}
         >
           {playUrl ? (
             <iframe
@@ -748,7 +579,6 @@ export function MobileLandscapePlayer({
               // useMediaSessionCleanup() above.
               allow="gamepad *; fullscreen *; autoplay *; accelerometer *; gyroscope *; camera *; microphone *"
               allowFullScreen
-              onLoad={handleIframeLoad}
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
@@ -757,281 +587,163 @@ export function MobileLandscapePlayer({
           )}
         </div>
 
-        {/* ── Exit / Invite / Mute control panel ───────────────────────────
-         * Edge-flush vertical sidebar pinned to the LEFT of the game
-         * container, CONTROL_STRIP_WIDTH px wide — the game area above is
-         * inset by that same amount, so the strip sits beside the game,
-         * never on top of it. Matches the client's reference screenshot:
-         * Exit/Invite are solid-colour pill buttons anchored to the TOP of
-         * the strip, and the MIDDLE of the strip is left completely empty
-         * — no button, no icon, nothing tappable — because that band is
-         * where the phone's physical camera cutout sits once the device is
-         * rotated into landscape. A control placed there would either be
-         * partly hidden behind the camera housing or impossible to tap
-         * reliably, so instead of guessing at a safe height we just never
-         * put anything there at all:
+        {/* ── Action strip — mirrors the mobile game-post action row ─────────
          *
-         *   ┌──────┐
-         *   │ Exit │  ← rect, blue,   icon + rotated "Exit" label
-         *   │Invite│  ← rect, brown,  icon + rotated "Invite" label (black text)
-         *   │      │
-         *   │      │  ← deliberately empty — camera-cutout zone
-         *   │      │
-         *   │  🔊  │  ← Mute, dark graphite badge, thin red ring when muted
-         *   └──────┘
+         * Buttons are pixel-identical to the Like / Dislike / Bookmark /
+         * Share / Feedback row on the game post page:
+         *   • rounded-lg border bg-black, white text at rest
+         *   • border-white/40 → border-white/70 on hover
+         *   • Like:     ThumbsUp + live count; fill-white when voted up
+         *   • Dislike:  ThumbsDown icon-only; fill-white when voted down
+         *   • Bookmark: blue border + fill when favorited (border-[#3DA9FC]/60)
+         *   • Share:    native share sheet or clipboard fallback
+         *   • Feedback: opens /contact in a new tab
          *
-         * The empty band is a flex:1 spacer, so it grows or shrinks with
-         * whatever height the strip ends up at on a given device — the top
-         * pills and the bottom Mute badge stay pinned to their respective
-         * ends regardless.
+         * Three strip positions (set by precomputed stripClass/stripStyle):
+         *   showBottomStrip → horizontal row at physical BOTTOM (portrait game)
+         *   showRightStrip  → vertical column on RIGHT of rotated container
+         *                     (appears at physical BOTTOM after rotate(90deg))
+         *   default         → vertical column on LEFT (landscape device)
          *
-         * Lives INSIDE the rotated container so it lands in the correct
-         * on-screen corner regardless of which rotation layer is active.
-         * Root overlay has touchAction:none; this wrapper opts back into
-         * normal touch handling so taps register correctly.
-         *
-         * Volume button specifics (see the full note further down):
-         *   • onClick is the ONLY thing that toggles mute state — same
-         *     proven pattern as Exit/Invite. touchAction:"manipulation"
-         *     (set on every button here) is what actually removes the
-         *     old 300ms mobile tap delay, so this is not a slower path —
-         *     it's the one that reliably fires exactly once per tap.
-         *   • onPointerDown/Up/Leave/Cancel are purely cosmetic — they
-         *     only drive the pressed-in 3D look, never the action.
-         *   • When muted, only the icon tints red and a thin red ring
-         *     appears — the badge itself stays graphite, unlike before.
-         *   • Anchored near (not flush against) the bottom edge, so it's
-         *     clear of both the empty camera zone above it and the very
-         *     edge of the screen below it.
+         * Root overlay has touchAction:none; this wrapper's touchAction:auto
+         * (in stripStyle) opts the strip back into normal tap handling.
          */}
         <div
-          className="absolute bottom-0 left-0 top-0 z-10 flex flex-col items-center"
-          style={{
-            width: CONTROL_STRIP_WIDTH,
-            touchAction: "auto",
-            background: "#000",
-            borderRight: "1px solid rgba(255,255,255,0.10)",
-            boxShadow: "3px 0 12px rgba(0,0,0,0.60)",
-          }}
+          className={stripClass}
+          style={stripStyle}
         >
-          {/* ── EXIT + INVITE — anchored to the TOP of the strip ────────── */}
-          <div
-            className="flex flex-col items-center"
-            style={{ paddingTop: "max(8px, env(safe-area-inset-top))", gap: 2 }}
-          >
-            {/* ── EXIT — blue rect, label + icon ──────────────────────── */}
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
-              onPointerDown={(e) => { e.stopPropagation(); setPressedButton("exit"); }}
-              onPointerUp={() => setPressedButton(null)}
-              onPointerLeave={() => setPressedButton(null)}
-              onPointerCancel={() => setPressedButton(null)}
-              aria-label="Exit game"
-              style={{
-                padding: 0,
-                color: "#fff",
-                cursor: "pointer",
-                WebkitTapHighlightColor: "transparent",
-                touchAction: "manipulation",
-                userSelect: "none",
-                flexShrink: 0,
-                ...pillButtonStyle("#3b82f6", pressedButton === "exit"),
-              }}
-            >
-              <span
-                style={{
-                  writingMode: "vertical-rl",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 0.2,
-                  lineHeight: 1,
-                  color: "#fff",
-                }}
-              >
-                Exit
-              </span>
-              <LogOut size={13} strokeWidth={2.4} />
-            </button>
+          {showBottomStrip ? (
+            /* ── Horizontal layout (portrait game, portrait device) ──────── */
+            <div className="flex flex-1 flex-row items-center justify-evenly px-2">
 
-            {/* ── INVITE — brown rect, black label + icon ─────────────── */}
-            <div style={{ position: "relative" }}>
+              {/* Like — wider pill with count, matching the post page exactly */}
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleInvite(); }}
-                onPointerDown={(e) => { e.stopPropagation(); setPressedButton("invite"); }}
-                onPointerUp={() => setPressedButton(null)}
-                onPointerLeave={() => setPressedButton(null)}
-                onPointerCancel={() => setPressedButton(null)}
-                aria-label="Invite a friend"
-                style={{
-                  padding: 0,
-                  color: "#000",
-                  cursor: "pointer",
-                  WebkitTapHighlightColor: "transparent",
-                  touchAction: "manipulation",
-                  userSelect: "none",
-                  flexShrink: 0,
-                  ...pillButtonStyle("#a0522d", pressedButton === "invite"),
-                }}
+                onClick={() => setVote((v) => (v === "up" ? null : "up"))}
+                aria-pressed={vote === "up"}
+                aria-label="Like"
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg border bg-black px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  vote === "up"
+                    ? "border-white/70 text-white"
+                    : "border-white/40 text-white hover:border-white/70"
+                }`}
               >
-                {inviteCopied ? (
-                  <Check size={13} strokeWidth={2.4} />
-                ) : (
-                  <>
-                    <span
-                      style={{
-                        writingMode: "vertical-rl",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        letterSpacing: 0.2,
-                        lineHeight: 1,
-                        color: "#000",
-                      }}
-                    >
-                      Invite
-                    </span>
-                    <UserPlus size={13} strokeWidth={2.4} />
-                  </>
-                )}
+                <ThumbsUp size={13} className={vote === "up" ? "fill-white" : ""} />
+                {formatPlays(baseLikes + (vote === "up" ? 1 : 0))}
               </button>
 
-              {/* "Link copied" tooltip */}
-              {inviteCopied && (
-                <div
-                  className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-full bg-black/80 px-3 py-1.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10"
-                  aria-hidden="true"
-                >
-                  Link copied
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Dead zone — deliberately left empty; see the file-level
-           * comment above for why nothing ever gets placed here. */}
-          <div style={{ flex: 1 }} aria-hidden="true" />
-
-          {/* ── VOLUME — neutral graphite badge, thin red ring when muted.
-           * Anchored near the bottom (not flush against the edge, and
-           * nowhere near the top) — see the file-level comment above.
-           *
-           * ─── WHY THIS BUTTON USES onPointerDown/Up INSTEAD OF onClick ──
-           *
-           * SYMPTOM: tapping the speaker button paused the game and
-           * opened the game's settings screen; the game's own sound
-           * toggle inside that settings screen also stopped responding.
-           *
-           * ROOT CAUSE — iframe focus loss:
-           * onClick fires only AFTER the browser has already shifted
-           * focus from the iframe to whichever element received the tap.
-           * That focus shift is the default action of the browser's
-           * pointerdown processing. The instant the iframe loses focus,
-           * its contentWindow receives a blur event. Many HTML5 games
-           * (particularly racing games and anything built on the
-           * GameDistribution SDK) wire window.onblur → auto-pause + show
-           * settings, so the game was already paused by the time our
-           * toggle ran. The game's own sound button then appeared
-           * unresponsive because the game was waiting for a tap to
-           * "resume" before routing input normally again.
-           *
-           * FIX — three-part:
-           *
-           * 1. e.preventDefault() on onPointerDown tells the browser NOT
-           *    to perform the default "shift focus to this element" action.
-           *    The iframe retains focus and never fires blur — the game
-           *    stays running.
-           *
-           * 2. Because preventDefault() on pointerdown also suppresses the
-           *    synthetic click event on mobile touch (the browser won't
-           *    generate it if the gesture's default was cancelled), we
-           *    can no longer use onClick as the action trigger. The action
-           *    moves to onPointerUp, which fires at the same real-world
-           *    moment as click (finger lifts) but is not gated on the
-           *    browser's click-generation logic.
-           *
-           * 3. e.currentTarget.setPointerCapture(e.pointerId) on
-           *    onPointerDown locks all subsequent pointer events to this
-           *    button for the lifetime of the gesture. Without capture the
-           *    button's own translateY(2px)/scale(0.96) press animation
-           *    can nudge the bounding rect just enough to fire a spurious
-           *    pointerleave, which in the previous approach would reset the
-           *    visual state mid-press and could cancel the pending action.
-           *    With capture, pointerup is guaranteed to arrive here even
-           *    if the pointer has physically moved off the button.
-           *
-           * 4. iframeRef.current?.focus() in onPointerUp is a safety net
-           *    for browsers (notably older WebKit) that shift focus before
-           *    preventDefault takes full effect. Re-focusing the iframe
-           *    element in the parent document re-routes input back to the
-           *    game and triggers its own focus event, letting it auto-
-           *    resume if it had already paused.
-           *
-           * onPointerCancel clears the pending flag so the action is NOT
-           * fired if the OS interrupts the gesture (incoming call, home
-           * gesture, etc.).
-           * onPointerLeave is kept only for the cosmetic "released" look;
-           * it never cancels the pending action because setPointerCapture
-           * keeps all events on this element for the duration of the press.
-           */}
-          {/* Sound button — temporarily hidden, see
-           * lib/player-feature-flags.ts for why. The mute state, the
-           * postMessage broadcast, and all the pointer-event handling
-           * documented above stay fully intact; only the control itself is
-           * hidden. Flip SOUND_BUTTON_ENABLED to bring it straight back. */}
-          {SOUND_BUTTON_ENABLED && (
-            <div style={{ paddingBottom: "max(18px, env(safe-area-inset-bottom))" }}>
+              {/* Dislike — icon-only square */}
               <button
                 type="button"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  // ① Prevent the browser from shifting focus away from the iframe.
-                  //    This stops the game's blur-triggered auto-pause before it starts.
-                  e.preventDefault();
-                  // ② Lock all pointer events to this button for the full gesture so
-                  //    the press animation can't accidentally fire pointerleave.
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  setPressedButton("mute");
-                  muteActionPendingRef.current = true;
-                }}
-                onPointerUp={(e) => {
-                  e.stopPropagation();
-                  setPressedButton(null);
-                  if (muteActionPendingRef.current) {
-                    muteActionPendingRef.current = false;
-                    handleMuteToggle();
-                    // ④ Safety net: re-focus the iframe in case older WebKit shifted
-                    //    focus before our preventDefault could prevent it.
-                    iframeRef.current?.focus({ preventScroll: true });
-                  }
-                }}
-                onPointerLeave={() => setPressedButton(null)}  // cosmetic only
-                onPointerCancel={() => {
-                  // OS interrupted the gesture (call, home swipe, etc.) — do not fire.
-                  setPressedButton(null);
-                  muteActionPendingRef.current = false;
-                }}
-                aria-label={muted ? "Unmute sound" : "Mute sound"}
-                aria-pressed={muted}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 0,
-                  color: muted ? "#f87171" : "#e7e7ea",
-                  cursor: "pointer",
-                  WebkitTapHighlightColor: "transparent",
-                  touchAction: "manipulation",
-                  userSelect: "none",
-                  flexShrink: 0,
-                  // Same neutral graphite body at all times — only a thin red
-                  // ring (the `active` state) and the icon's own colour
-                  // communicate "muted", instead of flipping the whole
-                  // button to a loud solid red.
-                  ...button3DStyle("#ef4444", pressedButton === "mute", muted),
-                }}
+                onClick={() => setVote((v) => (v === "down" ? null : "down"))}
+                aria-pressed={vote === "down"}
+                aria-label="Dislike"
+                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
               >
-                {muted ? <VolumeX size={14} strokeWidth={2.4} /> : <Volume2 size={14} strokeWidth={2.4} />}
+                <ThumbsDown size={13} className={vote === "down" ? "fill-white" : ""} />
+              </button>
+
+              {/* Bookmark — blue accent when favorited, backed by localStorage */}
+              <button
+                type="button"
+                onClick={() => toggleFavorite(gameId)}
+                aria-pressed={favorited}
+                aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
+                className={`flex shrink-0 items-center justify-center rounded-lg border bg-black p-2 transition-colors hover:border-white/70 ${
+                  favorited ? "border-[#3DA9FC]/60 text-[#3DA9FC]" : "border-white/40 text-white"
+                }`}
+              >
+                <Bookmark size={13} className={favorited ? "fill-[#3DA9FC]" : ""} />
+              </button>
+
+              {/* Share — native share sheet → clipboard fallback */}
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Share"
+                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+              >
+                <Share2 size={13} />
+              </button>
+
+              {/* Feedback — opens /contact in a new tab so the game keeps running */}
+              <button
+                type="button"
+                onClick={() => window.open("/contact", "_blank", "noopener")}
+                aria-label="Send feedback"
+                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+              >
+                <MessageSquare size={13} />
+              </button>
+            </div>
+          ) : (
+            /* ── Vertical layout (left / right strips — landscape device or
+             *    CSS-rotated landscape game on portrait device)
+             *    All buttons are icon-only so they fit in the narrow rail.
+             *    After rotate(90deg) CW (showRightStrip), the column appears
+             *    horizontally at the physical bottom of the portrait screen.
+             */
+            <div
+              className="flex flex-1 flex-col items-center justify-center gap-1.5"
+              style={{ paddingTop: 6, paddingBottom: 6 }}
+            >
+              {/* Like */}
+              <button
+                type="button"
+                onClick={() => setVote((v) => (v === "up" ? null : "up"))}
+                aria-pressed={vote === "up"}
+                aria-label="Like"
+                className={`flex items-center justify-center rounded-lg border bg-black p-2 transition-colors ${
+                  vote === "up"
+                    ? "border-white/70 text-white"
+                    : "border-white/40 text-white hover:border-white/70"
+                }`}
+              >
+                <ThumbsUp size={13} className={vote === "up" ? "fill-white" : ""} />
+              </button>
+
+              {/* Dislike */}
+              <button
+                type="button"
+                onClick={() => setVote((v) => (v === "down" ? null : "down"))}
+                aria-pressed={vote === "down"}
+                aria-label="Dislike"
+                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+              >
+                <ThumbsDown size={13} className={vote === "down" ? "fill-white" : ""} />
+              </button>
+
+              {/* Bookmark */}
+              <button
+                type="button"
+                onClick={() => toggleFavorite(gameId)}
+                aria-pressed={favorited}
+                aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
+                className={`flex items-center justify-center rounded-lg border bg-black p-2 transition-colors hover:border-white/70 ${
+                  favorited ? "border-[#3DA9FC]/60 text-[#3DA9FC]" : "border-white/40 text-white"
+                }`}
+              >
+                <Bookmark size={13} className={favorited ? "fill-[#3DA9FC]" : ""} />
+              </button>
+
+              {/* Share */}
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Share"
+                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+              >
+                <Share2 size={13} />
+              </button>
+
+              {/* Feedback */}
+              <button
+                type="button"
+                onClick={() => window.open("/contact", "_blank", "noopener")}
+                aria-label="Send feedback"
+                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+              >
+                <MessageSquare size={13} />
               </button>
             </div>
           )}

@@ -43,6 +43,8 @@ import type { Metadata } from "next";
 // content changes (new game published, homepage row reordered) are
 // picked up within the next revalidation window, or immediately if
 // the admin purges the relevant fragment-cache key from the cache panel.
+// Canonical value: REVALIDATE.HOMEPAGE in src/lib/cache-config.ts.
+// Must stay a literal — Next.js route segment config requires static values.
 export const revalidate = 60;
 
 // Home Page SEO (Advanced SEO Module) — title/description/OG override from

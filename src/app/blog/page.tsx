@@ -2,6 +2,11 @@ import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { getPublishedPosts } from "@/lib/content-server";
 
+// ISR: post list is public, cookie-free. Revalidate every 300s so newly
+// published posts appear without a full redeploy. Admin publish/unpublish
+// calls revalidatePath("/blog") for immediate reflection (see posts route).
+export const revalidate = 300;
+
 export const metadata = {
   title: "Blog & News — MofiGames",
   description: "Updates, new game announcements, and news from MofiGames.",

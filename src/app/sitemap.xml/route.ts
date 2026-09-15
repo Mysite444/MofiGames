@@ -3,6 +3,15 @@ import { getFeedCacheSettingsServer } from "@/lib/feed-cache-settings-server";
 import { SITE_URL } from "@/lib/seo";
 import { buildSitemapIndexXml, buildSitemapHeaders, type SitemapIndexEntry } from "@/lib/sitemap-helpers";
 
+// ISR: sitemaps are public, contain no user-specific data, and change only
+// when content is published/updated. 1 hour TTL means bots get fresh data
+// within 1h of a publish, and zero DB calls for repeat requests within
+// that window. Admin publish operations call revalidateTag(CACHE_TAGS.SITEMAPS)
+// to bust immediately when content is published.
+// Canonical value: REVALIDATE.STATIC_PAGE (3600) in src/lib/cache-config.ts.
+export const revalidate = 3600;
+
+
 // GET /sitemap.xml — the sitemap index (XML Sitemap Management). Lists
 // only the per-type sitemaps currently enabled in Admin → SEO Management
 // → Sitemaps; a disabled sitemap's route still exists (returns an empty

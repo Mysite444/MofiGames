@@ -9,6 +9,7 @@ import {
 } from "@/lib/security-cache-settings";
 import { createTimeoutFetch } from "@/lib/supabase/timeout-fetch";
 import { timed } from "@/lib/perf-instrumentation";
+import { CACHE_CONTROL, publicCacheControl } from "@/lib/cache-config";
 
 // Session refresh below must never be able to take the whole site down.
 // A short, middleware-appropriate timeout — this runs on nearly every
@@ -37,7 +38,18 @@ const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 // round-trip latency out of the request path. supabase.auth.getUser()
 // below is deliberately NOT cached this way — that one has to reflect the
 // current request's actual session, not a shared config value.
-const SETTINGS_CACHE_TTL_MS = 30_000;
+//
+// WHY 300 s, not 30 s:
+//   Admin-managed settings (security policy, redirect rules, access rules,
+//   DNS prefetch toggle) are operational configuration — they change at most
+//   a few times per month, never on a per-request basis.  A 30s TTL means
+//   that on a single warm Fluid Compute instance handling 1 request/minute
+//   the cache is constantly expiring and every other request pays for a live
+//   Supabase round-trip.  300s (5 min) means at worst one live read per
+//   5-minute window even on a very warm instance.  An admin making a change
+//   waits ≤5 min for it to propagate — completely acceptable for all four
+//   of these settings.
+const SETTINGS_CACHE_TTL_MS = 300_000;
 
 interface TtlEntry<T> {
   value: T;
@@ -56,10 +68,43 @@ interface RedirectRow {
   redirect_type: 301 | 302 | 307 | 308 | 410;
 }
 
-let accessRulesCache: TtlEntry<AccessRuleRow[]> | null = null;
-let redirectsCache: TtlEntry<Map<string, RedirectRow>> | null = null;
-let dnsPrefetchCache: TtlEntry<boolean> | null = null;
-let securityCachePolicyCache: TtlEntry<SecurityCachePolicy> | null = null;
+// WHY globalThis (not module-level let):
+//   module-level `let` variables work perfectly inside a single Lambda
+//   invocation but reset to null on every cold start.  On Vercel Fluid
+//   Compute, a single underlying process can handle multiple sequential
+//   requests even across what look like separate "invocations" — but only
+//   if the data lives on `globalThis`, which persists for the lifetime of
+//   the Node.js process rather than just the current module evaluation.
+//   Storing here means a warm Fluid Compute instance caches the settings
+//   across requests without any per-request DB work, even if the module is
+//   hot-reloaded in dev.
+interface _MiddlewareGlobalCache {
+  accessRules: TtlEntry<AccessRuleRow[]> | null;
+  redirects: TtlEntry<Map<string, RedirectRow>> | null;
+  dnsPrefetch: TtlEntry<boolean> | null;
+  securityPolicy: TtlEntry<SecurityCachePolicy> | null;
+}
+const _mwGlobal = globalThis as unknown as { __middlewareCache?: _MiddlewareGlobalCache };
+if (!_mwGlobal.__middlewareCache) {
+  _mwGlobal.__middlewareCache = {
+    accessRules: null,
+    redirects: null,
+    dnsPrefetch: null,
+    securityPolicy: null,
+  };
+}
+const _mw = _mwGlobal.__middlewareCache;
+
+// Typed accessors — callers read/write through these instead of the cache
+// object directly so the compiler catches any field-name typos.
+function getAccessRulesCache() { return _mw.accessRules; }
+function setAccessRulesCache(e: TtlEntry<AccessRuleRow[]>) { _mw.accessRules = e; }
+function getRedirectsCache() { return _mw.redirects; }
+function setRedirectsCache(e: TtlEntry<Map<string, RedirectRow>>) { _mw.redirects = e; }
+function getDnsPrefetchCache() { return _mw.dnsPrefetch; }
+function setDnsPrefetchCache(e: TtlEntry<boolean>) { _mw.dnsPrefetch = e; }
+function getSecurityPolicyCache() { return _mw.securityPolicy; }
+function setSecurityPolicyCache(e: TtlEntry<SecurityCachePolicy>) { _mw.securityPolicy = e; }
 
 function cached<T>(entry: TtlEntry<T> | null): T | undefined {
   if (!entry || Date.now() >= entry.expiresAt) return undefined;
@@ -286,7 +331,7 @@ async function applyDnsPrefetchControlHeader(request: NextRequest, response: Nex
   if (request.nextUrl.pathname.startsWith("/api/") || request.nextUrl.pathname.startsWith("/_next")) return;
 
   try {
-    const cachedValue = cached(dnsPrefetchCache);
+    const cachedValue = cached(getDnsPrefetchCache());
     if (cachedValue !== undefined) {
       response.headers.set("X-DNS-Prefetch-Control", cachedValue ? "on" : "off");
       return;
@@ -304,7 +349,7 @@ async function applyDnsPrefetchControlHeader(request: NextRequest, response: Nex
 
     const rows = (await res.json()) as { dns_prefetch_control_enabled: boolean }[];
     const enabled = rows[0]?.dns_prefetch_control_enabled ?? true;
-    dnsPrefetchCache = { value: enabled, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+    setDnsPrefetchCache({ value: enabled, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
     response.headers.set("X-DNS-Prefetch-Control", enabled ? "on" : "off");
   } catch {
     // Fail open — a broken lookup should never block the response.
@@ -351,7 +396,7 @@ async function applySecurityCacheHeaders(request: NextRequest, response: NextRes
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!supabaseUrl || !supabaseAnonKey) return;
 
-    let policy = cached(securityCachePolicyCache);
+    let policy = cached(getSecurityPolicyCache());
     if (policy === undefined) {
       const policyRes = await fetch(`${supabaseUrl}/rest/v1/rpc/get_security_cache_policy`, {
         method: "POST",
@@ -365,7 +410,7 @@ async function applySecurityCacheHeaders(request: NextRequest, response: NextRes
       });
       if (!policyRes.ok) return;
       policy = normalizeSecurityCachePolicy(await policyRes.json());
-      securityCachePolicyCache = { value: policy, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+      setSecurityPolicyCache({ value: policy, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
     }
 
     const decision = computeCacheDecision({
@@ -377,7 +422,7 @@ async function applySecurityCacheHeaders(request: NextRequest, response: NextRes
     });
 
     if (decision.bypass) {
-      response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+      response.headers.set("Cache-Control", CACHE_CONTROL.NO_STORE);
       response.headers.set("X-Cache-Security", `bypass:${decision.reason}`);
       return;
     }
@@ -395,7 +440,7 @@ async function applySecurityCacheHeaders(request: NextRequest, response: NextRes
     if (isProtected) {
       const valid = await verifySignedRequest(request, policy, supabaseUrl, supabaseAnonKey);
       if (!valid) {
-        response.headers.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
+        response.headers.set("Cache-Control", CACHE_CONTROL.NO_STORE);
         response.headers.set("X-Cache-Security", "signed-invalid");
         return;
       }
@@ -403,6 +448,32 @@ async function applySecurityCacheHeaders(request: NextRequest, response: NextRes
       return;
     }
 
+    // Cacheable path — set an explicit positive Cache-Control so the Vercel
+    // CDN has a clear instruction to store the response. Without this, the
+    // CDN relies solely on what Next.js's ISR layer emits, which is correct
+    // but implicit. Being explicit here means:
+    //   a) the CDN setting is visible and auditable via curl/DevTools
+    //   b) the TTL matches our ISR revalidate window (both come from
+    //      cache-config.ts) so the two layers stay in sync
+    //   c) admin-bypass paths (above) always get no-store, even if Next.js
+    //      accidentally forgot to mark them private
+    //
+    // Note: middleware headers are merged with the origin response headers.
+    // If Next.js also sets Cache-Control (e.g. for ISR pages it emits
+    // s-maxage=N), the last writer wins. On Vercel, the origin response
+    // headers are applied AFTER middleware headers — so Next.js's value
+    // takes precedence for ISR pages. This is fine: both say "public,
+    // s-maxage=300", so the CDN sees a consistent signal. For dynamic pages
+    // Next.js emits "private, no-store" which overrides our "public" value
+    // correctly. This middleware header therefore acts as a belt-and-
+    // suspenders for routes that don't set their own Cache-Control at all.
+    if (!decision.varyCookie) {
+      // Only set a shared-cache TTL when we're NOT varying by Cookie —
+      // a Cookie-varying response must be cached separately per cookie
+      // fingerprint, which not all CDNs handle safely. Leave the CDN
+      // behaviour for Cookie-varying responses to Next.js/Vercel defaults.
+      response.headers.set("Cache-Control", publicCacheControl(pathname));
+    }
     response.headers.set("X-Cache-Security", decision.varyCookie ? "cacheable:vary-cookie" : "cacheable");
   } catch {
     // Fail open — a broken lookup should never block the response.
@@ -471,7 +542,7 @@ async function verifySignedRequest(
  * file. Table is small (admin-managed rule list), so caching the whole
  * thing and evaluating locally is cheap and safe. */
 async function getAccessRules(supabaseUrl: string, supabaseAnonKey: string): Promise<AccessRuleRow[]> {
-  const hit = cached(accessRulesCache);
+  const hit = cached(getAccessRulesCache());
   if (hit) return hit;
 
   const res = await fetch(`${supabaseUrl}/rest/v1/access_rules?select=rule_type,mode,value`, {
@@ -481,7 +552,7 @@ async function getAccessRules(supabaseUrl: string, supabaseAnonKey: string): Pro
   if (!res.ok) throw new Error(`access_rules fetch failed: ${res.status}`);
 
   const rows = (await res.json()) as AccessRuleRow[];
-  accessRulesCache = { value: rows, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+  setAccessRulesCache({ value: rows, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
   return rows;
 }
 
@@ -584,7 +655,7 @@ function checkSameOrigin(request: NextRequest): NextResponse | null {
  * always been an exact-match lookup, never a pattern — behaviourally
  * identical to the previous per-path query. */
 async function getActiveRedirects(supabaseUrl: string, supabaseAnonKey: string): Promise<Map<string, RedirectRow>> {
-  const hit = cached(redirectsCache);
+  const hit = cached(getRedirectsCache());
   if (hit) return hit;
 
   const res = await fetch(
@@ -595,7 +666,7 @@ async function getActiveRedirects(supabaseUrl: string, supabaseAnonKey: string):
 
   const rows = (await res.json()) as RedirectRow[];
   const map = new Map(rows.map((r) => [r.source_path, r]));
-  redirectsCache = { value: map, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+  setRedirectsCache({ value: map, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
   return map;
 }
 
@@ -671,9 +742,33 @@ async function applyRedirect(request: NextRequest): Promise<NextResponse | null>
 export const config = {
   matcher: [
     /*
-     * Run on every route except static assets and image optimization
-     * files, to avoid doing this work on requests that don't need it.
+     * Run middleware only on routes that actually need it:
+     * authentication, security headers, access control, CSRF protection,
+     * and redirect handling.
+     *
+     * EXCLUDED (never touch middleware):
+     *   _next/static   — hashed build assets, immutably cached by CDN/browser
+     *   _next/image    — Next.js image optimiser, handled by its own cache
+     *   _next/data     — ISR/RSC data payload fetches, purely internal
+     *   favicon.ico    — dynamic proxy route but safe to serve without middleware
+     *   manifest*      — web app manifest, static-ish
+     *   robots.txt     — SEO file, no auth needed
+     *   sitemap*       — sitemap files, no auth needed
+     *   sw.js          — service worker, must never be intercepted by auth middleware
+     *   *.ico          — all icon files
+     *   *.woff/*ttf/   — font files served by Next.js or CDN
+     *   *.otf/*.eot
+     *   *.svg/*.png/   — image files (also covered above, belt-and-suspenders)
+     *   *.jpg/*.jpeg
+     *   *.gif/*.webp
+     *   *.avif/*.mp4   — media files
+     *   *.webm/*.ogg
+     *   *.mp3/*.wav
+     *
+     * Every path in this exclusion list is one Vercel Function invocation
+     * avoided for every visitor and every bot crawl — the matcher is the
+     * cheapest possible performance optimisation in this file.
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon\\.ico|manifest|robots\\.txt|sitemap|sw\\.js|.*\\.(?:ico|svg|png|jpg|jpeg|gif|webp|avif|woff2?|ttf|otf|eot|mp4|webm|ogg|mp3|wav)$).*)",
   ],
 };

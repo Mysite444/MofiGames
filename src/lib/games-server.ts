@@ -155,6 +155,103 @@ export async function fetchGameBySlugLive(
   }
 }
 
+/**
+ * Cookie-free, ISR-safe game lookup — uses createPublicClient() so
+ * Next.js never sees a cookies() call in this path. Only returns
+ * published, non-private games (same visibility rule as the public RLS
+ * anon policy). This is the correct function to call from any page that
+ * needs static generation or ISR — specifically resolveSlug(),
+ * generateMetadata(), and GameRenderer() in src/app/[slug]/page.tsx.
+ *
+ * Private/draft games return null here (they're not public). The page
+ * component handles admin preview of those as a dynamic fallback that
+ * is only reached when this returns null and the visitor has an admin
+ * session — which is correct: those renders ARE dynamic, and they're a
+ * tiny fraction of total traffic.
+ */
+async function fetchPublicGameBySlugSafe(
+  slug: string
+): Promise<{ game: Game; category: Category } | null> {
+  try {
+    // createPublicClient() — no cookies(), no session. This is what makes
+    // the entire chain ISR-safe. RLS allows anon SELECT on games/categories
+    // for is_published=true rows (see migration 0003).
+    const supabase = createPublicClient();
+    const { data: gameRow, error } = await withTimeout(
+      supabase
+        .from("games")
+        .select("*")
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .neq("visibility", "private")
+        .maybeSingle(),
+      DEFAULT_SUPABASE_TIMEOUT_MS,
+      "public game by slug"
+    );
+    if (error) throw error;
+    if (!gameRow) return null;
+
+    const { data: categoryRow } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("slug", gameRow.category_slug)
+      .maybeSingle();
+    if (!categoryRow) return null;
+
+    return {
+      game: mapDbGameRow(gameRow as DbGameRow, blobBaseUrl()),
+      category: mapDbCategoryRow(categoryRow as DbCategoryRow),
+    };
+  } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
+    console.error(
+      `[games-server] fetchPublicGameBySlugSafe("${slug}") falling back to static snapshot:`,
+      err
+    );
+    const game = fallbackGameBySlug(slug);
+    if (!game) return null;
+    const category = fallbackCategoryBySlug(game.categorySlug);
+    if (!category) return null;
+    return { game, category };
+  }
+}
+
+/**
+ * ISR-safe public game lookup for src/app/[slug]/page.tsx.
+ *
+ * Routes through the Game Metadata Cache (Admin → Cache → Metadata Cache)
+ * exactly like getRealGameBySlug() does for the non-admin path — they share
+ * the same cache namespace ("games") and key (slug), so whichever populates
+ * the entry first is reused by the other without a second Supabase read.
+ *
+ * Key differences from getRealGameBySlug():
+ *   - NO isCurrentUserAdmin() call → NO cookies() call → page stays ISR-eligible
+ *   - Returns null for private/draft games (they're not in the public catalog)
+ *   - Admin preview of private games is handled separately in GameRenderer
+ *
+ * Wrapped in React's cache() for request-level dedup — same rationale as
+ * getRealGameBySlug(): generateMetadata() calls it once (via resolveSlug),
+ * then again directly, and the page component calls it a third time. cache()
+ * makes all three resolve to the same in-flight/settled promise.
+ */
+export const getPublicGameBySlug = cache(async function getPublicGameBySlug(
+  slug: string
+): Promise<{ game: Game; category: Category } | null> {
+  try {
+    const { value } = await getOrSetMetadataCache("games", slug, () =>
+      fetchPublicGameBySlugSafe(slug)
+    );
+    return value ?? null;
+  } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
+    console.error(
+      `[games-server] getPublicGameBySlug("${slug}") falling back to static snapshot:`,
+      err
+    );
+    return fetchPublicGameBySlugSafe(slug);
+  }
+});
+
 /** Backs both generateMetadata() and the page component itself in
  * src/app/[slug]/page.tsx — previously two independent live
  * Supabase round trips per request. Now routed through the Game

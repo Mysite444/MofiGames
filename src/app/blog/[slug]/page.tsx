@@ -1,10 +1,28 @@
 import { notFound } from "next/navigation";
-import { getPostBySlug } from "@/lib/content-server";
+import { getPostBySlug, getPublishedPosts } from "@/lib/content-server";
 import { getSeoSettings } from "@/lib/seo-settings";
 import { buildPostMetadata, articleSchema, breadcrumbSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { RichContent } from "@/components/RichContent";
+
+// ISR: post content is public and cookie-free. 300s matches the [slug] and
+// /categories pattern. Admin publish/edit/unpublish calls
+// revalidatePath("/blog/[slug]") for immediate cache invalidation (see posts
+// route handler).
+export const revalidate = 300;
+
+// Pre-render all currently-published posts at build time so first visitors
+// get a static CDN response. Unknown slugs (dynamicParams = true by default)
+// are SSR'd on first request and then cached per the revalidate window.
+export async function generateStaticParams() {
+  try {
+    const posts = await getPublishedPosts();
+    return posts.map((p) => ({ slug: p.slug }));
+  } catch {
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

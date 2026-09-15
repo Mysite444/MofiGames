@@ -3,11 +3,19 @@ import { authenticateApiRequest, corsHeaders } from "@/lib/api-auth";
 import { getSecuritySettingsServer } from "@/lib/security-server";
 import { getAllRealGames, getRealGamesByCategory } from "@/lib/games-server";
 import { listGamesV1QuerySchema } from "@/lib/validation";
+import { REVALIDATE } from "@/lib/cache-config";
 
 /** GET /api/v1/games — published, publicly-visible games. Requires an
  * API key with the `read:games` scope (Admin → Security → API Keys).
  * See src/lib/api-auth.ts for the auth/rate-limit/CORS handling shared
- * across every /api/v1/* route. */
+ * across every /api/v1/* route.
+ *
+ * CACHING: The underlying game data is public and identical for every
+ * valid API key. However, the Authorization header and CORS vary per
+ * caller so this route cannot use export const revalidate (which would
+ * cache the response including those headers).  Instead we emit
+ * Cache-Control: private, stale-while-revalidate so each API client
+ * caches its own copy locally for REVALIDATE.GAME seconds. */
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, "read:games");
   if (!auth.ok) return auth.response;
@@ -44,7 +52,17 @@ export async function GET(request: NextRequest) {
       pageSize,
       total: allGames.length,
     },
-    { headers: cors }
+    {
+      headers: {
+        ...cors,
+        // private = only the requesting client may cache (no shared CDN cache
+        // because Authorization header makes every request distinct at the CDN).
+        // stale-while-revalidate lets the client serve the stale list while
+        // fetching a fresh copy in the background — zero perceived latency on
+        // repeat calls within the grace window.
+        "Cache-Control": `private, max-age=${REVALIDATE.GAME}, stale-while-revalidate=${REVALIDATE.GAME * 2}`,
+      },
+    }
   );
 }
 

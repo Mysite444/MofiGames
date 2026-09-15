@@ -86,7 +86,7 @@ export const autoCdnCachePurge: JobExecutor = async (_supabase, config) => {
  * worker with the manual trigger — see runCachePreload() in
  * src/lib/cache-preload.ts — so both write to the same run history. */
 export const cachePreload: JobExecutor = async (supabase) => {
-  const summary = await runCachePreload(supabase);
+  const summary = await runCachePreload(supabase, "scheduled");
   if (!summary) {
     return {
       status: "success",

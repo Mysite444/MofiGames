@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import {
   homepageSectionKeyParamSchema,
@@ -56,5 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ke
   }
 
   invalidateHomepageFragments();
+  revalidatePath("/");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
   return NextResponse.json({ section: data });
 }

@@ -2,9 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authenticateApiRequest, corsHeaders } from "@/lib/api-auth";
 import { getSecuritySettingsServer } from "@/lib/security-server";
 import { getAllRealCategories } from "@/lib/games-server";
+import { REVALIDATE } from "@/lib/cache-config";
 
 /** GET /api/v1/categories — every category configured through the admin
- * panel. Requires an API key with the `read:categories` scope. */
+ * panel. Requires an API key with the `read:categories` scope.
+ *
+ * CACHING: Same rationale as /api/v1/games — data is public but
+ * Authorization header prevents shared CDN caching. Each client gets
+ * private client-side caching for REVALIDATE.CATEGORY seconds. */
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request, "read:categories");
   if (!auth.ok) return auth.response;
@@ -18,7 +23,12 @@ export async function GET(request: NextRequest) {
     {
       categories: categories.map((c) => ({ slug: c.slug, name: c.name, description: c.description })),
     },
-    { headers: cors }
+    {
+      headers: {
+        ...cors,
+        "Cache-Control": `private, max-age=${REVALIDATE.CATEGORY}, stale-while-revalidate=${REVALIDATE.CATEGORY * 2}`,
+      },
+    }
   );
 }
 

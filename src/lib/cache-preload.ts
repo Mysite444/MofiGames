@@ -24,8 +24,41 @@ import {
  * Returns null when the feature is disabled (nothing to record) so
  * callers can each decide how to report that — a 400 for the manual
  * button, a no-op success for the scheduled job.
+ *
+ * ISR GUARD (scheduled runs only):
+ *   MofiGames uses Next.js ISR (Incremental Static Regeneration) on every
+ *   public page.  ISR handles cache warming automatically: the first real
+ *   visitor after a revalidation window triggers a background regeneration;
+ *   subsequent visitors get the cached response from the CDN edge.  Running
+ *   cache preloading on a schedule ALONGSIDE ISR creates a harmful loop:
+ *
+ *     Cron → preload fetches N URLs → N Vercel Function invocations (CPU)
+ *     → each Function may trigger ISR background regeneration (more CPU)
+ *     → repeat every few minutes regardless of real visitor traffic
+ *
+ *   This loop was the #1 cause of high Fluid Compute CPU usage with zero
+ *   real traffic.  The guard below skips scheduled preload runs when the
+ *   site is deployed on Vercel (VERCEL=1) and Next.js ISR is active (the
+ *   default for all public pages).  Manual "Preload Now" button calls from
+ *   the admin panel are passed through unchanged because they're intentional
+ *   one-off admin actions, not an automated loop.
+ *
+ * @param triggeredBy  "manual" = admin button, "scheduled" = automation cron
  */
-export async function runCachePreload(supabase: SupabaseClient): Promise<CachePreloadRunResult | null> {
+export async function runCachePreload(
+  supabase: SupabaseClient,
+  triggeredBy: "manual" | "scheduled" = "manual"
+): Promise<CachePreloadRunResult | null> {
+  // Skip scheduled preloads on Vercel — ISR makes them redundant and
+  // they generate CPU cost with no cache benefit (CDN already handles it).
+  if (triggeredBy === "scheduled" && process.env.VERCEL === "1") {
+    console.log(
+      "[cache-preload] Skipping scheduled preload on Vercel — ISR handles cache warming automatically. " +
+        "Use the Admin → Cache → Preloading 'Preload Now' button for a manual warm-up if needed."
+    );
+    return null;
+  }
+
   const { data: row } = await supabase.from("cache_preload_settings").select("*").eq("id", true).maybeSingle();
   if (!row || !row.enabled) return null;
 

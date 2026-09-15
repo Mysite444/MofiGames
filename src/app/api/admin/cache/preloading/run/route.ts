@@ -15,7 +15,7 @@ export async function POST() {
   }
   const { supabase } = auth.ctx;
 
-  const summary = await runCachePreload(supabase);
+  const summary = await runCachePreload(supabase, "manual");
   if (!summary) {
     return NextResponse.json(
       { error: "Cache Preloading is currently disabled. Enable it below, then try again." },

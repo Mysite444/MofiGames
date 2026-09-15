@@ -19,6 +19,19 @@ interface HeaderSnapshot {
   etag: string | null;
   lastModified: string | null;
   expires: string | null;
+  /** Vercel CDN cache status. Values: HIT | MISS | STALE | BYPASS | REVALIDATED.
+   *  Only present when the response was served by Vercel's edge network.
+   *  MISS on the first request after revalidatePath is expected and correct;
+   *  HIT on the second request confirms CDN caching is working. */
+  xVercelCache: string | null;
+  /** Set by applySecurityCacheHeaders() in middleware.ts.
+   *  Values: cacheable | cacheable:vary-cookie | bypass:<reason> | signed-valid | signed-invalid.
+   *  "cacheable" means middleware did not add no-store — CDN is free to cache.
+   *  "bypass:*" means middleware actively prevented CDN caching for that route. */
+  xCacheSecurity: string | null;
+  /** Age (seconds) that the CDN has held this response. Positive value
+   *  confirms the CDN is serving from its cache, not hitting the origin. */
+  age: string | null;
 }
 
 interface CheckResult {
@@ -48,6 +61,9 @@ async function fetchHeaders(url: string): Promise<{ status: number; headers: Hea
       etag: res.headers.get("etag"),
       lastModified: res.headers.get("last-modified"),
       expires: res.headers.get("expires"),
+      xVercelCache: res.headers.get("x-vercel-cache"),
+      xCacheSecurity: res.headers.get("x-cache-security"),
+      age: res.headers.get("age"),
     };
     return { status: res.status, headers: snapshot };
   } catch {
@@ -70,6 +86,9 @@ async function fetchWithBody(url: string): Promise<{ status: number; headers: He
         etag: res.headers.get("etag"),
         lastModified: res.headers.get("last-modified"),
         expires: res.headers.get("expires"),
+        xVercelCache: res.headers.get("x-vercel-cache"),
+        xCacheSecurity: res.headers.get("x-cache-security"),
+        age: res.headers.get("age"),
       },
       body,
     };
@@ -105,10 +124,21 @@ export async function GET(request: NextRequest) {
   const cacheSettings = await getCacheSettingsServer();
   const results: CheckResult[] = [];
 
-  // 1. Homepage HTML — also mined for a real /_next/static asset URL to
-  // check next, since those hashes change on every build.
+  // Helper: determine if a Cache-Control value has a positive s-maxage.
+  function smaxageOf(cc: string | null): number | null {
+    if (!cc) return null;
+    const match = cc.match(/s-maxage=(\d+)/i);
+    return match ? Number(match[1]) : null;
+  }
+
+  // -----------------------------------------------------------------------
+  // 1. Homepage HTML — also mined for a real /_next/static asset URL.
+  // -----------------------------------------------------------------------
   const homepage = await fetchWithBody(`${origin}/`);
   if (homepage) {
+    const sm = smaxageOf(homepage.headers.cacheControl);
+    const cdnCaching = sm !== null && sm > 0;
+    const cdnHit = homepage.headers.xVercelCache === "HIT";
     results.push({
       id: "html_page",
       label: "Homepage (HTML page)",
@@ -116,12 +146,19 @@ export async function GET(request: NextRequest) {
       category: "html_page",
       status: homepage.status,
       headers: homepage.headers,
-      verdict: homepage.headers.etag ? "pass" : "warn",
-      note: homepage.headers.etag
-        ? "ETag present — Next.js's default per-page ETag generation is active."
-        : "No ETag on the response. Check that generateEtags hasn't been disabled in next.config.ts.",
+      verdict: cdnCaching ? (homepage.headers.etag ? "pass" : "warn") : "warn",
+      note: [
+        cdnCaching
+          ? `s-maxage=${sm}s — CDN is instructed to cache the homepage.`
+          : "No s-maxage in Cache-Control. CDN will not cache the HTML. Run the app after Phase 6A–6E deploy to see the correct value.",
+        cdnHit ? "X-Vercel-Cache: HIT — CDN served this response without hitting the origin." : `X-Vercel-Cache: ${homepage.headers.xVercelCache ?? "absent"} — ${homepage.headers.xVercelCache === "MISS" ? "first request after revalidation (expected)" : "CDN not yet caching"}.`,
+        homepage.headers.xCacheSecurity
+          ? `X-Cache-Security: ${homepage.headers.xCacheSecurity}`
+          : "X-Cache-Security header absent (middleware may not have run).",
+      ].join(" | "),
     });
 
+    // 1b. Hashed static asset extracted from the homepage HTML.
     const assetMatch = homepage.body.match(/\/_next\/static\/[^"'\s)]+\.(?:js|css)/);
     if (assetMatch) {
       const assetUrl = `${origin}${assetMatch[0]}`;
@@ -140,7 +177,7 @@ export async function GET(request: NextRequest) {
           note:
             immutable && longLived
               ? "public, max-age=31536000, immutable — enforced by Next.js itself, not overridable."
-              : "Expected an immutable, one-year Cache-Control on hashed build output — got something else. Usually means a proxy/CDN in front of the app is stripping or rewriting it.",
+              : "Expected immutable, one-year Cache-Control on hashed build output. Usually means a proxy/CDN is rewriting it.",
         });
       }
     }
@@ -157,7 +194,127 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 2. favicon.ico — custom route, see src/app/favicon.ico/route.ts.
+  // -----------------------------------------------------------------------
+  // 2. Game page ISR check — the critical Phase 6A validation.
+  //    Fetches the most-recently-updated published game's slug page and
+  //    confirms it has s-maxage and (on a second request) X-Vercel-Cache: HIT.
+  // -----------------------------------------------------------------------
+  const { data: sampleGameForIsr } = await supabase
+    .from("games")
+    .select("slug, title")
+    .eq("is_published", true)
+    .neq("visibility", "private")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (sampleGameForIsr?.slug) {
+    const gamePageUrl = `${origin}/${sampleGameForIsr.slug}`;
+    const gamePage = await fetchHeaders(gamePageUrl);
+    if (gamePage) {
+      const sm = smaxageOf(gamePage.headers.cacheControl);
+      const isIsr = sm !== null && sm > 0;
+      const cdnHit = gamePage.headers.xVercelCache === "HIT";
+      const cdnStale = gamePage.headers.xVercelCache === "STALE";
+      const isCacheable = gamePage.headers.xCacheSecurity === "cacheable";
+      results.push({
+        id: "game_page_isr",
+        label: `Game page ISR: /${sampleGameForIsr.slug}`,
+        detailUrl: gamePageUrl,
+        category: "html_page",
+        status: gamePage.status,
+        headers: gamePage.headers,
+        verdict: isIsr && isCacheable ? "pass" : isIsr || isCacheable ? "warn" : "fail",
+        note: [
+          isIsr
+            ? `s-maxage=${sm}s — ISR is active. CDN will cache this page.`
+            : "No s-maxage — page is NOT being ISR-cached by the CDN. This means cookies() is still being called in the render path. Verify Phase 6A was deployed correctly.",
+          cdnHit
+            ? "X-Vercel-Cache: HIT — CDN served from edge cache (no origin hit)."
+            : cdnStale
+              ? "X-Vercel-Cache: STALE — CDN served stale while revalidating (correct behaviour)."
+              : `X-Vercel-Cache: ${gamePage.headers.xVercelCache ?? "absent"} — first visit or cache recently busted.`,
+          isCacheable
+            ? "X-Cache-Security: cacheable — middleware did not add no-store."
+            : `X-Cache-Security: ${gamePage.headers.xCacheSecurity ?? "absent"} — middleware may be blocking CDN caching.`,
+          gamePage.headers.age ? `Age: ${gamePage.headers.age}s (time CDN has held this response).` : "",
+        ].filter(Boolean).join(" | "),
+      });
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // 3. Navigation fragment — Phase 6D validation.
+  //    Should have Cache-Control: public, s-maxage=30 (not no-store).
+  // -----------------------------------------------------------------------
+  const navFragmentUrl = `${origin}/api/fragments/navigation`;
+  const navFragment = await fetchHeaders(navFragmentUrl);
+  if (navFragment) {
+    const sm = smaxageOf(navFragment.headers.cacheControl);
+    const isPublic = hasDirective(navFragment.headers.cacheControl, "public");
+    const cdnHit = navFragment.headers.xVercelCache === "HIT";
+    const noStore = hasDirective(navFragment.headers.cacheControl, "no-store");
+    results.push({
+      id: "nav_fragment",
+      label: "Navigation fragment API (/api/fragments/navigation)",
+      detailUrl: navFragmentUrl,
+      category: "api_public",
+      status: navFragment.status,
+      headers: navFragment.headers,
+      verdict: isPublic && sm !== null && !noStore ? "pass" : "fail",
+      note: noStore
+        ? "Cache-Control: no-store — the fragment is NOT being CDN-cached. This means the /api/fragments/navigation override in next.config.ts headers() is not active. Every page load fires a live Vercel Function. Verify Phase 6D was deployed."
+        : isPublic && sm !== null
+          ? `public, s-maxage=${sm}s — CDN will cache this response. ${cdnHit ? "X-Vercel-Cache: HIT ✓" : `X-Vercel-Cache: ${navFragment.headers.xVercelCache ?? "MISS"} (cache warming).`}`
+          : `Unexpected Cache-Control: ${navFragment.headers.cacheControl ?? "absent"}.`,
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 4. Categories page ISR check — Phase 6B validation.
+  // -----------------------------------------------------------------------
+  const categoriesPage = await fetchHeaders(`${origin}/categories`);
+  if (categoriesPage) {
+    const sm = smaxageOf(categoriesPage.headers.cacheControl);
+    const isIsr = sm !== null && sm > 0;
+    results.push({
+      id: "categories_page_isr",
+      label: "Categories page ISR (/categories)",
+      detailUrl: `${origin}/categories`,
+      category: "html_page",
+      status: categoriesPage.status,
+      headers: categoriesPage.headers,
+      verdict: isIsr ? "pass" : "fail",
+      note: isIsr
+        ? `s-maxage=${sm}s — ISR active. X-Vercel-Cache: ${categoriesPage.headers.xVercelCache ?? "absent"}.`
+        : "No s-maxage — /categories is not ISR-cached. Verify Phase 6B (export const revalidate = 300) was deployed.",
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 5. Blog index ISR check — Phase 6C validation.
+  // -----------------------------------------------------------------------
+  const blogPage = await fetchHeaders(`${origin}/blog`);
+  if (blogPage) {
+    const sm = smaxageOf(blogPage.headers.cacheControl);
+    const isIsr = sm !== null && sm > 0;
+    results.push({
+      id: "blog_page_isr",
+      label: "Blog index ISR (/blog)",
+      detailUrl: `${origin}/blog`,
+      category: "html_page",
+      status: blogPage.status,
+      headers: blogPage.headers,
+      verdict: isIsr ? "pass" : "fail",
+      note: isIsr
+        ? `s-maxage=${sm}s — ISR active. X-Vercel-Cache: ${blogPage.headers.xVercelCache ?? "absent"}.`
+        : "No s-maxage — /blog is not ISR-cached. Verify Phase 6C (export const revalidate = 300) was deployed.",
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 6. favicon.ico
+  // -----------------------------------------------------------------------
   const favicon = await fetchHeaders(`${origin}/favicon.ico`);
   if (favicon) {
     results.push({
@@ -172,9 +329,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 2b. apple-touch-icon.png — custom route, see
-  // src/app/apple-touch-icon.png/route.ts. Same proxy reasoning as
-  // favicon.ico above: iOS probes this exact path at the root.
+  // -----------------------------------------------------------------------
+  // 7. apple-touch-icon.png
+  // -----------------------------------------------------------------------
   const appleTouchIcon = await fetchHeaders(`${origin}/apple-touch-icon.png`);
   if (appleTouchIcon) {
     results.push({
@@ -189,7 +346,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 3. robots.txt — custom route, see src/app/robots.txt/route.ts.
+  // -----------------------------------------------------------------------
+  // 8. robots.txt
+  // -----------------------------------------------------------------------
   const robots = await fetchHeaders(`${origin}/robots.txt`);
   if (robots) {
     results.push({
@@ -204,8 +363,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 4. A real, uploaded game thumbnail — Date.now()-stamped path, so a
-  // long cache here is safe (see migration 0033's header comment).
+  // -----------------------------------------------------------------------
+  // 9. Game thumbnail (Vercel Blob)
+  // -----------------------------------------------------------------------
   const { data: sampleGame } = await supabase
     .from("games")
     .select("thumbnail_url")
@@ -235,7 +395,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 5. A real, uploaded Media Library asset (Admin → Media Management).
+  // -----------------------------------------------------------------------
+  // 10. Media Library asset
+  // -----------------------------------------------------------------------
   const { data: sampleAsset } = await supabase
     .from("media_assets")
     .select("url, category")
@@ -259,8 +421,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 6. The service worker route itself — the one place a long cache
-  // would actively hurt (stale SW = stuck app). See src/app/sw.js/route.ts.
+  // -----------------------------------------------------------------------
+  // 11. Service worker — must NOT be long-cached.
+  // -----------------------------------------------------------------------
   const sw = await fetchHeaders(`${origin}/sw.js`);
   if (sw) {
     const noCache = hasDirective(sw.headers.cacheControl, "no-cache") || hasDirective(sw.headers.cacheControl, "no-store");

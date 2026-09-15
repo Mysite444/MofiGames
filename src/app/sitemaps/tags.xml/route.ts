@@ -4,6 +4,15 @@ import { getFeedCacheSettingsServer } from "@/lib/feed-cache-settings-server";
 import { SITE_URL } from "@/lib/seo";
 import { buildUrlSetXml, buildSitemapHeaders, type SitemapUrlEntry } from "@/lib/sitemap-helpers";
 
+// ISR: sitemaps are public, contain no user-specific data, and change only
+// when content is published/updated. 1 hour TTL means bots get fresh data
+// within 1h of a publish, and zero DB calls for repeat requests within
+// that window. Admin publish operations call revalidateTag(CACHE_TAGS.SITEMAPS)
+// to bust immediately when content is published.
+// Canonical value: REVALIDATE.STATIC_PAGE (3600) in src/lib/cache-config.ts.
+export const revalidate = 3600;
+
+
 // GET /sitemaps/tags.xml — every tag that has at least one published post
 // or game attached (an empty tag archive page is thin/duplicate content
 // and shouldn't be submitted for crawling). Cache-Control comes from

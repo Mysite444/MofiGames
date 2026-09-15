@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { CACHE_CONTROL } from "./src/lib/cache-config";
 
 // Content-Security-Policy is deliberately permissive on frame-src,
 // img-src, and media-src: this site's core feature is embedding
@@ -168,6 +169,158 @@ const nextConfig: NextConfig = {
           // read-only data (e.g. public game listings), but the default
           // must be private/no-store.
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+        ],
+      },
+      // ----------------------------------------------------------------
+      // Public fragment endpoints — override the blanket /api/** no-store
+      // rule for the specific routes that are verified-safe for CDN/browser
+      // caching. These routes are:
+      //   - non-personalized (identical for every visitor)
+      //   - backed by the server-side Fragment Cache (in-process TTL)
+      //   - not carrying any session/user data
+      //
+      // /api/fragments/navigation is fetched client-side on EVERY page
+      // load site-wide (NavList.tsx). Without a Cache-Control, that's one
+      // live Vercel Function hit per page view. With a short public TTL,
+      // the CDN serves repeat requests from edge cache instead. 30s is
+      // short enough that an admin changing a nav link is visible within
+      // 30s; stale-while-revalidate gives the CDN grace to serve the
+      // cached version while revalidating in the background.
+      // ----------------------------------------------------------------
+      {
+        source: "/api/fragments/navigation",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: CACHE_CONTROL.NAV_FRAGMENT,
+          },
+        ],
+      },
+
+      // ----------------------------------------------------------------
+      // BROWSER-IMMUTABLE ASSET CACHING
+      // These rules target files that either (a) are content-addressed
+      // (hashed filename = content fingerprint) or (b) are semantically
+      // versioned and cannot change without a URL change.  Long max-age +
+      // immutable means: browser never revalidates these; CDN caches them
+      // for the same period.  Result: zero bytes transferred on reload for
+      // any resource the browser has seen before.
+      // ----------------------------------------------------------------
+
+      // Next.js build output — content-hashed filenames, truly immutable.
+      // Next.js sets this itself; this rule is belt-and-suspenders in case
+      // a proxy upstream ever strips it.
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+
+      // Fonts served from /public/fonts/ or any subpath.
+      {
+        source: "/fonts/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+
+      // Web fonts served from /public directly (woff2 — most common).
+      {
+        source: "/(.*\.woff2)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/(.*\.woff)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/(.*\.ttf)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/(.*\.otf)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+
+      // Static images in /public — long-lived but not immutable (no hash).
+      {
+        source: "/(.*\.png)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.jpg)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.jpeg)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.gif)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.webp)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.avif)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.svg)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.ico)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+
+      // Media files.
+      {
+        source: "/(.*\.mp4)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+      {
+        source: "/(.*\.webm)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
+      },
+
+      // Web app manifest.
+      {
+        source: "/manifest.webmanifest",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=3600" },
+        ],
+      },
+
+      // robots.txt and sitemaps.
+      {
+        source: "/robots.txt",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/sitemap.xml",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" },
+        ],
+      },
+      {
+        source: "/sitemap-(.*\.xml)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" },
+        ],
+      },
+
+      // Service worker — MUST be no-cache so browsers always check for
+      // an updated worker file.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
         ],
       },
     ];

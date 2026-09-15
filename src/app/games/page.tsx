@@ -2,6 +2,14 @@ import { Suspense } from "react";
 import { GamesBrowseClient } from "@/components/GamesBrowseClient";
 import { BrowsePageSkeleton } from "@/components/skeletons/BrowsePageSkeleton";
 
+// The page shell itself has zero server data fetching — GamesBrowseClient
+// is a "use client" component that loads game data via the API after hydration.
+// force-static makes this explicit: the HTML shell is pre-rendered once at
+// build time and served from CDN permanently. Only the client-side JS fetch
+// inside GamesBrowseClient ever hits the server, and it's rate-limited by
+// the component's own debounce/pagination logic.
+export const dynamic = "force-static";
+
 export const metadata = {
   title: "All Games — MofiGames",
   description:

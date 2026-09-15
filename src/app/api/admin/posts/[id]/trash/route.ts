@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
@@ -55,6 +57,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     summary: `Moved post "${post.title}" (${post.slug}) to Trash.`,
     metadata: { title: post.title, slug: post.slug },
   });
+
+  // Trashed posts are hidden by RLS on next fetch — invalidate so the
+  // blog index stops showing the post immediately.
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${post.slug}`);
+  revalidateTag(CACHE_TAGS.POSTS, "default");
+  revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+  revalidateTag(CACHE_TAGS.FEEDS, "default");
+  revalidateTag(CACHE_TAGS.SITEMAPS, "default");
 
   return NextResponse.json({ ok: true, post });
 }

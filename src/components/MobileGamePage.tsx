@@ -133,6 +133,8 @@ export function MobileGamePage({
           title={game.title}
           orientation={game.orientation}
           onClose={handleClose}
+          gameId={game.slug}
+          basePlays={game.plays}
         />
       )}
 

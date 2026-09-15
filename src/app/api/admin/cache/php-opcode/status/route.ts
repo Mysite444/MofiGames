@@ -18,6 +18,14 @@ import { phpOpcacheStatusActionSchema } from "@/lib/validation-php-opcode";
  *             records the timestamp in the settings row, or returns
  *             "unavailable" if the endpoint is not configured.
  *
+ * PLATFORM NOTE: This panel is only applicable to deployments that run a
+ * PHP application alongside or instead of the Next.js server (e.g. a
+ * hybrid setup where a PHP CMS drives some routes). For Vercel/Node.js-
+ * only deployments (the default MofiGames configuration), this panel has
+ * no effect — there is no PHP process to configure. The route gracefully
+ * returns platform_applicable: false in that case so the UI can render
+ * a clear "not applicable" message instead of a confusing error.
+ *
  * The PHP status/reset helper scripts are minimal one-liners that should
  * be placed outside the public document root and locked down behind
  * IP allowlisting or a shared secret header — see the README for examples.
@@ -32,6 +40,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
   const { supabase, user } = auth.ctx;
+
+  // Fast-path for Vercel/Node.js deployments: no PHP runtime is present,
+  // so OPcache actions will always be "unavailable". Surface this as a
+  // first-class response rather than silently falling through to the
+  // URL-not-configured path, so the admin UI can display a helpful message.
+  const isVercelOrNodeOnly =
+    process.env.VERCEL === "1" ||
+    process.env.NEXT_RUNTIME === "nodejs" ||
+    (!process.env.OPCACHE_STATUS_URL && !process.env.OPCACHE_RESET_URL);
+
+  if (isVercelOrNodeOnly && !process.env.OPCACHE_STATUS_URL && !process.env.OPCACHE_RESET_URL) {
+    return NextResponse.json({
+      result: "unavailable",
+      platform_applicable: false,
+      message:
+        "PHP OPcache is not applicable to this deployment. " +
+        "MofiGames runs on Node.js/Vercel, which has no PHP runtime. " +
+        "Configure OPCACHE_STATUS_URL and OPCACHE_RESET_URL only if a " +
+        "PHP process is explicitly part of your infrastructure.",
+      stats: null,
+    });
+  }
 
   let body: unknown;
   try {

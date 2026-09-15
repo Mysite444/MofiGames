@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { postInputSchema, listPostsAdminQuerySchema, firstIssueMessage } from "@/lib/validation";
 import { apiError } from "@/lib/api-error";
@@ -152,6 +154,16 @@ export async function POST(request: Request) {
     summary: `Created post "${post.title}" (${post.slug}).`,
     metadata: { title: post.title, slug: post.slug },
   });
+
+  // If the new post is immediately published, invalidate the blog index.
+  if (post.is_published) {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+    revalidateTag(CACHE_TAGS.POSTS, "default");
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+    revalidateTag(CACHE_TAGS.FEEDS, "default");
+    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
+  }
 
   return NextResponse.json({ post: { ...post, tagIds } }, { status: 201 });
 }

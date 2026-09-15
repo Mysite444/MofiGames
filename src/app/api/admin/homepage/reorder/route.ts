@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { homepageReorderSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
@@ -54,5 +56,7 @@ export async function POST(request: Request) {
   }
 
   invalidateGameFragments();
+  revalidatePath("/");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
   return NextResponse.json({ ok: true });
 }

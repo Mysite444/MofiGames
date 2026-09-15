@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
 import { apiError } from "@/lib/api-error";
@@ -59,5 +61,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   });
 
   invalidateGameFragments();
+  // Trashed game is no longer publicly accessible — bust the slug page
+  // so it 404s immediately instead of serving stale content for 300s.
+  revalidatePath(`/${game.slug}`);
+  revalidatePath("/");
+  revalidatePath("/popular-games");
+  revalidatePath("/latest-games");
+  revalidatePath("/updated-games");
+  revalidatePath("/leaderboard");
+  revalidateTag(CACHE_TAGS.GAMES, "default");
+  revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
   return NextResponse.json({ ok: true, game });
 }

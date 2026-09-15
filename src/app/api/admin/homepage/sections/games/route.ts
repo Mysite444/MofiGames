@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { homepageSectionGamePinSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateHomepageFragments } from "@/lib/fragment-cache-invalidation";
@@ -54,6 +56,8 @@ export async function POST(request: Request) {
   }
 
   invalidateHomepageFragments();
+  revalidatePath("/");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
   return NextResponse.json({ pin: data }, { status: 201 });
 }
 
@@ -94,5 +98,7 @@ export async function DELETE(request: Request) {
   }
 
   invalidateHomepageFragments();
+  revalidatePath("/");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
   return NextResponse.json({ ok: true });
 }

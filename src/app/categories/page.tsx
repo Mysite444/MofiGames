@@ -5,6 +5,13 @@ import { getAllRealGames, getAllRealCategories } from "@/lib/games-server";
 import { iconMap } from "@/lib/icon-map";
 import type { Category } from "@/lib/types";
 
+// ISR: all data here (games, categories) is public and cookie-free. Match
+// the [slug] category pages' 300s window so the two stay consistent — a
+// new category added via Admin shows up here and on its own slug page
+// within the same revalidation cycle. Admin saves call revalidatePath so
+// the change is reflected immediately without waiting for the timer.
+export const revalidate = 300;
+
 export const metadata = {
   title: "All Categories — MofiGames",
   description: "Browse every game genre on MofiGames.",

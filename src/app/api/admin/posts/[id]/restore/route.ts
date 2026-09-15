@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
@@ -50,6 +52,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     summary: `Restored post "${post.title}" (${post.slug}) from Trash.`,
     metadata: { title: post.title, slug: post.slug },
   });
+
+  // Restored post may be published again — invalidate so it reappears.
+  if (post.is_published) {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${post.slug}`);
+    revalidateTag(CACHE_TAGS.POSTS, "default");
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+  }
 
   return NextResponse.json({ ok: true, post });
 }

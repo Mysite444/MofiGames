@@ -4,6 +4,13 @@ import { getFeedItems } from "@/lib/feed-content-server";
 import { SITE_URL } from "@/lib/seo";
 import { buildAtomXml, buildFeedHeaders } from "@/lib/feed-helpers";
 
+// ISR: feeds contain only published public content, no user-specific data.
+// 1 hour TTL so feed readers get fresh posts within 1h of publish.
+// Admin post publish/trash operations call revalidateTag(CACHE_TAGS.FEEDS).
+// Canonical value: REVALIDATE.STATIC_PAGE (3600) in src/lib/cache-config.ts.
+export const revalidate = 3600;
+
+
 // GET /atom.xml — Atom 1.0 / RFC 4287 (Admin → Cache → Feed Cache →
 // Atom Feeds). Same item list as /feed.xml and /feed.json — see
 // getFeedItems() in feed-content-server.ts — just a different envelope

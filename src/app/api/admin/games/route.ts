@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameInputSchema, listGamesAdminQuerySchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
@@ -224,5 +226,20 @@ export async function POST(request: Request) {
   });
 
   invalidateGameFragments();
+  // Newly created game — if published immediately, bust its slug page, its
+  // category page, the homepage, and all game listing pages so they all
+  // reflect the new game without waiting for the ISR timer.
+  if (game.is_published) {
+    revalidatePath(`/${game.slug}`);
+    if (game.category_slug) revalidatePath(`/${game.category_slug}`);
+    revalidatePath("/");
+    revalidatePath("/popular-games");
+    revalidatePath("/latest-games");
+    revalidatePath("/updated-games");
+    revalidatePath("/leaderboard");
+  }
+  revalidateTag(CACHE_TAGS.GAMES, "default");
+  if (game.slug) revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
+  if (game.is_published) revalidateTag(CACHE_TAGS.SITEMAPS, "default");
   return NextResponse.json({ game: { ...game, tagIds } }, { status: 201 });
 }

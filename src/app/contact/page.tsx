@@ -4,6 +4,12 @@ import { RichContent } from "@/components/RichContent";
 import { ContactFormClient } from "@/components/ContactFormClient";
 import { getPageBySlug } from "@/lib/content-server";
 
+// ISR: CMS page content editable at Admin → Pages. Canonical value:
+// REVALIDATE.STATIC_PAGE in src/lib/cache-config.ts (3600s). Must stay a
+// literal — Next.js requires static values for route segment config.
+// revalidatePath fires on admin page save for immediate invalidation.
+export const revalidate = 3600;
+
 export const metadata = { title: "Contact Us — MofiGames" };
 
 // Editable at Admin → Content Management → Pages → "Contact Us" (seeded by

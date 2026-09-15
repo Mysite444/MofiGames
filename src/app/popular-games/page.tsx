@@ -6,6 +6,12 @@ import { CategoryGrid } from "@/components/CategoryGrid";
 import { CategoryPageHeading } from "@/components/CategoryPageHeading";
 import { CategoryDesktopGrid } from "@/components/CategoryDesktopGrid";
 
+// ISR: game data is public and cookie-free. Canonical value: REVALIDATE.GAME
+// in src/lib/cache-config.ts (300s). Must stay a literal — Next.js requires
+// static values for route segment config. revalidatePath fires on game
+// publish/unpublish/trash/restore for immediate invalidation.
+export const revalidate = 300;
+
 export const metadata = {
   title: "Popular Games — MofiGames",
   description: "The most-played games on MofiGames right now.",

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
@@ -120,6 +122,38 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     game = data;
     invalidateGameFragments();
+    // Invalidate the ISR cache for this game's slug page and the category
+    // it belongs to. Without this, admin edits (title, thumbnail, visibility
+    // changes, publish/unpublish) take up to 300s to appear on the live
+    // site — even though the Fragment Cache is cleared immediately.
+    //
+    // We always revalidate the updated slug. If the slug was renamed, the
+    // old slug page becomes a 404 naturally within the next 300s ISR window.
+    // The new slug page is immediately fresh. Both the game's current
+    // category and the homepage (Featured/Trending sections) are also
+    // invalidated when visibility/publish/feature status changes.
+    revalidatePath(`/${game.slug}`);
+    if (game.category_slug) revalidatePath(`/${game.category_slug}`);
+    if (
+      gameFields.is_published !== undefined ||
+      gameFields.is_featured !== undefined ||
+      gameFields.is_trending !== undefined
+    ) {
+      revalidatePath("/");
+      // Game listing pages show all published games — bust them too so
+      // newly published / unpublished games appear / disappear immediately.
+      revalidatePath("/popular-games");
+      revalidatePath("/latest-games");
+      revalidatePath("/updated-games");
+      revalidatePath("/leaderboard");
+    }
+    // Data Cache tag invalidation — belt-and-suspenders with revalidatePath.
+    // revalidatePath busts the Full Route Cache (complete HTML).
+    // revalidateTag busts the Next.js Data Cache entries (fetch/unstable_cache)
+    // so the NEXT regeneration reads fresh data from the origin.
+    revalidateTag(CACHE_TAGS.GAMES, "default");
+    revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
+    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
 
     // A game only ever gets announced once — the first time it's publicly
     // visible. Covers both "published immediately" (POST /api/admin/games
@@ -265,6 +299,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   });
 
   invalidateGameFragments();
+  // The slug page now 404s — bust its ISR cache so it stops serving the
+  // deleted game's content immediately instead of waiting 300s.
+  revalidatePath(`/${existing.slug}`);
   return NextResponse.json({
     ok: true,
     filesRemoved: cleanup.removed,

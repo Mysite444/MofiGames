@@ -94,7 +94,12 @@ async function cacheFirst(request) {
 
 async function networkFirst(request) {
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
@@ -105,12 +110,53 @@ async function networkFirst(request) {
   }
 }
 
+// stale-while-revalidate: serve cached page immediately (instant navigation),
+// then fetch and cache the fresh version in the background. This gives repeat
+// visitors zero-wait page loads while keeping content fresh within one ISR
+// window. Only used for public page navigations — admin routes always use
+// networkFirst so stale admin UI is never served.
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => null);
+  return cached ?? (await fetchPromise) ?? new Response(OFFLINE_BODY, {
+    status: 503,
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
+// Limit cache to MAX_HTML_ENTRIES pages so the cache never grows unboundedly.
+// Evicts the oldest entry (FIFO) when the limit is reached.
+const MAX_HTML_ENTRIES = 30;
+async function evictOldestIfNeeded() {
+  const cache = await caches.open(CACHE_NAME);
+  const keys = await cache.keys();
+  const htmlKeys = keys.filter((r) => !r.url.includes("/_next/static") && !r.url.match(/\\.(png|jpg|jpeg|gif|webp|avif|svg|ico|woff2?|ttf|otf)$/i));
+  if (htmlKeys.length > MAX_HTML_ENTRIES) {
+    await cache.delete(htmlKeys[0]);
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+
+  // Admin and API routes: always network, never cache.
   if (url.origin === self.location.origin && (url.pathname.startsWith("/admin") || url.pathname.startsWith("/api"))) {
+    return;
+  }
+
+  // Auth routes: always network (session state changes must be reflected immediately).
+  if (url.origin === self.location.origin && url.pathname.startsWith("/auth")) {
     return;
   }
 
@@ -137,18 +183,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Hashed Next.js build assets — cache-first, they're immutable by design.
   if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static")) {
     event.respondWith(cacheFirst(request));
     return;
   }
 
+  // Images (any origin) — cache-first. Uploaded assets are timestamped so
+  // the same URL is always the same content.
   if (request.destination === "image") {
     event.respondWith(cacheFirst(request));
     return;
   }
 
+  // Public page navigations — stale-while-revalidate for instant repeat loads.
+  // The CDN's ISR TTL (s-maxage=300) is the authoritative freshness signal;
+  // the SW acts as an additional client-side cache layer that serves the last
+  // known good page instantly while the browser quietly fetches the latest.
   if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request));
+    event.respondWith(
+      staleWhileRevalidate(request).then((response) => {
+        evictOldestIfNeeded();
+        return response;
+      })
+    );
+    return;
   }
 });
 `;
