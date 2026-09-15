@@ -165,12 +165,29 @@ interface MobileLandscapePlayerProps {
 
 /**
  * Width (CSS px) of the vertical control strip (left/right edge strips).
- * Sized to fit the rectangular Exit / Invite text buttons (px-3, ~11px
- * label) stacked at the top of the rail, with a little breathing room on
- * each side — wider than the old icon-only rail (44 px) since these are
- * labelled buttons, not icon chips.
+ * The Exit/Invite buttons in this strip are rotated -90deg (see
+ * RAIL_BUTTON_LENGTH / RAIL_BUTTON_THICKNESS below) so their long axis
+ * runs along the strip instead of across it — the strip only needs to be
+ * as wide as a rotated button is THICK, not as wide as its text label,
+ * so this is intentionally narrow.
  */
-const CONTROL_STRIP_WIDTH = 68;
+const CONTROL_STRIP_WIDTH = 40;
+
+/**
+ * Long axis (px) of a rotated Exit/Invite button in the vertical rail —
+ * i.e. its width BEFORE the -90deg rotation is applied, sized to fit the
+ * icon + label at this font size. After rotation this becomes the
+ * button's on-screen HEIGHT (how far it runs up the strip).
+ */
+const RAIL_BUTTON_LENGTH = 74;
+
+/**
+ * Cross axis (px) of a rotated Exit/Invite button — its height BEFORE
+ * rotation. After rotation this becomes the button's on-screen WIDTH,
+ * which is what CONTROL_STRIP_WIDTH above is sized to just cover (plus a
+ * few px of breathing room for the border).
+ */
+const RAIL_BUTTON_THICKNESS = 34;
 
 /**
  * Height (CSS px) of the horizontal control strip at the BOTTOM of the
@@ -640,30 +657,63 @@ export function MobileLandscapePlayer({
              *    modest — not flush — top offset, instead of vertically
              *    centered, so the buttons sit clear of the camera cutout
              *    (see note above) and read as "top-left" on screen.
+             *
+             *    Each button is rotated -90deg (reads bottom-to-top, the
+             *    standard orientation for a vertical side rail) so its
+             *    long axis runs UP the strip instead of across it — that's
+             *    what lets CONTROL_STRIP_WIDTH stay as narrow as the
+             *    button's thickness instead of as wide as its text.
+             *    CSS transforms don't affect layout flow, so each button
+             *    sits inside a fixed-size wrapper box already sized to its
+             *    POST-rotation footprint (RAIL_BUTTON_THICKNESS wide ×
+             *    RAIL_BUTTON_LENGTH tall) — the button itself is the
+             *    PRE-rotation size (LENGTH × THICKNESS) and rotates to
+             *    exactly fill that wrapper, so nothing clips or overlaps
+             *    the next button in the stack.
              */
             <div
               className="flex flex-1 flex-col items-center justify-start gap-2"
               style={{ paddingTop: 18, paddingBottom: 6 }}
             >
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Exit game"
-                className="flex w-full items-center justify-center gap-1 rounded-md border border-white/15 bg-black px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+              <div
+                style={{ width: RAIL_BUTTON_THICKNESS, height: RAIL_BUTTON_LENGTH }}
+                className="flex items-center justify-center"
               >
-                <LogOut size={12} />
-                Exit
-              </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Exit game"
+                  style={{
+                    width: RAIL_BUTTON_LENGTH,
+                    height: RAIL_BUTTON_THICKNESS,
+                    transform: "rotate(-90deg)",
+                  }}
+                  className="flex items-center justify-center gap-1 rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+                >
+                  <LogOut size={12} />
+                  Exit
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleInvite}
-                aria-label="Invite a friend"
-                className="flex w-full items-center justify-center gap-1 rounded-md border border-white/15 bg-black px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+              <div
+                style={{ width: RAIL_BUTTON_THICKNESS, height: RAIL_BUTTON_LENGTH }}
+                className="flex items-center justify-center"
               >
-                <Share2 size={12} />
-                Invite
-              </button>
+                <button
+                  type="button"
+                  onClick={handleInvite}
+                  aria-label="Invite a friend"
+                  style={{
+                    width: RAIL_BUTTON_LENGTH,
+                    height: RAIL_BUTTON_THICKNESS,
+                    transform: "rotate(-90deg)",
+                  }}
+                  className="flex items-center justify-center gap-1 rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+                >
+                  <Share2 size={12} />
+                  Invite
+                </button>
+              </div>
             </div>
           )}
         </div>
