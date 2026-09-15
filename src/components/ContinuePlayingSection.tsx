@@ -71,7 +71,7 @@ export function ContinuePlayingDesktop() {
           type="button"
           aria-label="Scroll Continue Playing left"
           onClick={() => scrollByCards(-1)}
-          className="carousel-arrow rail-arrow absolute left-2 top-1/2 z-10 -translate-y-1/2 md:left-4"
+          className="carousel-arrow rail-arrow absolute left-2 top-1/2 z-50 -translate-y-1/2 md:left-4"
         >
           <ChevronLeft size={26} />
         </button>
@@ -129,7 +129,7 @@ export function ContinuePlayingDesktop() {
           type="button"
           aria-label="Scroll Continue Playing right"
           onClick={() => scrollByCards(1)}
-          className="carousel-arrow rail-arrow absolute right-2 top-1/2 z-10 -translate-y-1/2 md:right-4"
+          className="carousel-arrow rail-arrow absolute right-2 top-1/2 z-50 -translate-y-1/2 md:right-4"
         >
           <ChevronRight size={26} />
         </button>

@@ -123,9 +123,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { RotateCcw, ThumbsUp, ThumbsDown, Bookmark, Share2, MessageSquare } from "lucide-react";
-import { toggleFavorite, useIsFavorited } from "@/lib/game-library";
-import { formatPlays } from "@/lib/format-plays";
+import { RotateCcw, LogOut, Share2 } from "lucide-react";
 import { useMediaSessionCleanup } from "@/lib/use-media-session-cleanup";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -144,21 +142,21 @@ interface MobileLandscapePlayerProps {
    */
   orientation?: OrientationType;
   /**
-   * Called when the hardware/browser Back button is pressed, Escape is hit,
-   * or the embedded game opts into our exit postMessage convention.
-   * (There is no longer an on-screen Exit button in the strip — the strip
-   * now mirrors the post-page action row: Like / Dislike / Bookmark / Share /
-   * Feedback.)
+   * Called when the on-screen Exit button is tapped, the hardware/browser
+   * Back button is pressed, Escape is hit, or the embedded game opts into
+   * our exit postMessage convention.
    */
   onClose: () => void;
   /**
-   * Game slug — passed to useIsFavorited / toggleFavorite so the Bookmark
-   * button in the strip stays in sync with the post-page bookmark state.
+   * Game slug. Kept on the prop type for API stability with callers; no
+   * longer read inside this component now that the strip only shows
+   * Exit / Invite.
    */
   gameId: string;
   /**
-   * Raw play count used to derive the like-count display (baseLikes =
-   * round(basePlays × 0.92)), matching the formula on the post page.
+   * Raw play count. Kept on the prop type for API stability with callers;
+   * no longer read inside this component now that the strip only shows
+   * Exit / Invite.
    */
   basePlays: number;
 }
@@ -167,10 +165,12 @@ interface MobileLandscapePlayerProps {
 
 /**
  * Width (CSS px) of the vertical control strip (left/right edge strips).
- * Sized to fit the post-page action buttons at p-2 (8 px × 2 + 16 px icon =
- * 32 px face) with 6 px breathing room on each side.
+ * Sized to fit the rectangular Exit / Invite text buttons (px-3, ~11px
+ * label) stacked at the top of the rail, with a little breathing room on
+ * each side — wider than the old icon-only rail (44 px) since these are
+ * labelled buttons, not icon chips.
  */
-const CONTROL_STRIP_WIDTH = 44;
+const CONTROL_STRIP_WIDTH = 68;
 
 /**
  * Height (CSS px) of the horizontal control strip at the BOTTOM of the
@@ -205,8 +205,6 @@ export function MobileLandscapePlayer({
   title,
   orientation = "landscape",
   onClose,
-  gameId,
-  basePlays,
 }: MobileLandscapePlayerProps) {
   // SSR-safe guard — createPortal needs document.body to exist.
   const [mounted, setMounted] = useState(false);
@@ -328,22 +326,14 @@ export function MobileLandscapePlayer({
             }),
       };
 
-  // ── Action-bar state — mirrors the mobile game-post action row ───────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Like / Dislike — optimistic, local-only (no backend yet), same as the
-  // post page. Resets when the overlay unmounts (per-session intent is fine).
-  const [vote, setVote] = useState<"up" | "down" | null>(null);
-
-  // Bookmark — backed by localStorage via lib/game-library so it stays in
-  // sync with the post-page Bookmark button and the /favorites page.
-  const favorited = useIsFavorited(gameId);
-
-  // Like count: same formula as the post page (baseLikes = plays × 0.92).
-  const baseLikes = Math.round(basePlays * 0.92);
-
-  /** Share the current game page via the native share sheet or clipboard. */
-  async function handleShare() {
+  /**
+   * Invite — we have no visibility into the embedded game's session/room
+   * state (it's sandboxed behind the iframe), so this shares the current
+   * game page's URL via the native share sheet, falling back to clipboard.
+   */
+  async function handleInvite() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (typeof navigator !== "undefined" && navigator.share) {
       try { await navigator.share({ title: `Play ${title}`, url }); } catch {}
@@ -587,23 +577,29 @@ export function MobileLandscapePlayer({
           )}
         </div>
 
-        {/* ── Action strip — mirrors the mobile game-post action row ─────────
+        {/* ── Action strip — Exit / Invite only ───────────────────────────
          *
-         * Buttons are pixel-identical to the Like / Dislike / Bookmark /
-         * Share / Feedback row on the game post page:
-         *   • rounded-lg border bg-black, white text at rest
-         *   • border-white/40 → border-white/70 on hover
-         *   • Like:     ThumbsUp + live count; fill-white when voted up
-         *   • Dislike:  ThumbsDown icon-only; fill-white when voted down
-         *   • Bookmark: blue border + fill when favorited (border-[#3DA9FC]/60)
-         *   • Share:    native share sheet or clipboard fallback
-         *   • Feedback: opens /contact in a new tab
+         * Both buttons are plain black rectangles (rounded-md, NOT pills)
+         * with a subtle border and bold white text — deliberately styled
+         * as clear tap targets rather than icon chips:
+         *   • Exit   → calls onClose(), same as Back/Escape/game postMessage
+         *   • Invite → native share sheet, falling back to clipboard
+         *
+         * Positioning is anchored toward the TOP / leading edge of the
+         * strip, not centered, on purpose: on a real landscape device (the
+         * `default` — left-edge — case below) the front camera cutout sits
+         * at the vertical MIDDLE of whichever long edge it ends up on once
+         * the phone is rotated, so a centered button stack would land right
+         * under/behind the camera. Anchoring near the top (with a small
+         * offset, not flush against the very edge) keeps both buttons clear
+         * of that cutout while still reading as "top-left" on screen.
          *
          * Three strip positions (set by precomputed stripClass/stripStyle):
          *   showBottomStrip → horizontal row at physical BOTTOM (portrait game)
          *   showRightStrip  → vertical column on RIGHT of rotated container
          *                     (appears at physical BOTTOM after rotate(90deg))
-         *   default         → vertical column on LEFT (landscape device)
+         *   default         → vertical column on LEFT (landscape device) —
+         *                     the camera-cutout case described above
          *
          * Root overlay has touchAction:none; this wrapper's touchAction:auto
          * (in stripStyle) opts the strip back into normal tap handling.
@@ -613,137 +609,60 @@ export function MobileLandscapePlayer({
           style={stripStyle}
         >
           {showBottomStrip ? (
-            /* ── Horizontal layout (portrait game, portrait device) ──────── */
-            <div className="flex flex-1 flex-row items-center justify-evenly px-2">
-
-              {/* Like — wider pill with count, matching the post page exactly */}
+            /* ── Horizontal layout (portrait game, portrait device) ────────
+             * Anchored to the LEFT of the bar, not centered/evenly-spread.
+             */
+            <div className="flex flex-1 flex-row items-center justify-start gap-2 px-3">
               <button
                 type="button"
-                onClick={() => setVote((v) => (v === "up" ? null : "up"))}
-                aria-pressed={vote === "up"}
-                aria-label="Like"
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg border bg-black px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  vote === "up"
-                    ? "border-white/70 text-white"
-                    : "border-white/40 text-white hover:border-white/70"
-                }`}
+                onClick={onClose}
+                aria-label="Exit game"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/15 bg-black px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
               >
-                <ThumbsUp size={13} className={vote === "up" ? "fill-white" : ""} />
-                {formatPlays(baseLikes + (vote === "up" ? 1 : 0))}
+                <LogOut size={13} />
+                Exit
               </button>
 
-              {/* Dislike — icon-only square */}
               <button
                 type="button"
-                onClick={() => setVote((v) => (v === "down" ? null : "down"))}
-                aria-pressed={vote === "down"}
-                aria-label="Dislike"
-                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
-              >
-                <ThumbsDown size={13} className={vote === "down" ? "fill-white" : ""} />
-              </button>
-
-              {/* Bookmark — blue accent when favorited, backed by localStorage */}
-              <button
-                type="button"
-                onClick={() => toggleFavorite(gameId)}
-                aria-pressed={favorited}
-                aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
-                className={`flex shrink-0 items-center justify-center rounded-lg border bg-black p-2 transition-colors hover:border-white/70 ${
-                  favorited ? "border-[#3DA9FC]/60 text-[#3DA9FC]" : "border-white/40 text-white"
-                }`}
-              >
-                <Bookmark size={13} className={favorited ? "fill-[#3DA9FC]" : ""} />
-              </button>
-
-              {/* Share — native share sheet → clipboard fallback */}
-              <button
-                type="button"
-                onClick={handleShare}
-                aria-label="Share"
-                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+                onClick={handleInvite}
+                aria-label="Invite a friend"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-white/15 bg-black px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
               >
                 <Share2 size={13} />
-              </button>
-
-              {/* Feedback — opens /contact in a new tab so the game keeps running */}
-              <button
-                type="button"
-                onClick={() => window.open("/contact", "_blank", "noopener")}
-                aria-label="Send feedback"
-                className="flex shrink-0 items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
-              >
-                <MessageSquare size={13} />
+                Invite
               </button>
             </div>
           ) : (
             /* ── Vertical layout (left / right strips — landscape device or
              *    CSS-rotated landscape game on portrait device)
-             *    All buttons are icon-only so they fit in the narrow rail.
-             *    After rotate(90deg) CW (showRightStrip), the column appears
-             *    horizontally at the physical bottom of the portrait screen.
+             *    Anchored to the TOP of the rail (justify-start), with a
+             *    modest — not flush — top offset, instead of vertically
+             *    centered, so the buttons sit clear of the camera cutout
+             *    (see note above) and read as "top-left" on screen.
              */
             <div
-              className="flex flex-1 flex-col items-center justify-center gap-1.5"
-              style={{ paddingTop: 6, paddingBottom: 6 }}
+              className="flex flex-1 flex-col items-center justify-start gap-2"
+              style={{ paddingTop: 18, paddingBottom: 6 }}
             >
-              {/* Like */}
               <button
                 type="button"
-                onClick={() => setVote((v) => (v === "up" ? null : "up"))}
-                aria-pressed={vote === "up"}
-                aria-label="Like"
-                className={`flex items-center justify-center rounded-lg border bg-black p-2 transition-colors ${
-                  vote === "up"
-                    ? "border-white/70 text-white"
-                    : "border-white/40 text-white hover:border-white/70"
-                }`}
+                onClick={onClose}
+                aria-label="Exit game"
+                className="flex w-full items-center justify-center gap-1 rounded-md border border-white/15 bg-black px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
               >
-                <ThumbsUp size={13} className={vote === "up" ? "fill-white" : ""} />
+                <LogOut size={12} />
+                Exit
               </button>
 
-              {/* Dislike */}
               <button
                 type="button"
-                onClick={() => setVote((v) => (v === "down" ? null : "down"))}
-                aria-pressed={vote === "down"}
-                aria-label="Dislike"
-                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
+                onClick={handleInvite}
+                aria-label="Invite a friend"
+                className="flex w-full items-center justify-center gap-1 rounded-md border border-white/15 bg-black px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
               >
-                <ThumbsDown size={13} className={vote === "down" ? "fill-white" : ""} />
-              </button>
-
-              {/* Bookmark */}
-              <button
-                type="button"
-                onClick={() => toggleFavorite(gameId)}
-                aria-pressed={favorited}
-                aria-label={favorited ? "Remove bookmark" : "Bookmark game"}
-                className={`flex items-center justify-center rounded-lg border bg-black p-2 transition-colors hover:border-white/70 ${
-                  favorited ? "border-[#3DA9FC]/60 text-[#3DA9FC]" : "border-white/40 text-white"
-                }`}
-              >
-                <Bookmark size={13} className={favorited ? "fill-[#3DA9FC]" : ""} />
-              </button>
-
-              {/* Share */}
-              <button
-                type="button"
-                onClick={handleShare}
-                aria-label="Share"
-                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
-              >
-                <Share2 size={13} />
-              </button>
-
-              {/* Feedback */}
-              <button
-                type="button"
-                onClick={() => window.open("/contact", "_blank", "noopener")}
-                aria-label="Send feedback"
-                className="flex items-center justify-center rounded-lg border border-white/40 bg-black p-2 text-white transition-colors hover:border-white/70"
-              >
-                <MessageSquare size={13} />
+                <Share2 size={12} />
+                Invite
               </button>
             </div>
           )}
