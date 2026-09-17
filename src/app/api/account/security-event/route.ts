@@ -18,11 +18,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 });
   }
 
-  const { error } = await supabase.from("security_alerts").insert({
-    type: parsed.data.type,
-    severity: "info",
-    user_id: user.id,
-    message: parsed.data.message,
+  // MED-03 fix: write via log_security_alert_self() SECURITY DEFINER RPC
+  // instead of a direct table insert.  The RPC enforces auth.uid() = user_id
+  // server-side so users cannot attribute alerts to other accounts, and
+  // restricts the callable types to the user-self-service set only.
+  const { error } = await supabase.rpc("log_security_alert_self", {
+    p_user_id: user.id,
+    p_type: parsed.data.type,
+    p_message: parsed.data.message,
+    p_metadata: {},
   });
 
   if (error) {

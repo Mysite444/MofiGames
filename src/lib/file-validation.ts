@@ -11,7 +11,13 @@ import type { MediaCategory } from "./supabase/admin-content";
  * risk this guards against is a mistaken upload more than a hostile one,
  * but it's cheap and worth having regardless. */
 export const MEDIA_UPLOAD_RULES: Record<MediaCategory, { mimeTypes: string[]; maxBytes: number; label: string }> = {
-  image: { mimeTypes: ["image/png", "image/jpeg", "image/webp", "image/svg+xml"], maxBytes: 10 * 1024 * 1024, label: "PNG, JPEG, WebP, or SVG, up to 10MB" },
+  // LOW-01 fix: SVG removed from the general image category.
+  // SVG is an active XML format — browsers execute <script> blocks and inline
+  // event handlers when an SVG is opened directly. Vercel Blob uses a separate
+  // CDN origin (current origin isolation), but accepting SVG in a general-
+  // purpose image slot is unnecessary risk. SVG is kept only in the icon
+  // category, where favicon/app-icon formats explicitly require it.
+  image: { mimeTypes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 10 * 1024 * 1024, label: "PNG, JPEG, or WebP, up to 10MB" },
   thumbnail: { mimeTypes: ["image/png", "image/jpeg", "image/webp"], maxBytes: 5 * 1024 * 1024, label: "PNG, JPEG, or WebP, up to 5MB" },
   // Covers the full favicon/app-icon set (Admin → Site Settings → Site
   // Identity → favicon.ico, favicon-16x16.png, favicon-32x32.png,

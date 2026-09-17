@@ -66,21 +66,9 @@ export class AccountLockedError extends Error {
   }
 }
 
-/** Best-effort pre-login lockout check — never blocks or fails the actual
- * sign-in attempt if the check itself errors. */
-async function checkLoginLockout(email: string): Promise<{ locked: boolean; retryAfterMinutes?: number }> {
-  try {
-    const res = await fetch("/api/auth/login-guard", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) return { locked: false };
-    return await res.json();
-  } catch {
-    return { locked: false };
-  }
-}
+// checkLoginLockout and logLoginAttempt were removed — both replaced by the
+// server-side /api/auth/login/route.ts which cannot be bypassed by calling
+// Supabase Auth directly (HIGH-02 fix, 2026-09 security audit).
 
 /** Shared by signup() and the forgot-password form — both call Supabase
  * Auth directly from the browser with no server route of their own to
@@ -99,17 +87,6 @@ export async function checkAuthActionAllowed(action: "signup" | "forgot-password
   } catch {
     return true;
   }
-}
-
-/** Fire-and-forget: records a login attempt (Admin → Security → Login
- * Logs) and lets the server raise a lockout/new-login alert if warranted.
- * Never awaited by callers, never throws outward. */
-function logLoginAttempt(email: string, success: boolean, failureReason?: string) {
-  fetch("/api/auth/login-log", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, success, failureReason }),
-  }).then(undefined, () => {});
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -261,18 +238,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (rawEmail: string, password: string, remember = true) => {
       const email = rawEmail.trim().toLowerCase();
 
-      const lockout = await checkLoginLockout(email);
-      if (lockout.locked) {
-        throw new AccountLockedError(lockout.retryAfterMinutes ?? 15);
+      // HIGH-02 fix: credential verification now happens server-side via
+      // /api/auth/login instead of browser → Supabase Auth directly.
+      //
+      // Previously login() did:
+      //   1. GET /api/auth/login-guard   (lockout check, server-side)
+      //   2. supabase.auth.signInWithPassword()  (browser → Supabase directly)
+      //
+      // An attacker who knew the project URL could call step 2 directly,
+      // skipping step 1 entirely.  The lockout and IP rate-limit were never
+      // enforced against a scripted attacker.
+      //
+      // Now: /api/auth/login performs the lockout check AND signInWithPassword
+      // together on the server.  There is no gap to bypass.
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // credentials: "include" ensures the session cookies set by the
+        // server are accepted and stored by the browser.
+        credentials: "include",
+        body: JSON.stringify({ email, password, remember }),
+      });
+
+      const body = await res.json().catch(() => ({})) as {
+        ok?: boolean;
+        locked?: boolean;
+        error?: string;
+        retryAfterMinutes?: number;
+        session?: { access_token: string; refresh_token: string; expires_in: number };
+        remember?: boolean;
+      };
+
+      if (!res.ok) {
+        // 429 = locked out (either IP cap or per-email lockout).
+        if (res.status === 429 || body.locked) {
+          throw new AccountLockedError(body.retryAfterMinutes ?? 15);
+        }
+        throw new Error(body.error ?? "Login failed.");
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        logLoginAttempt(email, false, error.message);
-        throw new Error(error.message);
+      // The session cookies are already set by the server.  Tell the
+      // browser-side Supabase SDK about the new session so onAuthStateChange
+      // fires (SIGNED_IN) and React state updates without a page reload.
+      if (body.session?.access_token && body.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: body.session.access_token,
+          refresh_token: body.session.refresh_token,
+        });
       }
-      logLoginAttempt(email, true);
-      if (data.user) logAuthActivity(supabase, data.user.id, "login");
 
       // When the user did not tick "Remember me", ask the server to cap the
       // auth-cookie MaxAge to security_settings.session_timeout_minutes.
@@ -324,11 +337,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // it, so the right move is to sign into that account instead
             // (same as Supabase's own recommended pattern for this case).
             await supabase.auth.signOut();
-            const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-            if (signInError) {
+            // HIGH-02: route through the server-side login chokepoint even
+            // for this edge-case path so lockout / rate-limiting applies.
+            const guestFallbackRes = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email, password, remember: true }),
+            });
+            const guestFallbackBody = await guestFallbackRes.json().catch(() => ({})) as {
+              ok?: boolean; error?: string; locked?: boolean; retryAfterMinutes?: number;
+              session?: { access_token: string; refresh_token: string };
+            };
+            if (!guestFallbackRes.ok) {
+              if (guestFallbackRes.status === 429 || guestFallbackBody.locked) {
+                throw new AccountLockedError(guestFallbackBody.retryAfterMinutes ?? 15);
+              }
               throw new Error(
                 "An account with this email already exists. Log in instead, or use a different email."
               );
+            }
+            if (guestFallbackBody.session?.access_token && guestFallbackBody.session?.refresh_token) {
+              await supabase.auth.setSession({
+                access_token: guestFallbackBody.session.access_token,
+                refresh_token: guestFallbackBody.session.refresh_token,
+              });
             }
             return;
           }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/prng";
+import { isSafeEmbedUrl } from "@/lib/validation";
 import type { JobRunOutcome } from "./types";
 
 interface ProviderRow {
@@ -164,6 +165,19 @@ export async function runProviderImport(
       .eq("import_external_id", item.externalId)
       .maybeSingle();
 
+    // MED-01: validate embed URL from external feed — only allow http/https.
+    // javascript: and data: URLs are silently rejected by isSafeEmbedUrl;
+    // we keep the item if the URL is missing (embedUrl may be null for
+    // upload-type games) but reject it if the URL is present but unsafe.
+    if (item.embedUrl !== null && !isSafeEmbedUrl(item.embedUrl)) {
+      errors.push({
+        externalId: item.externalId,
+        title: item.title,
+        error: `Rejected: embed_url has an unsafe scheme (must be http or https). Value was not written to the database.`,
+      });
+      continue;
+    }
+
     if (existing) {
       if (!effectiveRule.auto_update_existing_games) {
         skipped.push({ externalId: item.externalId, title: item.title, reason: "already imported, auto-update disabled" });
@@ -185,11 +199,31 @@ export async function runProviderImport(
     }
 
     if (effectiveRule.skip_duplicate_games) {
-      const { data: dupe } = await supabase
-        .from("games")
-        .select("id")
-        .or(`embed_url.eq.${item.embedUrl ?? "__none__"},title.ilike.${item.title}`)
-        .maybeSingle();
+      // MED-02: DO NOT splice feed-controlled strings into a raw .or() filter
+      // expression — a crafted title or embedUrl containing PostgREST filter
+      // syntax characters (commas, parentheses, periods) can alter the
+      // structure of the query, not just its literal values.
+      // Use separate parameterised lookups instead and combine in app code.
+      let dupe: { id: string } | null = null;
+
+      if (item.embedUrl) {
+        const { data } = await supabase
+          .from("games")
+          .select("id")
+          .eq("embed_url", item.embedUrl)
+          .maybeSingle();
+        dupe = data;
+      }
+
+      if (!dupe) {
+        const { data } = await supabase
+          .from("games")
+          .select("id")
+          .ilike("title", item.title)
+          .maybeSingle();
+        dupe = data;
+      }
+
       if (dupe) {
         skipped.push({ externalId: item.externalId, title: item.title, reason: "matches an existing game" });
         continue;

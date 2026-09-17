@@ -72,6 +72,41 @@ const orientationSchema = z.enum(["landscape", "portrait"]);
 const visibilitySchema = z.enum(["public", "private", "unlisted"]);
 const optionalUrl = z.string().trim().url().nullable().optional().or(z.literal("").transform(() => null));
 
+// ---------------------------------------------------------------------------
+// isSafeEmbedUrl — protocol allowlist for game embed URLs.
+//
+// z.string().url() accepts any syntactically valid URL, including
+// javascript:... and data:... schemes.  For fields that end up in an
+// iframe src we need to be stricter: only http: and https: are safe.
+// This helper is also used by the automation import pipeline (see
+// src/lib/automation/import.ts) to sanitise URLs that come from
+// untrusted external feed JSON — keeping both paths consistent means a
+// malicious feed entry can never slip a non-http(s) URL past validation.
+// ---------------------------------------------------------------------------
+export function isSafeEmbedUrl(value: string | null | undefined): boolean {
+  if (!value) return true; // null / undefined / "" are handled by the nullable() wrapper
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// Zod schema for an optional embed URL that is both a valid URL AND
+// restricted to http/https.  Use this instead of optionalUrl for any
+// field that feeds an iframe src.
+const safeEmbedUrl = z
+  .string()
+  .trim()
+  .url("Enter a valid URL (must start with https:// or http://)")
+  .refine(isSafeEmbedUrl, {
+    message: "Embed URL must use the https:// or http:// scheme.",
+  })
+  .nullable()
+  .optional()
+  .or(z.literal("").transform(() => null));
+
 export const gameInputSchema = z
   .object({
     slug,
@@ -109,7 +144,9 @@ export const gameInputSchema = z
     estimated_loading_seconds: z.number().int().min(0).max(600).nullable().optional(),
 
     play_type: playTypeSchema,
-    embed_url: optionalUrl,
+    // safeEmbedUrl enforces http/https scheme — javascript: and data: URLs
+    // are rejected here regardless of whether they'd pass z.string().url().
+    embed_url: safeEmbedUrl,
     storage_path: z.string().trim().nullable().optional(),
 
     tag: tagSchema.optional(),

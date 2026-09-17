@@ -4,6 +4,7 @@ import { logAdminAction } from "@/lib/supabase/admin-action-log";
 import { contentBackupExportOptionsSchema, firstIssueMessage } from "@/lib/validation";
 import { exportContentTables } from "@/lib/backup/content-backup";
 import { CONTENT_TABLES } from "@/lib/backup/content-tables";
+import { apiError } from "@/lib/api-error";
 
 export const maxDuration = 60;
 
@@ -54,7 +55,10 @@ export async function POST(request: Request) {
     .from("content-backups")
     .upload(filename, jsonBody, { contentType: "application/json", upsert: false });
   if (uploadError) {
-    return NextResponse.json({ error: `Backup was built but could not be saved: ${uploadError.message}` }, { status: 500 });
+    // LOW-02 fix: forward through apiError() (logs internally, scrubs from
+    // response) rather than splicing uploadError.message into the HTTP body.
+    // The client receives only "Backup was built but could not be saved."
+    return apiError(uploadError, "Backup was built but could not be saved.");
   }
 
   await supabase.from("content_backup_exports").insert({

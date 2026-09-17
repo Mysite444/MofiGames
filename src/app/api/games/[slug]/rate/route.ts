@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/supabase/route-auth";
 import { playParamsSchema, rateGameSchema } from "@/lib/validation";
+import { checkRatingRateLimit } from "@/lib/supabase/rating-rate-limit";
 
 /** POST /api/games/:slug/rate — upserts the signed-in user's 1-5 star
  * rating for a game. Requires a session (guest/anonymous sessions count —
  * same bar as favoriting or commenting). `games.rating`/`rating_count`
  * are recomputed automatically by a database trigger (migration 0008),
  * not by this route, so concurrent ratings from different users can never
- * race each other into an inconsistent average. */
+ * race each other into an inconsistent average.
+ *
+ * L-2 fix (2026-09 security audit): added checkRatingRateLimit() — the
+ * endpoint previously had no rate limit unlike its sibling comment and
+ * review endpoints.  The upsert constraint means rating manipulation isn't
+ * feasible, but unlimited rapid-fire calls waste DB connections. */
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const parsedParams = playParamsSchema.safeParse(await params);
   if (!parsedParams.success) {
@@ -19,6 +25,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
   const { supabase, user } = auth.ctx;
+
+  // L-2: rate-limit check before any DB work.
+  const rateLimit = await checkRatingRateLimit(supabase, user.id);
+  if (rateLimit.limited) {
+    const headers: Record<string, string> = {};
+    if (rateLimit.retryAfterSeconds) {
+      headers["Retry-After"] = String(rateLimit.retryAfterSeconds);
+    }
+    return NextResponse.json(
+      { error: rateLimit.message ?? "Too many requests." },
+      { status: 429, headers }
+    );
+  }
 
   let json: unknown;
   try {

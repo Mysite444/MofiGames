@@ -176,10 +176,12 @@ const CONTROL_STRIP_WIDTH = 40;
 /**
  * Long axis (px) of a rotated Exit/Invite button in the vertical rail —
  * i.e. its width BEFORE the -90deg rotation is applied, sized to fit the
- * icon + label at this font size. After rotation this becomes the
- * button's on-screen HEIGHT (how far it runs up the strip).
+ * icon + label at this font size with real breathing room on both sides
+ * so the content sits dead-center instead of crowding the edges. After
+ * rotation this becomes the button's on-screen HEIGHT (how far it runs
+ * up the strip).
  */
-const RAIL_BUTTON_LENGTH = 74;
+const RAIL_BUTTON_LENGTH = 88;
 
 /**
  * Cross axis (px) of a rotated Exit/Invite button — its height BEFORE
@@ -672,7 +674,7 @@ export function MobileLandscapePlayer({
              *    the next button in the stack.
              */
             <div
-              className="flex flex-1 flex-col items-center justify-start gap-2"
+              className="flex flex-1 flex-col items-center justify-start gap-1"
               style={{ paddingTop: 18, paddingBottom: 6 }}
             >
               <div
@@ -688,7 +690,7 @@ export function MobileLandscapePlayer({
                     height: RAIL_BUTTON_THICKNESS,
                     transform: "rotate(-90deg)",
                   }}
-                  className="flex items-center justify-center gap-1 rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+                  className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
                 >
                   <LogOut size={12} />
                   Exit
@@ -708,7 +710,7 @@ export function MobileLandscapePlayer({
                     height: RAIL_BUTTON_THICKNESS,
                     transform: "rotate(-90deg)",
                   }}
-                  className="flex items-center justify-center gap-1 rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
+                  className="flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/15 bg-black text-[11px] font-bold uppercase tracking-wide text-white transition-colors hover:border-white/40"
                 >
                   <Share2 size={12} />
                   Invite
