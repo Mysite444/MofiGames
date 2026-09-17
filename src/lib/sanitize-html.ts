@@ -1,4 +1,3 @@
-import "server-only";
 /**
  * HTML sanitizer for content produced by the admin panel's RichTextEditor.
  *
@@ -10,13 +9,13 @@ import "server-only";
  * HTML-entity-broken `javascript:` scheme in an href that doesn't match a
  * literal-string regex but does get decoded by the browser's URL parser.
  *
- * This version uses isomorphic-dompurify (backed by jsdom on the server,
- * the native DOM in the browser) with the same allow-lists as before, so
- * no product behaviour changes — only the parsing engine does.
- *
- * The "server-only" import above prevents this module from being bundled
- * into any client component — isomorphic-dompurify's jsdom dependency is
- * server-only weight and should never reach the browser bundle.
+ * This version uses isomorphic-dompurify which ships two builds:
+ *   • dist/index.js   — Node.js server path, backed by jsdom
+ *   • dist/browser.js — Browser path, backed by the native DOM API
+ * The correct build is selected automatically via the package's "browser"
+ * field in package.json, so no jsdom code ever reaches the client bundle.
+ * This makes the module safe to import from both Server Components and
+ * Client Components (GameDetailsSection is "use client").
  *
  * Allowed elements (unchanged from the original allow-list):
  *   Headings: h1 h2 h3 h4 h5 h6
