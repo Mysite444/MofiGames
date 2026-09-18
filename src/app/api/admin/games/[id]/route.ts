@@ -5,6 +5,7 @@ import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
+import { purgeMetadataCacheKey } from "@/lib/metadata-cache";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 import { deleteGameStorageFiles } from "@/lib/supabase/game-storage-cleanup";
@@ -155,6 +156,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
     revalidateTag(CACHE_TAGS.SITEMAPS, "default");
 
+    // ── In-process metadata cache purge ────────────────────────────────────
+    // revalidatePath / revalidateTag bust the Next.js Full Route Cache and
+    // Data Cache (both are external to this process). They do NOT touch the
+    // in-process LRU cache in metadata-cache.ts (getOrSetMetadataCache).
+    //
+    // Without this call, the next page render after a revalidatePath hits
+    // getRealGameBySlug → getOrSetMetadataCache("games", slug) → cache HIT
+    // (still within TTL) → returns the STALE game data including the OLD
+    // embed_url → the freshly regenerated page has the wrong iframe URL.
+    //
+    // Fix: evict the specific slug key so the next render is a cache miss
+    // and recomputes from Supabase. If the slug was renamed, also evict the
+    // old key so the old page's 404 regeneration doesn't serve stale data.
+    // If the slug was renamed, we don't have the old slug in scope here
+    // (the UPDATE already committed it). Purge the whole games namespace
+    // so both the old and new slug entries are evicted. Slug renames are
+    // rare admin actions so the extra eviction is acceptable.
+    // For all other edits (embed_url, title, thumbnail, etc.) only evict
+    // the specific slug key — cheaper and avoids unnecessary misses.
+    if ("slug" in gameFields && typeof gameFields.slug === "string") {
+      // Import purgeMetadataCache (namespace purge) alongside the per-key
+      // import already at the top of this file.
+      const { purgeMetadataCache } = await import("@/lib/metadata-cache");
+      purgeMetadataCache("games");
+    } else {
+      purgeMetadataCacheKey("games", game.slug);
+    }
     // A game only ever gets announced once — the first time it's publicly
     // visible. Covers both "published immediately" (POST /api/admin/games
     // handles that case) and "created as a draft, then published later
@@ -302,6 +330,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   // The slug page now 404s — bust its ISR cache so it stops serving the
   // deleted game's content immediately instead of waiting 300s.
   revalidatePath(`/${existing.slug}`);
+  // Also evict the in-process metadata cache so the 404 page doesn't
+  // regenerate with stale game data from the LRU.
+  purgeMetadataCacheKey("games", existing.slug);
   return NextResponse.json({
     ok: true,
     filesRemoved: cleanup.removed,

@@ -4,6 +4,7 @@ import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameInputSchema, listGamesAdminQuerySchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
+import { purgeMetadataCacheKey } from "@/lib/metadata-cache";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 
@@ -241,5 +242,9 @@ export async function POST(request: Request) {
   revalidateTag(CACHE_TAGS.GAMES, "default");
   if (game.slug) revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
   if (game.is_published) revalidateTag(CACHE_TAGS.SITEMAPS, "default");
+  // Evict the in-process metadata cache entry so any subsequent render of
+  // this game's page reads fresh data from Supabase rather than a stale
+  // LRU hit (same fix as the PATCH route in [id]/route.ts).
+  if (game.slug) purgeMetadataCacheKey("games", game.slug);
   return NextResponse.json({ game: { ...game, tagIds } }, { status: 201 });
 }
