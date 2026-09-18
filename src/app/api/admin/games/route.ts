@@ -239,9 +239,9 @@ export async function POST(request: Request) {
     revalidatePath("/updated-games");
     revalidatePath("/leaderboard");
   }
-  revalidateTag(CACHE_TAGS.GAMES, "default");
-  if (game.slug) revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
-  if (game.is_published) revalidateTag(CACHE_TAGS.SITEMAPS, "default");
+  revalidateTag(CACHE_TAGS.GAMES, { expire: 0 });
+  if (game.slug) revalidateTag(CACHE_TAGS.gameSlug(game.slug), { expire: 0 });
+  if (game.is_published) revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
   // Evict the in-process metadata cache entry so any subsequent render of
   // this game's page reads fresh data from Supabase rather than a stale
   // LRU hit (same fix as the PATCH route in [id]/route.ts).

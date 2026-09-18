@@ -152,9 +152,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // revalidatePath busts the Full Route Cache (complete HTML).
     // revalidateTag busts the Next.js Data Cache entries (fetch/unstable_cache)
     // so the NEXT regeneration reads fresh data from the origin.
-    revalidateTag(CACHE_TAGS.GAMES, "default");
-    revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
-    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
+    //
+    // { expire: 0 } — NOT a named profile like "default"/"max". Next 16's
+    // revalidateTag() treats a named profile as stale-while-revalidate: the
+    // very next request after this PATCH would still get the OLD embed_url
+    // (served from the just-marked-stale cache entry) while a background
+    // refetch ran, and only the request *after that* would see the edit.
+    // That's exactly the bug this route used to have — admin changes
+    // embed_url, saves, reloads the game page immediately, still sees the
+    // old game. { expire: 0 } forces the next request to be a blocking
+    // cache miss instead, so the very next load is guaranteed fresh. See
+    // the CACHE_TAGS block in src/lib/cache-config.ts for the full
+    // explanation — this applies to every admin mutation route, not just
+    // this one.
+    revalidateTag(CACHE_TAGS.GAMES, { expire: 0 });
+    revalidateTag(CACHE_TAGS.gameSlug(game.slug), { expire: 0 });
+    revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
 
     // ── In-process metadata cache purge ────────────────────────────────────
     // revalidatePath / revalidateTag bust the Next.js Full Route Cache and

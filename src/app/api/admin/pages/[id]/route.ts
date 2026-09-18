@@ -74,8 +74,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     "parents-info": "/parents-info",
   };
   if (dedicatedRoutes[data.slug]) revalidatePath(dedicatedRoutes[data.slug]);
-  revalidateTag(CACHE_TAGS.PAGES, "default");
-  revalidateTag(CACHE_TAGS.page(data.slug), "default");
+  revalidateTag(CACHE_TAGS.PAGES, { expire: 0 });
+  revalidateTag(CACHE_TAGS.page(data.slug), { expire: 0 });
   return NextResponse.json({ page: data });
 }
 
@@ -114,8 +114,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   invalidateNavigationFragments();
   if (existing?.slug) revalidatePath(`/${existing.slug}`);
   if (existing?.slug) {
-    revalidateTag(CACHE_TAGS.PAGES, "default");
-    revalidateTag(CACHE_TAGS.page(existing.slug), "default");
+    revalidateTag(CACHE_TAGS.PAGES, { expire: 0 });
+    revalidateTag(CACHE_TAGS.page(existing.slug), { expire: 0 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   invalidateHomepageFragments();
   revalidatePath("/");
-  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, { expire: 0 });
   return NextResponse.json({ pin: data }, { status: 201 });
 }
 
@@ -99,6 +99,6 @@ export async function DELETE(request: Request) {
 
   invalidateHomepageFragments();
   revalidatePath("/");
-  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, { expire: 0 });
   return NextResponse.json({ ok: true });
 }

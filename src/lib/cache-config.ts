@@ -205,9 +205,25 @@ export function publicCacheControl(pathname: string): string {
 //   import { revalidateTag, revalidatePath } from "next/cache";
 //
 //   // On game edit:
-//   revalidateTag(CACHE_TAGS.GAMES);                  // coarse — all game data
-//   revalidateTag(CACHE_TAGS.gameSlug(game.slug));    // fine  — just this game
-//   revalidatePath(`/${game.slug}`);                  // Full Route Cache bust
+//   revalidateTag(CACHE_TAGS.GAMES, { expire: 0 });               // coarse — all game data
+//   revalidateTag(CACHE_TAGS.gameSlug(game.slug), { expire: 0 }); // fine  — just this game
+//   revalidatePath(`/${game.slug}`);                              // Full Route Cache bust
+//
+// THE SECOND ARGUMENT MATTERS — ALWAYS PASS { expire: 0 } FROM AN ADMIN
+// ROUTE, NEVER A NAMED PROFILE ("default", "max", "hours", …):
+//   Next.js 16 made revalidateTag's second argument required, and a named
+//   profile ("default", "max", etc.) means stale-while-revalidate — the
+//   *next* request after the call still gets the OLD cached value while a
+//   fresh one is fetched in the background, and only the request after
+//   THAT sees the edit. For a human clicking Save in the admin panel and
+//   then immediately looking at the live page, that reads as "my edit did
+//   nothing" (see the games/[id]/route.ts PATCH handler's embed_url
+//   comment for the concrete symptom this caused). { expire: 0 } is the
+//   one option that forces the very next request to be a blocking
+//   cache miss — guaranteed fresh data, no stale hop in between. It's the
+//   right choice for every admin mutation in this app; reach for a named
+//   profile only for time-based (non-admin-triggered) revalidation, which
+//   nothing here currently does.
 //
 // MATCH RULES:
 //   A cache entry is invalidated if it carries ANY of the tags passed to

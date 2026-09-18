@@ -57,6 +57,6 @@ export async function POST(request: Request) {
 
   invalidateGameFragments();
   revalidatePath("/");
-  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
+  revalidateTag(CACHE_TAGS.HOMEPAGE, { expire: 0 });
   return NextResponse.json({ ok: true });
 }

@@ -159,10 +159,10 @@ export async function POST(request: Request) {
   if (post.is_published) {
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
-    revalidateTag(CACHE_TAGS.POSTS, "default");
-    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
-    revalidateTag(CACHE_TAGS.FEEDS, "default");
-    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
+    revalidateTag(CACHE_TAGS.POSTS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), { expire: 0 });
+    revalidateTag(CACHE_TAGS.FEEDS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
   }
 
   return NextResponse.json({ post: { ...post, tagIds } }, { status: 201 });

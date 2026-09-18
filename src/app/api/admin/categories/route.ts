@@ -38,6 +38,6 @@ export async function POST(request: Request) {
   invalidateGameFragments();
   // New category: invalidate the listing so it appears immediately.
   revalidatePath("/categories");
-  revalidateTag(CACHE_TAGS.CATEGORIES, "default");
+  revalidateTag(CACHE_TAGS.CATEGORIES, { expire: 0 });
   return NextResponse.json({ category: data }, { status: 201 });
 }
