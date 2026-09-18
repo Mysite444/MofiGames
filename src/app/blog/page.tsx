@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { getPublishedPosts } from "@/lib/content-server";
 
+// ISR: post list is public, cookie-free. Revalidate every 300s so newly
+// published posts appear without a full redeploy. Admin publish/unpublish
+// calls revalidatePath("/blog") for immediate reflection (see posts route).
 export const revalidate = 300;
 
 export const metadata = {
@@ -32,53 +35,37 @@ export default async function BlogIndexPage() {
         ) : (
           <div className="flex flex-col gap-4">
             {posts.map((post) => (
-              // Card is now a <div> instead of a full <Link> wrapper so that
-              // tag badges can be their own <Link> elements without creating
-              // invalid nested-anchor HTML.  The title and image remain the
-              // primary clickable target for the post.
-              <div
+              <Link
                 key={post.id}
-                className="glass flex flex-col gap-3 rounded-2xl p-5 sm:flex-row sm:items-center"
+                href={`/blog/${post.slug}`}
+                className="glass flex flex-col gap-3 rounded-2xl p-5 transition-colors hover:bg-white/[0.08] sm:flex-row sm:items-center"
               >
                 {post.coverImageUrl && (
-                  <Link href={`/blog/${post.slug}`} className="shrink-0" tabIndex={-1} aria-hidden>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={post.coverImageUrl}
-                      alt=""
-                      className="h-40 w-full rounded-xl object-cover sm:h-24 sm:w-40"
-                    />
-                  </Link>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.coverImageUrl}
+                    alt=""
+                    className="h-40 w-full shrink-0 rounded-xl object-cover sm:h-24 sm:w-40"
+                  />
                 )}
                 <div className="min-w-0 flex-1">
                   {post.tags.length > 0 && (
                     <div className="mb-1.5 flex flex-wrap gap-1.5">
                       {post.tags.map((tag) => (
-                        // Tag links navigate to the tag archive at /{tag.slug}
-                        // so crawlers can traverse the full tag graph from
-                        // the blog list page as well as from individual posts.
-                        <Link
+                        <span
                           key={tag.id}
-                          href={`/${tag.slug}`}
-                          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black transition-opacity hover:opacity-75"
+                          className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black"
                           style={{ backgroundColor: tag.color }}
                         >
                           {tag.name}
-                        </Link>
+                        </span>
                       ))}
                     </div>
                   )}
-                  <Link
-                    href={`/blog/${post.slug}`}
-                    className="group block transition-opacity hover:opacity-80"
-                  >
-                    <h2 className="font-display text-lg font-bold text-white group-hover:underline">
-                      {post.title}
-                    </h2>
-                    {post.excerpt && (
-                      <p className="mt-1 line-clamp-2 text-sm text-text-muted">{post.excerpt}</p>
-                    )}
-                  </Link>
+                  <h2 className="font-display text-lg font-bold text-white">{post.title}</h2>
+                  {post.excerpt && (
+                    <p className="mt-1 line-clamp-2 text-sm text-text-muted">{post.excerpt}</p>
+                  )}
                   <p className="mt-2 text-xs text-text-faint">
                     {post.authorName} ·{" "}
                     {new Date(post.publishedAt).toLocaleDateString(undefined, {
@@ -88,7 +75,7 @@ export default async function BlogIndexPage() {
                     })}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

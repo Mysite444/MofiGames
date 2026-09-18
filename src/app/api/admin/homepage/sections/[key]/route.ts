@@ -59,6 +59,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ke
 
   invalidateHomepageFragments();
   revalidatePath("/");
-  revalidateTag(CACHE_TAGS.HOMEPAGE, { expire: 0 });
+  revalidateTag(CACHE_TAGS.HOMEPAGE, "default");
   return NextResponse.json({ section: data });
 }

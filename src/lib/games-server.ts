@@ -1,5 +1,4 @@
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "./supabase/server";
 import { createPublicClient } from "./supabase/public-client";
@@ -12,7 +11,6 @@ import {
 import { mapDbGameRow, mapDbCategoryRow, type DbGameRow, type DbCategoryRow } from "./games-mapping";
 import { getOrSetFragment } from "./fragment-cache";
 import { getOrSetMetadataCache, getGameMetadataBypassForAdminsSetting } from "./metadata-cache";
-import { CACHE_TAGS, REVALIDATE } from "./cache-config";
 import {
   fallbackGames,
   fallbackCategories,
@@ -236,64 +234,13 @@ async function fetchPublicGameBySlugSafe(
  * then again directly, and the page component calls it a third time. cache()
  * makes all three resolve to the same in-flight/settled promise.
  */
-/**
- * Cross-instance-safe cache for the public game-by-slug lookup — this is
- * what actually backs getPublicGameBySlug() below, i.e. the ISR page's
- * data source.
- *
- * WHY THIS EXISTS, AND WHY IT USED TO GO THROUGH getOrSetMetadataCache()
- * INSTEAD:
- * getPublicGameBySlug() previously routed only through
- * getOrSetMetadataCache() (metadata-cache.ts) — a plain `Map` living in
- * this process's memory. That file's own comments say so explicitly: "On
- * a multi-instance deployment each instance has its own store, so a
- * purge only clears the instance that handled the request." Vercel runs
- * exactly that kind of deployment — an admin's save and the next
- * visitor's page load can easily land on two different warm serverless
- * instances.
- *
- * That made the admin PATCH route's cache-busting calls
- * (src/app/api/admin/games/[id]/route.ts) unreliable in a very specific
- * way: revalidatePath(`/${game.slug}`) *does* force the [slug] page to
- * regenerate everywhere — but the regeneration still calls
- * getPublicGameBySlug(), and if that particular render landed on an
- * instance whose in-process Map entry for this slug hadn't expired yet,
- * it read back the OLD row (old embed_url included) and baked it right
- * back into the "freshly revalidated" page. purgeMetadataCacheKey() only
- * ever cleared the one instance that handled the PATCH itself, so it
- * didn't help unless that same instance happened to also serve the next
- * regeneration. Net effect: an admin edits a game's embed URL, the site
- * *looks* like it should update immediately (all the invalidation calls
- * are right there and do run), but which instance answers the next
- * request is out of our control — so the old embed URL can keep showing
- * up unpredictably instead of on a clean, bounded schedule.
- *
- * unstable_cache()'s Data Cache doesn't have that problem — on Vercel
- * it's shared, not per-instance, and it's exactly what revalidateTag()
- * is for. CACHE_TAGS.GAMES / CACHE_TAGS.gameSlug() are already applied
- * on every game write (see src/app/api/admin/games/**\/route.ts) — there
- * just wasn't a tagged cache entry anywhere for those calls to reach.
- * Tagging this fetch closes that gap, so revalidateTag() now actually
- * busts the copy every instance sees, not just one.
- *
- * getOrSetMetadataCache("games", …) is left in place for
- * getRealGameBySlug() below (the admin-preview path) so the Admin →
- * Cache → Metadata Cache dashboard keeps working for that path; it's
- * just no longer the thing standing between an admin's save and what
- * public visitors see.
- */
-function getCachedPublicGameBySlug(slug: string) {
-  return unstable_cache(() => fetchPublicGameBySlugSafe(slug), ["public-game-by-slug", slug], {
-    tags: [CACHE_TAGS.GAMES, CACHE_TAGS.gameSlug(slug)],
-    revalidate: REVALIDATE.GAME,
-  })();
-}
-
 export const getPublicGameBySlug = cache(async function getPublicGameBySlug(
   slug: string
 ): Promise<{ game: Game; category: Category } | null> {
   try {
-    const value = await getCachedPublicGameBySlug(slug);
+    const { value } = await getOrSetMetadataCache("games", slug, () =>
+      fetchPublicGameBySlugSafe(slug)
+    );
     return value ?? null;
   } catch (err) {
     if (isNextControlFlowError(err)) throw err;

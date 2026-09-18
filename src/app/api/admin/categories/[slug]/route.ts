@@ -61,8 +61,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
   // than waiting for the 300s revalidation timer.
   revalidatePath("/categories");
   revalidatePath(`/${parsedParams.data.slug}`);
-  revalidateTag(CACHE_TAGS.CATEGORIES, { expire: 0 });
-  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), { expire: 0 });
+  revalidateTag(CACHE_TAGS.CATEGORIES, "default");
+  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), "default");
   return NextResponse.json({ category: data });
 }
 
@@ -103,7 +103,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   // Deleted category: invalidate the listing page and the now-gone slug.
   revalidatePath("/categories");
   revalidatePath(`/${parsedParams.data.slug}`);
-  revalidateTag(CACHE_TAGS.CATEGORIES, { expire: 0 });
-  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), { expire: 0 });
+  revalidateTag(CACHE_TAGS.CATEGORIES, "default");
+  revalidateTag(CACHE_TAGS.category(parsedParams.data.slug), "default");
   return NextResponse.json({ ok: true });
 }

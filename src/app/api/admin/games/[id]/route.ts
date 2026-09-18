@@ -5,7 +5,7 @@ import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
-import { purgeMetadataCacheKey } from "@/lib/metadata-cache";
+import { purgeMetadataCache } from "@/lib/metadata-cache";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 import { deleteGameStorageFiles } from "@/lib/supabase/game-storage-cleanup";
@@ -123,6 +123,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     game = data;
     invalidateGameFragments();
+    // Also purge the Game Metadata cache (Admin → Cache → Metadata Cache).
+    // getRealGameBySlug() — the function that actually resolves embed_url
+    // for the play page — reads through this in-process TTL cache
+    // (default 300s), which is entirely separate from both the Fragment
+    // Cache purged above and the Next.js ISR/Data Cache revalidated below.
+    // Without this, a non-admin visitor (or an admin with
+    // game_metadata_bypass_for_admins turned off) keeps getting served the
+    // pre-edit row — including the old embed_url — for up to
+    // gameMetadataTtlSeconds after the save, even though the page itself
+    // was correctly revalidated. There's no single-key purge on this
+    // cache, only a whole-namespace one, so we clear all of "games" —
+    // the same scope the manual Admin → Cache → Metadata Cache → Purge
+    // button uses.
+    purgeMetadataCache("games");
     // Invalidate the ISR cache for this game's slug page and the category
     // it belongs to. Without this, admin edits (title, thumbnail, visibility
     // changes, publish/unpublish) take up to 300s to appear on the live
@@ -152,50 +166,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     // revalidatePath busts the Full Route Cache (complete HTML).
     // revalidateTag busts the Next.js Data Cache entries (fetch/unstable_cache)
     // so the NEXT regeneration reads fresh data from the origin.
-    //
-    // { expire: 0 } — NOT a named profile like "default"/"max". Next 16's
-    // revalidateTag() treats a named profile as stale-while-revalidate: the
-    // very next request after this PATCH would still get the OLD embed_url
-    // (served from the just-marked-stale cache entry) while a background
-    // refetch ran, and only the request *after that* would see the edit.
-    // That's exactly the bug this route used to have — admin changes
-    // embed_url, saves, reloads the game page immediately, still sees the
-    // old game. { expire: 0 } forces the next request to be a blocking
-    // cache miss instead, so the very next load is guaranteed fresh. See
-    // the CACHE_TAGS block in src/lib/cache-config.ts for the full
-    // explanation — this applies to every admin mutation route, not just
-    // this one.
-    revalidateTag(CACHE_TAGS.GAMES, { expire: 0 });
-    revalidateTag(CACHE_TAGS.gameSlug(game.slug), { expire: 0 });
-    revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.GAMES, "default");
+    revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
+    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
 
-    // ── In-process metadata cache purge ────────────────────────────────────
-    // revalidatePath / revalidateTag bust the Next.js Full Route Cache and
-    // Data Cache (both are external to this process). They do NOT touch the
-    // in-process LRU cache in metadata-cache.ts (getOrSetMetadataCache).
-    //
-    // Without this call, the next page render after a revalidatePath hits
-    // getRealGameBySlug → getOrSetMetadataCache("games", slug) → cache HIT
-    // (still within TTL) → returns the STALE game data including the OLD
-    // embed_url → the freshly regenerated page has the wrong iframe URL.
-    //
-    // Fix: evict the specific slug key so the next render is a cache miss
-    // and recomputes from Supabase. If the slug was renamed, also evict the
-    // old key so the old page's 404 regeneration doesn't serve stale data.
-    // If the slug was renamed, we don't have the old slug in scope here
-    // (the UPDATE already committed it). Purge the whole games namespace
-    // so both the old and new slug entries are evicted. Slug renames are
-    // rare admin actions so the extra eviction is acceptable.
-    // For all other edits (embed_url, title, thumbnail, etc.) only evict
-    // the specific slug key — cheaper and avoids unnecessary misses.
-    if ("slug" in gameFields && typeof gameFields.slug === "string") {
-      // Import purgeMetadataCache (namespace purge) alongside the per-key
-      // import already at the top of this file.
-      const { purgeMetadataCache } = await import("@/lib/metadata-cache");
-      purgeMetadataCache("games");
-    } else {
-      purgeMetadataCacheKey("games", game.slug);
-    }
     // A game only ever gets announced once — the first time it's publicly
     // visible. Covers both "published immediately" (POST /api/admin/games
     // handles that case) and "created as a draft, then published later
@@ -343,9 +317,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   // The slug page now 404s — bust its ISR cache so it stops serving the
   // deleted game's content immediately instead of waiting 300s.
   revalidatePath(`/${existing.slug}`);
-  // Also evict the in-process metadata cache so the 404 page doesn't
-  // regenerate with stale game data from the LRU.
-  purgeMetadataCacheKey("games", existing.slug);
   return NextResponse.json({
     ok: true,
     filesRemoved: cleanup.removed,

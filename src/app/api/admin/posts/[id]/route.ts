@@ -108,10 +108,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (post?.slug) {
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
-    revalidateTag(CACHE_TAGS.POSTS, { expire: 0 });
-    revalidateTag(CACHE_TAGS.postSlug(post.slug), { expire: 0 });
-    revalidateTag(CACHE_TAGS.FEEDS, { expire: 0 });
-    revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
+    revalidateTag(CACHE_TAGS.POSTS, "default");
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+    revalidateTag(CACHE_TAGS.FEEDS, "default");
+    revalidateTag(CACHE_TAGS.SITEMAPS, "default");
   }
 
   return NextResponse.json({ post: { ...post, tagIds: responseTagIds } });

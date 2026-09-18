@@ -62,10 +62,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   // blog index stops showing the post immediately.
   revalidatePath("/blog");
   revalidatePath(`/blog/${post.slug}`);
-  revalidateTag(CACHE_TAGS.POSTS, { expire: 0 });
-  revalidateTag(CACHE_TAGS.postSlug(post.slug), { expire: 0 });
-  revalidateTag(CACHE_TAGS.FEEDS, { expire: 0 });
-  revalidateTag(CACHE_TAGS.SITEMAPS, { expire: 0 });
+  revalidateTag(CACHE_TAGS.POSTS, "default");
+  revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
+  revalidateTag(CACHE_TAGS.FEEDS, "default");
+  revalidateTag(CACHE_TAGS.SITEMAPS, "default");
 
   return NextResponse.json({ ok: true, post });
 }

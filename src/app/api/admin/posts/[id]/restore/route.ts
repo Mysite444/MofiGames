@@ -57,8 +57,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (post.is_published) {
     revalidatePath("/blog");
     revalidatePath(`/blog/${post.slug}`);
-    revalidateTag(CACHE_TAGS.POSTS, { expire: 0 });
-    revalidateTag(CACHE_TAGS.postSlug(post.slug), { expire: 0 });
+    revalidateTag(CACHE_TAGS.POSTS, "default");
+    revalidateTag(CACHE_TAGS.postSlug(post.slug), "default");
   }
 
   return NextResponse.json({ ok: true, post });

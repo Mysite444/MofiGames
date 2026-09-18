@@ -48,25 +48,6 @@ function analyze(params: {
     issues.push({ severity: "warning", message: `Only ${wordCount} words of content — thin content can hurt rankings.` });
   }
 
-  // Internal link check: count <a href="/..."> links in content.
-  // At least 2 internal links per 300 words is a reasonable baseline;
-  // posts with no internal links are isolated from the rest of the site.
-  if (params.content !== undefined && wordCount >= 150) {
-    const internalLinkMatches = params.content.match(/<a[^>]+href=["']\//gi) ?? [];
-    const internalLinkCount = internalLinkMatches.length;
-    if (internalLinkCount === 0) {
-      issues.push({
-        severity: "warning",
-        message: "No internal links found in content — add links to related games or posts to improve crawlability.",
-      });
-    } else if (internalLinkCount < 2 && wordCount > 400) {
-      issues.push({
-        severity: "info",
-        message: `Only ${internalLinkCount} internal link in ${wordCount} words — consider adding more links to related content.`,
-      });
-    }
-  }
-
   const errorCount = issues.filter((i) => i.severity === "error").length;
   const warningCount = issues.filter((i) => i.severity === "warning").length;
   const score = Math.max(0, 100 - errorCount * 30 - warningCount * 12);

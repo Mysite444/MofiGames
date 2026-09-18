@@ -4,7 +4,6 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
-import { purgeMetadataCacheKey } from "@/lib/metadata-cache";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 
@@ -67,9 +66,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   revalidatePath("/latest-games");
   revalidatePath("/updated-games");
   revalidatePath("/leaderboard");
-  revalidateTag(CACHE_TAGS.GAMES, { expire: 0 });
-  revalidateTag(CACHE_TAGS.gameSlug(game.slug), { expire: 0 });
-  // Bust the in-process metadata cache so the next render reads fresh DB data.
-  purgeMetadataCacheKey("games", game.slug);
+  revalidateTag(CACHE_TAGS.GAMES, "default");
+  revalidateTag(CACHE_TAGS.gameSlug(game.slug), "default");
   return NextResponse.json({ ok: true, game });
 }

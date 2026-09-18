@@ -249,29 +249,6 @@ export function purgeMetadataCache(scope: "all" | MetadataCacheNamespace): numbe
   return removed;
 }
 
-/**
- * Evicts a single in-process cache entry by namespace + key (e.g. a game
- * slug or category slug) without touching any other entry in the store.
- *
- * Called by the game / category / tag PATCH routes immediately after a DB
- * write so that the next page render fetches fresh data from Supabase
- * rather than returning the stale in-process LRU entry.
- *
- * revalidatePath() and revalidateTag() bust the Next.js Full Route Cache
- * and Data Cache (both are process-external).  This function busts the
- * third, in-process layer that those two calls never reach.
- *
- * Returns true when the key was present and removed, false when it was
- * already absent (a cold entry is fine — the next read will just be a
- * miss that recomputes from the DB).
- */
-export function purgeMetadataCacheKey(
-  namespace: MetadataCacheNamespace,
-  key: string
-): boolean {
-  return store().store.delete(cacheKeyFor(namespace, key));
-}
-
 export interface MetadataNamespaceStatsRow extends MetadataNamespaceStats {
   namespace: MetadataCacheNamespace;
   entries: number;
