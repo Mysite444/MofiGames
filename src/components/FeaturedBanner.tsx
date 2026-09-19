@@ -1,0 +1,168 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Play } from "lucide-react";
+import { iconMap } from "@/lib/icon-map";
+import { GameThumbnail } from "./GameThumbnail";
+import { HoverPreviewVideo } from "./HoverPreviewVideo";
+import { useMergedCategoryBySlug } from "@/lib/supabase/real-games-client";
+import { getGameCover } from "@/lib/game-cover";
+import type { Game, Category } from "@/lib/types";
+
+const tagStyles: Record<string, string> = {
+  TOP: "bg-gold text-[#221a00]",
+  HOT: "bg-hot text-white",
+  NEW: "glass-strong text-white",
+  UPDATED: "glass-strong text-white",
+};
+
+export function FeaturedBanner({
+  game,
+  category: categoryOverride,
+  hideWatermark = false,
+}: {
+  game: Game;
+  category?: Category;
+  /** Set true to drop the large category-icon watermark — used on the home
+   *  page's Top Picks banner. Defaults to false so MobileHome's banner is
+   *  unaffected. */
+  hideWatermark?: boolean;
+}) {
+  // useMergedCategoryBySlug prefers the live DB row so admin edits to the
+  // category's name, icon, or gradient are reflected immediately.
+  // The categoryOverride prop (passed by MobileHome's genreProps helper)
+  // still takes precedence when the caller has already resolved it.
+  const mergedCategory = useMergedCategoryBySlug(game.categorySlug);
+  const category = categoryOverride ?? mergedCategory;
+  const [previewActive, setPreviewActive] = useState(false);
+  if (!category) return null;
+  const Icon = iconMap[category.icon];
+  // Landscape cover (16:9) fills the banner background when available.
+  // The gradient + mesh overlays always render on top for brand consistency
+  // and to ensure the bottom text/play-button remain legible regardless of
+  // what the cover image contains.
+  const landscapeSrc = getGameCover(game, "landscape");
+  // Square cover (1:1) for the small 48×48px corner icon — portrait/landscape
+  // crops would distort the game's logo or character at that size.
+  const iconSrc = getGameCover(game, "square");
+
+  // Hover-preview: same behavior + previewVideoUrl-only independence as
+  // every other card (GameCard, GenreGameCard, CategoryPageCard, …).
+  function startPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(true);
+  }
+  function stopPreview() {
+    if (!game.previewVideoUrl) return;
+    setPreviewActive(false);
+  }
+
+  return (
+    <Link
+      href={`/${game.slug}`}
+      onMouseEnter={startPreview}
+      onMouseLeave={stopPreview}
+      onFocus={startPreview}
+      onBlur={stopPreview}
+      className="tile-shine group relative block aspect-[16/9] w-full overflow-hidden rounded-thumb ring-1 ring-white/10 transition-all duration-300 ease-tile hover:scale-[1.08] hover:ring-2 hover:ring-[var(--color-cta-blue)] hover:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] focus-visible:outline-none focus-visible:scale-[1.08] focus-visible:ring-2 focus-visible:ring-[var(--color-cta-blue)] focus-visible:shadow-[0_0_22px_2px_rgba(var(--color-cta-blue-rgb),0.55),0_18px_38px_rgba(0,0,0,0.6)] active:scale-[0.99] active:duration-150 active:ease-out"
+    >
+      {/* Base layer: actual landscape cover when available; gradient otherwise */}
+      {landscapeSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={landscapeSrc}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(120deg, ${category.colorTo}, ${category.colorFrom})` }}
+        />
+      )}
+
+      {/* Hover-preview clip — previewVideoUrl only, independent of the
+          trailer. Sits above the cover image but below the mesh/gradient
+          overlays and text below, so the banner's title/play button stay
+          legible whether or not the clip is playing. */}
+      {game.previewVideoUrl && (
+        <HoverPreviewVideo src={game.previewVideoUrl} active={previewActive} />
+      )}
+      {/* Faint color/glow accent only — no dark radial here anymore. Keeping
+          this fully dark-free is what let the "Today's Best" cover art read
+          as dim/washed-out next to the plain, undimmed Featured Games tiles;
+          this wash is now light enough to add brand color without muting
+          the artwork. */}
+      <div
+        className="mesh-bg absolute inset-0 opacity-40"
+        style={{
+          backgroundImage: `radial-gradient(circle at 15% 25%, ${category.colorFrom}66, transparent 45%), radial-gradient(circle at 85% 15%, #ffffff28, transparent 40%)`,
+        }}
+        aria-hidden
+      />
+      {!hideWatermark && (
+        <Icon
+          size={150}
+          strokeWidth={1}
+          className="pointer-events-none absolute -right-6 -top-8 text-white/10"
+          aria-hidden
+        />
+      )}
+      {/* Legibility scrim for the title/Play row — confined to the bottom
+          ~35% of the tile (via-stop at 35%) so it no longer washes the
+          entire cover image the way the old full-height black/15 "via"
+          did; the rest of the artwork now shows at full brightness. */}
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black/80 from-0% via-black/0 via-35% to-transparent"
+        aria-hidden
+      />
+
+      {/* Site-wide blue hover accent — same token/wash GameCard, MiniTile,
+          GenreGameCard and CategoryPageCard all use. Those cards reveal
+          previously-hidden title/stats text on hover, so their blue div
+          IS the info panel. Here the icon/title/Play button are already
+          visible at rest (this is the "big" banner tile, not a compact
+          card), so this is just the color wash on its own, faded in
+          behind that always-on content rather than replacing it. Sits
+          above the permanent black fade and below the info row below. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-[var(--color-cta-blue)] from-40% to-transparent opacity-0 transition-opacity duration-300 ease-tile group-hover:opacity-100 group-focus-visible:opacity-100"
+        aria-hidden
+      />
+
+      {game.tag && (
+        <span
+          className={`absolute left-3 top-3 rounded-md px-2 py-1 text-[11px] font-bold tracking-wide transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0 ${tagStyles[game.tag]}`}
+        >
+          {game.tag}
+        </span>
+      )}
+
+      <div className="absolute inset-x-3 bottom-3 flex items-center gap-2.5">
+        {iconSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconSrc}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/20"
+          />
+        ) : (
+          <GameThumbnail
+            category={category}
+            variant={game.variant}
+            className="h-12 w-12 shrink-0 rounded-xl ring-1 ring-white/20"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-base font-bold text-white">{game.title}</p>
+          <p className="text-xs text-white/70">{category.name}</p>
+        </div>
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-[#0b0c14] shadow-lg transition-transform group-active:scale-95">
+          <Play size={14} className="fill-[#0b0c14]" />
+          Play
+        </span>
+      </div>
+    </Link>
+  );
+}
