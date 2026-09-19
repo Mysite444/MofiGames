@@ -181,6 +181,20 @@ export function PlayFrame({
                 ? "aspect-[9/16] h-full max-w-full border-0"
                 : "h-full w-full border-0"
             }
+            style={{ overflow: "hidden" }}
+            // `scrolling="no"` (legacy, but every browser still honors it —
+            // there is no modern replacement; overflow/scrollbar-width CSS
+            // on this element only affects the iframe's own box, not the
+            // scrollbars the embedded document draws inside itself) stops
+            // the game's own page from showing horizontal/vertical
+            // scrollbars whenever its content is taller/wider than the
+            // frame — e.g. a game built at a fixed pixel size (800×600)
+            // rendered inside our responsive aspect-ratio frame. Without
+            // it the browser defaults to scrolling="auto" and draws
+            // scrollbars around the game any time that happens, which is
+            // never what we want for a game embed (there's nothing useful
+            // to scroll to — the frame is meant to show the whole game).
+            scrolling="no"
             // NOTE on Media Session: there is no Permissions-Policy /
             // iframe `allow` directive for "media session" (it isn't a
             // policy-controlled feature — see MDN's Permissions-Policy
