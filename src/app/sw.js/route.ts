@@ -110,28 +110,6 @@ async function networkFirst(request) {
   }
 }
 
-// stale-while-revalidate: serve cached page immediately (instant navigation),
-// then fetch and cache the fresh version in the background. This gives repeat
-// visitors zero-wait page loads while keeping content fresh within one ISR
-// window. Only used for public page navigations — admin routes always use
-// networkFirst so stale admin UI is never served.
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        cache.put(request, response.clone());
-      }
-      return response;
-    })
-    .catch(() => null);
-  return cached ?? (await fetchPromise) ?? new Response(OFFLINE_BODY, {
-    status: 503,
-    headers: { "Content-Type": "text/html" },
-  });
-}
-
 // Limit cache to MAX_HTML_ENTRIES pages so the cache never grows unboundedly.
 // Evicts the oldest entry (FIFO) when the limit is reached.
 const MAX_HTML_ENTRIES = 30;
@@ -196,13 +174,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Public page navigations — stale-while-revalidate for instant repeat loads.
-  // The CDN's ISR TTL (s-maxage=300) is the authoritative freshness signal;
-  // the SW acts as an additional client-side cache layer that serves the last
-  // known good page instantly while the browser quietly fetches the latest.
+  // Public page navigations — NETWORK-FIRST. The cached copy is only an
+  // offline fallback, never something served while the network is up.
+  //
+  // This used to be stale-while-revalidate, which meant every repeat visit
+  // painted the *previously cached* HTML and only fetched the fresh page in
+  // the background. After an admin edit (e.g. correcting a game's embed
+  // URL) the first reload therefore still showed the old page — the game
+  // iframe's src is baked into that HTML — and only the second reload
+  // showed the fix. Freshness of page content is owned by ISR + on-demand
+  // revalidation on the server (see PATCH /api/admin/games/:id); this
+  // worker must not add a second, unsynchronised staleness window on top.
   if (request.mode === "navigate") {
     event.respondWith(
-      staleWhileRevalidate(request).then((response) => {
+      networkFirst(request).then((response) => {
         evictOldestIfNeeded();
         return response;
       })
@@ -213,11 +198,16 @@ self.addEventListener("fetch", (event) => {
 `;
 }
 
+// Bump when the worker's caching behaviour changes. It is part of the cache
+// name, and the worker's activate handler deletes every cache whose name
+// differs — so a bump also discards HTML that an older worker version cached.
+const SW_SCRIPT_REVISION = 2;
+
 export async function GET() {
   const settings = await getCacheSettingsServer();
 
   const body = settings.serviceWorkerEnabled
-    ? buildActiveWorker(`mofigames-sw-v${settings.serviceWorkerCacheVersion}`)
+    ? buildActiveWorker(`mofigames-sw-v${settings.serviceWorkerCacheVersion}-r${SW_SCRIPT_REVISION}`)
     : buildDisabledWorker();
 
   return new NextResponse(body, {

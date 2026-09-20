@@ -124,18 +124,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     game = data;
     invalidateGameFragments();
     // Also purge the Game Metadata cache (Admin → Cache → Metadata Cache).
-    // getRealGameBySlug() — the function that actually resolves embed_url
-    // for the play page — reads through this in-process TTL cache
-    // (default 300s), which is entirely separate from both the Fragment
-    // Cache purged above and the Next.js ISR/Data Cache revalidated below.
-    // Without this, a non-admin visitor (or an admin with
-    // game_metadata_bypass_for_admins turned off) keeps getting served the
-    // pre-edit row — including the old embed_url — for up to
-    // gameMetadataTtlSeconds after the save, even though the page itself
-    // was correctly revalidated. There's no single-key purge on this
-    // cache, only a whole-namespace one, so we clear all of "games" —
-    // the same scope the manual Admin → Cache → Metadata Cache → Purge
-    // button uses.
+    // NOTE: the public game page (src/app/[slug]/page.tsx) no longer reads
+    // through this cache — getPublicGameBySlug() queries live during ISR
+    // regeneration, because this cache is per server instance and a purge
+    // here can't reach the *other* warm instances that may regenerate the
+    // page (they'd re-bake the pre-edit embed_url into fresh HTML). This
+    // purge still matters for the remaining readers of the "games"
+    // namespace — getRealGameBySlug(), e.g. an admin previewing with
+    // game_metadata_bypass_for_admins turned off. There's no single-key
+    // purge on this cache, only a whole-namespace one, so we clear all of
+    // "games" — the same scope the manual Admin → Cache → Metadata Cache →
+    // Purge button uses.
     purgeMetadataCache("games");
     // Invalidate the ISR cache for this game's slug page and the category
     // it belongs to. Without this, admin edits (title, thumbnail, visibility
