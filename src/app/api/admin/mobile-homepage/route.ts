@@ -20,7 +20,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from("mobile_homepage_sections")
     .select("*")
-    .order("position", { ascending: true });
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (error) return apiError(error);
   return NextResponse.json(data ?? []);
@@ -43,9 +44,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 });
   }
 
+  // Always append new sections after the current last one. The "Add
+  // Section" form has no position field, and mobileHomepageSectionCreateSchema
+  // defaults a missing `position` to 0 — so every section created from the
+  // admin UI used to land at position 0. Once two or more rows share
+  // position 0, `ORDER BY position` (used by both this list and the public
+  // mobile homepage read in mobile-homepage-server.ts) has no deterministic
+  // tiebreaker, so which section rendered where — and whether a newly added
+  // section showed up at all in a given request — became unpredictable.
+  // Computing the true next slot here (ignoring whatever position, if any,
+  // the client sent) fixes it for every section added from now on.
+  const { data: last, error: lastError } = await supabase
+    .from("mobile_homepage_sections")
+    .select("position")
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastError) return apiError(lastError);
+
+  const nextPosition = (last?.position ?? 0) + 10;
+
   const { data, error } = await supabase
     .from("mobile_homepage_sections")
-    .insert(parsed.data)
+    .insert({ ...parsed.data, position: nextPosition })
     .select()
     .single();
 

@@ -43,7 +43,8 @@ export async function getMobileHomepageSections(): Promise<MobileHomepageSection
           .from("mobile_homepage_sections")
           .select("*")
           .eq("is_enabled", true)
-          .order("position", { ascending: true }),
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true }),
         DEFAULT_SUPABASE_TIMEOUT_MS,
         "mobile homepage sections"
       );
@@ -67,7 +68,8 @@ export async function getMobileHomepageSectionsAdmin(): Promise<MobileHomepageSe
     supabase
       .from("mobile_homepage_sections")
       .select("*")
-      .order("position", { ascending: true }),
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true }),
     DEFAULT_SUPABASE_TIMEOUT_MS,
     "mobile homepage sections admin"
   );
