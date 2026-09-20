@@ -37,7 +37,9 @@
  *   CSS expression() / url() in style attributes
  */
 
-import DOMPurify from "isomorphic-dompurify";
+import type DOMPurifyType from "isomorphic-dompurify";
+
+type Purifier = typeof DOMPurifyType;
 
 // ---------------------------------------------------------------------------
 // Allow-lists — identical to the previous regex version so content already
@@ -93,51 +95,131 @@ const YOUTUBE_SRC = /^https:\/\/(www\.)?youtube(?:-nocookie)?\.com\/embed\//;
 const DANGEROUS_CSS = /expression\s*\(|url\s*\(/i;
 
 // ---------------------------------------------------------------------------
-// DOMPurify hooks — registered once at module initialisation time.
-// isomorphic-dompurify exposes a singleton, so hooks persist across calls.
+// Lazy, fail-closed loading of DOMPurify.
+//
+// WHY THIS IS NOT A TOP-LEVEL `import DOMPurify from "isomorphic-dompurify"`:
+//   On the server isomorphic-dompurify is backed by jsdom, and jsdom 30
+//   (pulled in by isomorphic-dompurify >= 4.x) needs Node ^22.22.2 / ^24.15 /
+//   >=26. On an older runtime it does not merely misbehave — it THROWS WHILE
+//   THE MODULE IS BEING LOADED:
+//     Node 22.11 → ERR_REQUIRE_ESM (@exodus/bytes is ESM-only)
+//     Node 20.x  → TypeError: webidl.util.markAsUncloneable is not a function
+//   A throw at import time is not catchable by any React error boundary. For
+//   a route that is statically generated (ISR), it fails the whole on-demand
+//   render, and Next serves its built-in static "500: This page couldn't
+//   load" page. Pages that were prerendered at build time keep working (they
+//   never execute this code at request time), so the site looks healthy until
+//   the first time an admin publishes a NEW game/page — which is the symptom
+//   this fixes.
+//
+// BEHAVIOUR NOW:
+//   • Runtime is fine  → identical output to before (same allow-lists/hooks).
+//   • Runtime too old  → the failure is caught once, logged loudly, and
+//     content is rendered as ESCAPED PLAIN TEXT (see toSafePlainText). It is
+//     never emitted as raw HTML, so this fails CLOSED — the page still
+//     renders, just without rich formatting, instead of returning a 500.
+//
+// `require` (not `import()`) is deliberate: sanitizeContentHtml() is
+// synchronous and is called from components that are also bundled into the
+// client (GameDetailsSection / MobileGamePage are "use client"), so it
+// cannot become async.
 // ---------------------------------------------------------------------------
 
-// Hook 1: Per-element attribute restrictions + iframe YouTube enforcement.
-DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
-  const tag = node.nodeName.toLowerCase();
-  const attr = data.attrName;
-  const val  = data.attrValue;
+// undefined = not attempted yet, null = attempted and unavailable.
+let purifier: Purifier | null | undefined;
 
-  // Enforce per-element allow-list.
-  const allowedElements = ATTR_ELEMENT_MAP[attr];
-  if (allowedElements && !allowedElements.has(tag)) {
-    data.keepAttr = false;
-    return;
-  }
+function registerHooks(purify: Purifier): void {
+  // Hook 1: Per-element attribute restrictions + iframe YouTube enforcement.
+  purify.addHook("uponSanitizeAttribute", (node, data) => {
+    const tag = node.nodeName.toLowerCase();
+    const attr = data.attrName;
+    const val  = data.attrValue;
 
-  // Strip javascript: / data: from src and href (DOMPurify already does
-  // this for most cases, but belt-and-suspenders for entity-encoded variants
-  // is exactly the point of switching from regex).
-  if ((attr === "src" || attr === "href") && /^\s*(javascript|data):/i.test(val)) {
-    data.keepAttr = false;
-    return;
-  }
-
-  // Enforce YouTube-only iframe src.
-  if (tag === "iframe" && attr === "src") {
-    if (!YOUTUBE_SRC.test(val)) {
-      data.keepAttr = false; // src stripped → the afterSanitizeAttributes hook removes the element
+    // Enforce per-element allow-list.
+    const allowedElements = ATTR_ELEMENT_MAP[attr];
+    if (allowedElements && !allowedElements.has(tag)) {
+      data.keepAttr = false;
+      return;
     }
-    return;
-  }
 
-  // Strip CSS that loads external content or executes JS.
-  if (attr === "style" && DANGEROUS_CSS.test(val)) {
-    data.keepAttr = false;
-  }
-});
+    // Strip javascript: / data: from src and href (DOMPurify already does
+    // this for most cases, but belt-and-suspenders for entity-encoded variants
+    // is exactly the point of switching from regex).
+    if ((attr === "src" || attr === "href") && /^\s*(javascript|data):/i.test(val)) {
+      data.keepAttr = false;
+      return;
+    }
 
-// Hook 2: Remove <iframe> elements that had their src stripped by hook 1.
-DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-  if (node.nodeName === "IFRAME" && !node.getAttribute("src")) {
-    node.parentNode?.removeChild(node);
+    // Enforce YouTube-only iframe src.
+    if (tag === "iframe" && attr === "src") {
+      if (!YOUTUBE_SRC.test(val)) {
+        data.keepAttr = false; // src stripped → the afterSanitizeAttributes hook removes the element
+      }
+      return;
+    }
+
+    // Strip CSS that loads external content or executes JS.
+    if (attr === "style" && DANGEROUS_CSS.test(val)) {
+      data.keepAttr = false;
+    }
+  });
+
+  // Hook 2: Remove <iframe> elements that had their src stripped by hook 1.
+  purify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName === "IFRAME" && !node.getAttribute("src")) {
+      node.parentNode?.removeChild(node);
+    }
+  });
+}
+
+function loadPurifier(): Purifier | null {
+  if (purifier !== undefined) return purifier;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("isomorphic-dompurify") as Purifier & { default?: Purifier };
+    const instance = typeof mod.sanitize === "function" ? mod : mod.default;
+    if (!instance || typeof instance.sanitize !== "function") {
+      throw new Error("isomorphic-dompurify did not expose sanitize()");
+    }
+    registerHooks(instance);
+    purifier = instance;
+  } catch (err) {
+    console.error(
+      "[sanitize-html] isomorphic-dompurify could not be loaded on this runtime " +
+        `(node ${typeof process !== "undefined" ? process.version : "unknown"}). ` +
+        "Rich HTML content will be rendered as escaped plain text until the Node " +
+        "version is upgraded (needs ^22.22.2 or ^24.15). Cause:",
+      err
+    );
+    purifier = null;
   }
-});
+  return purifier;
+}
+
+/** Fail-closed fallback. Turns arbitrary HTML into paragraphs of ESCAPED
+ * text. The tag-stripping regexes below are only for readability of the
+ * result — safety does not depend on them: every "<", ">", "&", quote is
+ * escaped afterwards, so the output can never contain a tag or an entity
+ * that a browser would interpret as markup. */
+function toSafePlainText(html: string): string {
+  const text = html
+    .replace(/<(script|style)[\s\S]*?<\/\1\s*>/gi, " ")
+    .replace(/<\/(p|div|h[1-6]|li|blockquote|tr|table|ul|ol)\s*>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "");
+  const escape = (t: string) =>
+    t
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  return text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${escape(line)}</p>`)
+    .join("");
+}
 
 // ---------------------------------------------------------------------------
 // Public API — drop-in replacement for the old regex-based version.
@@ -146,7 +228,10 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
 export function sanitizeContentHtml(html: string): string {
   if (!html) return "";
 
-  return DOMPurify.sanitize(html, {
+  const purify = loadPurifier();
+  if (!purify) return toSafePlainText(html);
+
+  return purify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
     // FORCE_BODY wraps the fragment in a <body> so DOMPurify sees a
