@@ -1155,7 +1155,9 @@ export function GamesAdminClient() {
               <th className="hidden px-4 py-3 font-semibold sm:table-cell">Plays</th>
               <th className="hidden px-4 py-3 font-semibold xl:table-cell">Created</th>
               <th className="hidden px-4 py-3 font-semibold xl:table-cell">Updated</th>
-              <th className="px-4 py-3 font-semibold" />
+              <th className="sticky right-0 z-10 w-[104px] bg-[#131316] px-4 py-3 text-right font-semibold">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1183,7 +1185,7 @@ export function GamesAdminClient() {
               return (
                 <tr
                   key={g.id}
-                  className={`border-b border-[var(--color-surface-border)] last:border-0 hover:bg-white/[0.03] ${
+                  className={`group border-b border-[var(--color-surface-border)] last:border-0 hover:bg-white/[0.03] ${
                     rowBusyId === g.id ? "opacity-50" : ""
                   }`}
                 >
@@ -1197,7 +1199,13 @@ export function GamesAdminClient() {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(g)}
+                      disabled={rowBusyId === g.id}
+                      title="Edit this game"
+                      className="flex w-full items-center gap-3 rounded-lg text-left disabled:cursor-not-allowed"
+                    >
                       {g.thumbnail_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -1209,13 +1217,15 @@ export function GamesAdminClient() {
                         <div className="h-10 w-10 shrink-0 rounded-lg bg-white/10" />
                       )}
                       <div className="min-w-0">
-                        <div className="truncate font-semibold text-white">{g.title}</div>
+                        <div className="truncate font-semibold text-white group-hover:text-gold group-hover:underline group-hover:decoration-gold/50 group-hover:underline-offset-2">
+                          {g.title}
+                        </div>
                         <div className="truncate text-xs text-text-faint">
                           /{g.slug}
                           {g.duplicated_from && " · duplicate"}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-white/80">{g.category_slug}</td>
                   <td className="hidden px-4 py-3 lg:table-cell">
@@ -1280,8 +1290,18 @@ export function GamesAdminClient() {
                   <td className="hidden px-4 py-3 text-xs text-white/60 xl:table-cell">
                     {new Date(g.updated_at).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end">
+                  <td className="sticky right-0 z-10 bg-[#131316] px-4 py-3 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.7)] group-hover:bg-[#1a1a1f]">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(g)}
+                        disabled={rowBusyId === g.id}
+                        aria-label={`Edit ${g.title}`}
+                        title="Edit"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-40"
+                      >
+                        <Pencil size={15} />
+                      </button>
                       <RowActionsMenu
                         game={g}
                         isTrashed={isTrashed}
