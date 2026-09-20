@@ -5,7 +5,6 @@ import { CACHE_TAGS } from "@/lib/cache-config";
 import { requireAdmin } from "@/lib/supabase/route-auth";
 import { gameUpdateSchema, firstIssueMessage } from "@/lib/validation";
 import { invalidateGameFragments } from "@/lib/fragment-cache-invalidation";
-import { purgeMetadataCache } from "@/lib/metadata-cache";
 import { apiError } from "@/lib/api-error";
 import { logAdminAction } from "@/lib/supabase/admin-action-log";
 import { deleteGameStorageFiles } from "@/lib/supabase/game-storage-cleanup";
@@ -123,19 +122,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     game = data;
     invalidateGameFragments();
-    // Also purge the Game Metadata cache (Admin → Cache → Metadata Cache).
-    // NOTE: the public game page (src/app/[slug]/page.tsx) no longer reads
-    // through this cache — getPublicGameBySlug() queries live during ISR
-    // regeneration, because this cache is per server instance and a purge
-    // here can't reach the *other* warm instances that may regenerate the
-    // page (they'd re-bake the pre-edit embed_url into fresh HTML). This
-    // purge still matters for the remaining readers of the "games"
-    // namespace — getRealGameBySlug(), e.g. an admin previewing with
-    // game_metadata_bypass_for_admins turned off. There's no single-key
-    // purge on this cache, only a whole-namespace one, so we clear all of
-    // "games" — the same scope the manual Admin → Cache → Metadata Cache →
-    // Purge button uses.
-    purgeMetadataCache("games");
     // Invalidate the ISR cache for this game's slug page and the category
     // it belongs to. Without this, admin edits (title, thumbnail, visibility
     // changes, publish/unpublish) take up to 300s to appear on the live

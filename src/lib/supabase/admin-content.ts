@@ -10,38 +10,8 @@ import { detectFileDimensions } from "../media-dimensions";
 // role Supabase Storage's buckets used to play, just folded into the
 // pathname). See /api/admin/blob/upload, which only mints a client
 // token for a pathname starting with one of these.
-const BLOB_UPLOAD_URL  = "/api/admin/blob/upload";
-const BLOB_DELETE_URL  = "/api/admin/blob/delete";
-const BLOB_VERIFY_URL  = "/api/admin/blob/verify";
-
-/**
- * L-1 fix: post-upload magic-byte validation.
- * Calls /api/admin/blob/verify which fetches the first 16 bytes of the
- * just-uploaded blob, checks them against expected file signatures for the
- * bucket/category, and deletes the blob + throws if invalid.
- *
- * Fails open on network errors (a transient failure must not break legitimate
- * uploads). Only throws on a 422 response (confirmed invalid magic bytes).
- */
-async function verifyBlobUpload(url: string, bucket: string, category?: string): Promise<void> {
-  let res: Response;
-  try {
-    res = await fetch(BLOB_VERIFY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, bucket, category }),
-    });
-  } catch {
-    // Network failure — fail open.
-    return;
-  }
-  if (res.status === 422) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? "Upload rejected: file content does not match its declared type.");
-  }
-  // Any other non-OK status (auth failure, 500) — fail open so a broken
-  // verify route never blocks legitimate uploads.
-}
+const BLOB_UPLOAD_URL = "/api/admin/blob/upload";
+const BLOB_DELETE_URL = "/api/admin/blob/delete";
 
 // Reads here go straight to Supabase (fast, and already fully protected —
 // RLS on `games`/`categories` only ever returns published rows to non-
@@ -795,8 +765,6 @@ export async function uploadContentImage(slug: string, file: File): Promise<stri
       cacheControlMaxAgeSeconds: cacheSettings.contentImagesMaxAge,
     }),
   });
-  // L-1: magic-byte validation
-  await verifyBlobUpload(blob.url, "content-images");
   return blob.url;
 }
 
@@ -1064,8 +1032,6 @@ export async function uploadThumbnail(slug: string, file: File, previousUrl?: st
       cacheControlMaxAgeSeconds: cacheSettings.gameThumbnailsMaxAge,
     }),
   });
-  // L-1: magic-byte validation (throws + deletes blob if content doesn't match)
-  await verifyBlobUpload(blob.url, "game-thumbnails");
 
   const previousPath = pathFromBlobUrl(previousUrl, "game-thumbnails");
   if (previousPath && previousPath !== path) {
@@ -1104,8 +1070,6 @@ export async function uploadGameMedia(
       cacheControlMaxAgeSeconds: cacheSettings.gameMediaMaxAge,
     }),
   });
-  // L-1: magic-byte validation
-  await verifyBlobUpload(blob.url, "game-media");
 
   const previousPath = pathFromBlobUrl(previousUrl, "game-media");
   if (previousPath && previousPath !== path) {
@@ -1246,8 +1210,6 @@ export async function uploadMediaAsset(
       cacheControlMaxAgeSeconds: cacheSettings.mediaLibraryMaxAge,
     }),
   });
-  // L-1: magic-byte validation (skipped automatically for audio/document/font)
-  await verifyBlobUpload(blob.url, "media-library", category);
 
   const { data, error } = await supabase
     .from("media_assets")

@@ -181,20 +181,6 @@ export function PlayFrame({
                 ? "aspect-[9/16] h-full max-w-full border-0"
                 : "h-full w-full border-0"
             }
-            style={{ overflow: "hidden" }}
-            // `scrolling="no"` (legacy, but every browser still honors it —
-            // there is no modern replacement; overflow/scrollbar-width CSS
-            // on this element only affects the iframe's own box, not the
-            // scrollbars the embedded document draws inside itself) stops
-            // the game's own page from showing horizontal/vertical
-            // scrollbars whenever its content is taller/wider than the
-            // frame — e.g. a game built at a fixed pixel size (800×600)
-            // rendered inside our responsive aspect-ratio frame. Without
-            // it the browser defaults to scrolling="auto" and draws
-            // scrollbars around the game any time that happens, which is
-            // never what we want for a game embed (there's nothing useful
-            // to scroll to — the frame is meant to show the whole game).
-            scrolling="no"
             // NOTE on Media Session: there is no Permissions-Policy /
             // iframe `allow` directive for "media session" (it isn't a
             // policy-controlled feature — see MDN's Permissions-Policy
@@ -235,30 +221,6 @@ export function PlayFrame({
             //   allow-top-navigation     — prevents tab hijack / phishing redirect
             //   allow-top-navigation-by-user-activation — same risk; omitted
             //   allow-modals             — alert()/confirm() abuse
-            //
-            // ⚠ SECURITY DEPENDENCY — do not change without re-reading this:
-            //   The allow-scripts + allow-same-origin combination is only safe
-            //   because two invariants hold simultaneously:
-            //
-            //   1. embed_url is enforced to http:/https:/ scheme by isSafeEmbedUrl()
-            //      in src/lib/validation.ts (admin form) and src/lib/automation/import.ts
-            //      (feed importer).  A javascript: or data: URL would bypass CSP and
-            //      execute in the parent page's context; isSafeEmbedUrl() blocks this
-            //      before any URL ever reaches this component.
-            //
-            //   2. All game files are served from Vercel Blob's separate CDN origin
-            //      (*.vercel-storage.com), not from the main application domain.
-            //      If a game URL ever resolved to the same origin as the parent page,
-            //      allow-scripts + allow-same-origin would let it read the parent's
-            //      cookies, localStorage, and DOM — effectively a full XSS.
-            //      This is the "known weakness" the 2026-09 security audit flagged as
-            //      informational finding I-1.
-            //
-            //   If either invariant breaks in a future refactor — e.g. a feature that
-            //   lets admins embed locally-hosted games, or a change to embed_url
-            //   validation — DROP allow-same-origin from this sandbox attribute before
-            //   shipping.  Games that genuinely need same-origin localStorage can
-            //   request a storage-access exemption from the browser explicitly.
             sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-orientation-lock allow-downloads"
           />
         </div>

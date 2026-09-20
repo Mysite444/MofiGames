@@ -219,37 +219,37 @@ async function fetchPublicGameBySlugSafe(
 /**
  * ISR-safe public game lookup for src/app/[slug]/page.tsx.
  *
- * Deliberately does NOT read through the Game Metadata Cache
- * (Admin → Cache → Metadata Cache). This function only runs while Next.js
- * is (re)generating the page — the rendered HTML is what gets cached, by ISR
- * (`revalidate = 300`) and the CDN, and it is invalidated on demand by
- * revalidatePath() in PATCH /api/admin/games/:id.
+ * Routes through the Game Metadata Cache (Admin → Cache → Metadata Cache)
+ * exactly like getRealGameBySlug() does for the non-admin path — they share
+ * the same cache namespace ("games") and key (slug), so whichever populates
+ * the entry first is reused by the other without a second Supabase read.
  *
- * Stacking the in-process metadata TTL cache underneath that broke
- * on-demand invalidation: that cache is per server instance, so the purge in
- * the PATCH handler only clears the instance that handled the save. The
- * regeneration that follows revalidatePath() can run on a *different* warm
- * instance whose metadata cache still holds the pre-edit row — and it would
- * then bake the old `embed_url` into the freshly regenerated HTML, keeping
- * the stale page alive for another full ISR window. Reading the row live
- * costs one query per regeneration (at most once per revalidate window per
- * slug), which is negligible next to that.
- *
+ * Key differences from getRealGameBySlug():
  *   - NO isCurrentUserAdmin() call → NO cookies() call → page stays ISR-eligible
  *   - Returns null for private/draft games (they're not in the public catalog)
  *   - Admin preview of private games is handled separately in GameRenderer
- *   - fetchPublicGameBySlugSafe() already answers from the static snapshot on
- *     any Supabase failure, so no extra try/catch is needed here.
  *
- * Wrapped in React's cache() for request-level dedup: generateMetadata()
- * calls it once (via resolveSlug), then again directly, and the page
- * component calls it a third time. cache() makes all three resolve to the
- * same in-flight/settled promise within one render.
+ * Wrapped in React's cache() for request-level dedup — same rationale as
+ * getRealGameBySlug(): generateMetadata() calls it once (via resolveSlug),
+ * then again directly, and the page component calls it a third time. cache()
+ * makes all three resolve to the same in-flight/settled promise.
  */
 export const getPublicGameBySlug = cache(async function getPublicGameBySlug(
   slug: string
 ): Promise<{ game: Game; category: Category } | null> {
-  return fetchPublicGameBySlugSafe(slug);
+  try {
+    const { value } = await getOrSetMetadataCache("games", slug, () =>
+      fetchPublicGameBySlugSafe(slug)
+    );
+    return value ?? null;
+  } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
+    console.error(
+      `[games-server] getPublicGameBySlug("${slug}") falling back to static snapshot:`,
+      err
+    );
+    return fetchPublicGameBySlugSafe(slug);
+  }
 });
 
 /** Backs both generateMetadata() and the page component itself in
