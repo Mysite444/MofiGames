@@ -47,7 +47,7 @@ export function CategoryRow({
 
   return (
     <section className="rail-group relative">
-      <div className="mb-1 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
         <h2 className="font-category-fat text-lg leading-tight text-text md:text-xl">
           {title}
         </h2>
@@ -100,7 +100,7 @@ export function CategoryRow({
             Keep this in lockstep with px-7/md:px-8 above if either changes. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 pt-3 pb-4 scroll-pl-7 md:px-8 md:scroll-pl-8"
         >
           {games.map((game) =>
             isOriginals ? (

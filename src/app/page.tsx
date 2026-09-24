@@ -294,8 +294,11 @@ export default async function HomePage() {
         <MobileHome realGames={realGames} realCategories={realCategories} country={topPicksCountry} />
       </div>
 
-      {/* Desktop / laptop — full redesign following the reference screenshots */}
-      <div className="hidden flex-col gap-2 lg:flex">
+      {/* Desktop / laptop — full redesign following the reference screenshots.
+          gap-0: each section's scroller py-top/pb-bottom is the sole spacing
+          budget between sections; doubling it with a parent gap created the
+          visible "dead space" bands the user reported. */}
+      <div className="hidden flex-col gap-0 lg:flex">
         <ContinuePlayingDesktop />
 
         <TopPicksRow banners={topPicksBanners} grids={topPicksGrids} country={topPicksCountry} />

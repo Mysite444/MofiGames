@@ -192,7 +192,7 @@ export function TopPicksRow({
 
   return (
     <section className="rail-group relative">
-      <div className="mb-1 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
         <h2 className="font-display text-lg font-extrabold leading-tight text-text md:text-xl">
           {country ? `Today's Best in ${country}` : "Today's Best"}
         </h2>
@@ -226,7 +226,7 @@ export function TopPicksRow({
             instead of ending flush at the last fully-visible unit. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pl-4 pr-10 pt-4 pb-6 scroll-pl-4 md:pl-6 md:pr-12 md:scroll-pl-6"
         >
           {banners.map((banner, i) => (
             <PickUnit key={banner.id} banner={banner} grid={grids[i] ?? []} />

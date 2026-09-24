@@ -257,7 +257,7 @@ export function HomepageCategoriesManager() {
     <div>
       <div className="mb-4 flex items-start justify-between gap-3">
         <p className="max-w-2xl text-xs text-text-faint">
-          Every row on the homepage — Featured Games, Sponsored, the built-in genres, and any category
+          Every row on the homepage — Featured Games, Trending Now, the built-in genres, and any category
           you&apos;ve created — lives in this one ordered list. Edit a heading, reorder rows, hide one entirely,
           or pin specific games onto any row regardless of their own category.
         </p>

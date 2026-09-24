@@ -38,7 +38,7 @@ export interface SectionDefinition {
 // on top, it never changes which games show up automatically.
 export const SYSTEM_SECTIONS: SectionDefinition[] = [
   { key: "system:featured", type: "system", defaultLabel: "Featured Games", defaultPosition: 10, href: "/leaderboard" },
-  { key: "system:sponsored", type: "system", defaultLabel: "Sponsored", defaultPosition: 20 },
+  { key: "system:sponsored", type: "system", defaultLabel: "Trending Now", defaultPosition: 20 },
   { key: "system:new", type: "system", defaultLabel: "New Games", defaultPosition: 30, href: "/latest-games", anchorId: "new-releases" },
   { key: "system:originals", type: "system", defaultLabel: "MofiGames Originals", defaultPosition: 40, href: "/leaderboard", variant: "originals" },
   { key: "system:trending", type: "system", defaultLabel: "Can't Stop Playing", defaultPosition: 50, anchorId: "trending" },

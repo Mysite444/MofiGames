@@ -31,7 +31,7 @@ function MobileHomeSkeleton() {
  * single category row. */
 function DesktopHomeSkeleton() {
   return (
-    <div className="hidden flex-col gap-5 lg:flex">
+    <div className="hidden flex-col gap-0 lg:flex">
       {/* Continue playing */}
       <section className="px-4 md:px-6">
         <Bone className="mb-3 h-4 w-36" />

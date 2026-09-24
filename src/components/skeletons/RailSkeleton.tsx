@@ -15,7 +15,7 @@ export function RailSkeleton({
 }) {
   return (
     <section>
-      <div className="mb-3 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-2.5">
           <CircleBone size={32} className="rounded-lg" />
           <div className="flex flex-col gap-1.5">

@@ -49,7 +49,7 @@ export function LeaderboardPanel({ games }: { games: Game[] }) {
         }}
         aria-hidden
       />
-      <div className="relative px-4 pt-5 md:px-6">
+      <div className="relative px-4 pt-3 md:px-6">
         <Trophy size={40} className="fill-gold text-gold" />
 
         <div className="mt-2 flex items-start justify-between gap-3">
@@ -95,7 +95,7 @@ export function LeaderboardPanel({ games }: { games: Game[] }) {
           matches that padding so scroll-snap doesn't eat it on the first
           card (same fix as CategoryRow/TopPicksRow). The trailing spacer is
           widened to match, so the last card's right-side glow has room too. */}
-      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto py-6 pl-7 scroll-pl-7 scrollbar-hide snap-rail lg:flex">
+      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto pt-3 pb-4 pl-7 scroll-pl-7 scrollbar-hide snap-rail lg:flex">
         {games.map((g) => (
           <div key={g.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DESKTOP_CARD_SIZE}>
             <GenreGameCard game={g} />

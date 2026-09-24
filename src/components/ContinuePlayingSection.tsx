@@ -52,7 +52,7 @@ export function ContinuePlayingDesktop() {
   return (
     <section className="rail-group relative">
       {/* ── Header ── */}
-      <div className="mb-1 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
         <h2 className="font-display text-lg font-extrabold leading-tight text-text md:text-xl">
           Continue Playing
         </h2>
@@ -102,7 +102,7 @@ export function ContinuePlayingDesktop() {
         */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 py-6 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 pt-3 pb-4 scroll-pl-7 md:px-8 md:scroll-pl-8"
         >
           {games.map((game) => (
             /*
