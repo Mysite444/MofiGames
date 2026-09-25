@@ -101,12 +101,6 @@ export function SidebarPlayNextCard({ game }: { game: Game }) {
           </span>
         )}
 
-        {game.isSponsored && (
-          <span className="absolute right-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0">
-            {game.sponsorLabel || "Sponsored"}
-          </span>
-        )}
-
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 px-2.5 py-2">
           <p className="truncate font-display text-sm font-bold leading-none text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             {game.title}

@@ -110,12 +110,6 @@ export function GenreGameCard({ game }: { game: Game }) {
           </span>
         )}
 
-        {game.isSponsored && (
-          <span className="absolute right-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0">
-            {game.sponsorLabel || "Sponsored"}
-          </span>
-        )}
-
         {/* CrazyGames-style hover info panel — title, genre tag, plays,
             likes. Hidden until hovered/focused; fades + slides up in. Uses
             the site's own blue accent (--color-cta-blue) for the panel

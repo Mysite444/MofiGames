@@ -137,12 +137,13 @@ function MiniTile({ game }: { game: Game }) {
 
 function PickUnit({ banner, grid }: { banner: Game; grid: Game[] }) {
   return (
-    // gap-2 (8px) — matches the grid's own internal gap and the gap between
-    // units in the scroller below, so the whole row reads as one consistent
-    // tight rhythm (measured off CrazyGames, which uses the same ~8px gap
-    // everywhere) instead of the bigger/uneven 12px-and-16px spacing this
-    // used to have between the banner, the mini-grid, and the next unit.
-    <div className={`relative flex shrink-0 snap-card gap-2 ${UNIT_HEIGHT}`}>
+    // gap-1 (4px) — tighter than the grid's own internal gap-2 and the
+    // gap between units in the scroller below (also tightened to gap-1),
+    // continuing the same squeeze-out-dead-space direction this row
+    // started with (see the scroller's className comment) rather than the
+    // bigger/uneven 12px-and-16px spacing this used to have between the
+    // banner, the mini-grid, and the next unit.
+    <div className={`relative flex shrink-0 snap-card gap-1 ${UNIT_HEIGHT}`}>
       {/* relative + z-0 establishes this as a positioned sibling so the
           hovered mini-tile wrappers (z-40) correctly paint above it at
           rest. hover:z-40/focus-within:z-40 is the other half of that
@@ -192,7 +193,7 @@ export function TopPicksRow({
 
   return (
     <section className="rail-group relative">
-      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between pl-4 pr-4 md:pl-4 md:pr-6">
         <h2 className="font-display text-lg font-extrabold leading-tight text-text md:text-xl">
           {country ? `Today's Best in ${country}` : "Today's Best"}
         </h2>
@@ -216,17 +217,29 @@ export function TopPicksRow({
             scroll-pl-* matches that padding for the same reason CategoryRow
             needs it: scroll-snap-align:start otherwise eats the start-side
             padding once the row actually scrolls, clipping the first unit's
-            hover ring on the left. */}
-        {/* gap-2, not gap-4: same tight ~8px rhythm as the rest of the row
-            (see PickUnit) rather than a bigger gap between units — that
-            16px was the single biggest source of "dead space" between one
-            unit's grid and the next unit's banner. Tightening it also means
-            the next unit's banner starts sooner, so a slice of it stays
-            visible at the row's right edge (the CrazyGames-style "peek")
-            instead of ending flush at the last fully-visible unit. */}
+            hover ring on the left.
+            This row only ever renders at lg:+ (see page.tsx's `hidden
+            lg:flex` wrapper), so the md: tier is the only one that ever
+            paints — md:pl-4 (16px) is intentionally the *minimum* safe
+            value here, not a round default: FeaturedBanner hovers/focuses
+            to scale-[1.08], and at this row's largest tile size (xl:h-232 →
+            a 412px-wide 16:9 banner) that grow adds ~16.5px on the left
+            side alone. Going any tighter than 16px would start clipping
+            the first banner's hover ring/glow against the scroll
+            container's edge. */}
+        {/* gap-1, not gap-2: tightened again from the previous 8px pass —
+            still enough breathing room between a banner and its 2x2 grid
+            (and between one unit and the next) to read as separate tiles,
+            but every gap removed here is space the next unit's banner
+            didn't need to wait for. Combined with the md:pl-6→md:pl-4 drop
+            above, unit 2 now starts ~16px earlier than before, which is
+            what actually produces the CrazyGames-style "peek" of the next
+            tile at the row's right edge — pr-10/md:pr-12 below is trailing
+            space for the *last* tile's hover glow once you scroll all the
+            way to the end, it has no effect on this initial peek. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pl-4 pr-10 pt-4 pb-6 scroll-pl-4 md:pl-6 md:pr-12 md:scroll-pl-6"
+          className="snap-rail scrollbar-hide flex gap-1 overflow-x-auto pl-4 pr-10 pt-4 pb-6 scroll-pl-4 md:pl-4 md:pr-12 md:scroll-pl-4"
         >
           {banners.map((banner, i) => (
             <PickUnit key={banner.id} banner={banner} grid={grids[i] ?? []} />

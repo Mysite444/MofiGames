@@ -76,12 +76,6 @@ export function GameCard({ game, hideTitle = false }: { game: Game; hideTitle?: 
           </span>
         )}
 
-        {game.isSponsored && (
-          <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white/85 backdrop-blur-sm transition-opacity duration-300 ease-tile group-hover:opacity-0 group-active:opacity-0">
-            {game.sponsorLabel || "Sponsored"}
-          </span>
-        )}
-
         {/* Same blue hover info panel as every other card on the site —
             title, category, plays, likes on the site's cta-blue accent.
             Hidden until hovered/focused; fades + slides up in. */}
