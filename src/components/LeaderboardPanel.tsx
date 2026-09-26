@@ -88,14 +88,14 @@ export function LeaderboardPanel({ games }: { games: Game[] }) {
       {/* Desktop/laptop — same tile (GenreGameCard, 202x114) and sizing used
           by every other CategoryRow (Editor's Picks, Featured, etc.), so
           this row matches them instead of using square GameCard tiles.
-          Same px-7/py-6 padding as CategoryRow's scroller (see the long
-          comment there) — overflow-y always clips here regardless of what
-          it's set to once overflow-x is auto, so padding is the only thing
-          keeping the hover-grow ring/glow from being cut off. scroll-pl-7
-          matches that padding so scroll-snap doesn't eat it on the first
-          card (same fix as CategoryRow/TopPicksRow). The trailing spacer is
-          widened to match, so the last card's right-side glow has room too. */}
-      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto pt-3 pb-4 pl-7 scroll-pl-7 scrollbar-hide snap-rail lg:flex">
+          pl-5/scroll-pl-5 — same "moved left" left inset now used on every
+          desktop row (CategoryRow, ContinuePlayingDesktop, TopPicksRow),
+          still a hair above GenreGameCard's ~18.2px hover-grow clearance
+          need (see CategoryRow.tsx for the full math). scroll-pl-5 matches
+          it so scroll-snap doesn't eat it on the first card (same fix as
+          CategoryRow/TopPicksRow). The trailing spacer is widened to match,
+          so the last card's right-side glow has room too. */}
+      <div className="relative mt-2 hidden gap-3.5 overflow-x-auto pt-3 pb-4 pl-5 scroll-pl-5 scrollbar-hide snap-rail lg:flex">
         {games.map((g) => (
           <div key={g.id} className="snap-card relative shrink-0 hover:z-40 focus-within:z-40" style={DESKTOP_CARD_SIZE}>
             <GenreGameCard game={g} />

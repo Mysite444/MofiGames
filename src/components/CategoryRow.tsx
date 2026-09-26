@@ -47,7 +47,7 @@ export function CategoryRow({
 
   return (
     <section className="rail-group relative">
-      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between pl-5 pr-4 md:pl-5 md:pr-6">
         <h2 className="font-category-fat text-lg leading-tight text-text md:text-xl">
           {title}
         </h2>
@@ -84,23 +84,36 @@ export function CategoryRow({
             enough padding here that the card's growth (computed from its
             fixed size × the hover scale factor in GenreGameCard/
             OriginalsGameCard) always fits *inside* the padding, comfortably
-            short of this box's actual edge. px-7/py-6 (plus the md: bump)
-            below were sized for exactly that, verified in a real browser —
-            don't shrink them without re-checking the hover effect still
-            shows on all 4 sides, especially the first/last card in a row. */}
-        {/* scroll-pl-* matches the px-7/md:px-8 padding above exactly.
-            Without it, CSS scroll-snap (scroll-snap-align: start on each
-            .snap-card) computes its snap position against the scrollport
-            edge and ignores this element's own padding once the row
-            actually has enough cards to scroll — silently "eating" the
-            padding we rely on to keep the hover-grow ring from clipping on
-            the first card. Confirmed by testing scrollLeft on load: without
-            a matching scroll-padding, the browser auto-scrolls to exactly
-            cancel out the visual padding, even before any user interaction.
-            Keep this in lockstep with px-7/md:px-8 above if either changes. */}
+            short of this box's actual edge.
+            This row (like TopPicksRow) only ever renders inside page.tsx's
+            desktop-only `hidden lg:flex` wrapper, so it's always ≥1024px —
+            always past the md: breakpoint — which is why pl-5 (20px) is
+            the value that matters, not the base pl-7. 20px is the matching
+            "moved left" left inset used on every row now (same as
+            TopPicksRow, ContinuePlayingDesktop and LeaderboardPanel's
+            desktop rail), and it's still a hair above the worst case here:
+            the default variant's GenreGameCard is a fixed 202px wide and
+            grows to scale-[1.18] on hover, which needs ~18.2px of clearance
+            on its left — pl-5 leaves ~1.8px to spare. Don't shrink it
+            further without re-checking the hover ring on the first card.
+            pr-7/md:pr-8 on the right is untouched on purpose: that's
+            trailing space for the *last* card's hover glow once you scroll
+            all the way to the end, and reducing it doesn't help move
+            anything left. */}
+        {/* scroll-pl-5 matches the pl-5 above exactly (same reasoning as
+            px-7/md:px-8 used to need — see above). Without it, CSS
+            scroll-snap (scroll-snap-align: start on each .snap-card)
+            computes its snap position against the scrollport edge and
+            ignores this element's own padding once the row actually has
+            enough cards to scroll — silently "eating" the padding we rely
+            on to keep the hover-grow ring from clipping on the first card.
+            Confirmed by testing scrollLeft on load: without a matching
+            scroll-padding, the browser auto-scrolls to exactly cancel out
+            the visual padding, even before any user interaction. Keep this
+            in lockstep with pl-5 above if it ever changes. */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 pt-3 pb-4 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pl-5 pr-7 pt-3 pb-4 scroll-pl-5 md:pl-5 md:pr-8 md:scroll-pl-5"
         >
           {games.map((game) =>
             isOriginals ? (

@@ -52,7 +52,7 @@ export function ContinuePlayingDesktop() {
   return (
     <section className="rail-group relative">
       {/* ── Header ── */}
-      <div className="mb-0 flex items-center justify-between px-4 md:px-6">
+      <div className="mb-0 flex items-center justify-between pl-5 pr-4 md:pl-5 md:pr-6">
         <h2 className="font-display text-lg font-extrabold leading-tight text-text md:text-xl">
           Continue Playing
         </h2>
@@ -77,7 +77,7 @@ export function ContinuePlayingDesktop() {
         </button>
 
         {/*
-          WHY px-7 py-6 (and the matching scroll-pl-*):
+          WHY pl-5 (and the matching scroll-pl-5):
           ─────────────────────────────────────────────
           Browsers force overflow-y to compute as `auto` (meaning it still
           clips) whenever overflow-x is `auto` on the same element — the CSS
@@ -86,23 +86,32 @@ export function ContinuePlayingDesktop() {
           growth can *never* render past this box's padding edge regardless
           of what overflow-y is set to. The only reliable fix is to reserve
           enough padding that the largest possible scale-growth (88px × 1.15
-          ≈ 101px; grows by ~6.5 px per side) always lands inside the padding
-          and never reaches the actual clip edge. px-7 (28 px) and py-6 (24 px)
-          were sized for exactly that — don't reduce them without re-testing
-          the hover ring on the first/last card and top/bottom edges.
+          ≈ 101px; grows by ~6.6 px per side) always lands inside the padding
+          and never reaches the actual clip edge — 20px does that with room
+          to spare.
+          pl-5 (20px) is the same "moved left" left inset now used on every
+          desktop row (CategoryRow, LeaderboardPanel's desktop rail, and
+          TopPicksRow), rather than this row's own larger px-7/md:px-8 value
+          — this component only ever renders inside page.tsx's desktop-only
+          `hidden lg:flex` wrapper, so it's always past the md: breakpoint,
+          and 88px cards need far less clearance than the 202px GenreGameCard
+          tiles CategoryRow uses, so pl-5 is comfortably safe here too.
+          pr-7/md:pr-8 on the right is untouched — that's trailing space for
+          the *last* card's glow once you scroll to the end, unrelated to
+          how far left the row starts.
 
-          scroll-pl-7 / scroll-pl-8 must mirror the px-* values exactly:
-          without a matching scroll-padding, CSS scroll-snap (snap-card uses
+          scroll-pl-5 must mirror pl-5 exactly: without a matching
+          scroll-padding, CSS scroll-snap (snap-card uses
           scroll-snap-align:start) computes its snap position against the raw
           scrollport edge and silently cancels out the visual start-side
           padding once the row has enough cards to scroll — making the first
           card appear flush with the rail edge and clipping its hover ring on
           the left. Verified with scrollLeft logging; keep these in lockstep
-          with the px-* values if either ever changes.
+          if either ever changes.
         */}
         <div
           ref={scrollerRef}
-          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto px-7 pt-3 pb-4 scroll-pl-7 md:px-8 md:scroll-pl-8"
+          className="snap-rail scrollbar-hide flex gap-2 overflow-x-auto pl-5 pr-7 pt-3 pb-4 scroll-pl-5 md:pl-5 md:pr-8 md:scroll-pl-5"
         >
           {games.map((game) => (
             /*
