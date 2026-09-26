@@ -22,19 +22,35 @@
  * its own Exit button, it has no way to reach through the iframe boundary
  * and close our overlay unless it speaks our postMessage convention.
  *
- * ── How the player is closed ─────────────────────────────────────────────
- * Four paths, all of which unmount this component and return the user to
- * the game-page UI (portrait, out of fullscreen):
+ * ── How the player is closed (= minimized, not stopped) ──────────────────
+ * "Closing" this overlay does NOT unmount it or tear down the iframe — it
+ * only hides it (`visible` prop → false) and releases the fullscreen/
+ * orientation-lock/wake-lock/body-scroll-lock side effects tied to being
+ * on-screen. The iframe itself, and everything the embedded game is
+ * holding in memory, is left completely alone, so the parent
+ * (MobileGamePage) can bring the exact same overlay back later — via its
+ * "Continue" button — with the game exactly where the player left it.
+ * Same idea as CrazyGames/Poki-style portals: Exit minimizes, it doesn't
+ * quit. The component only actually unmounts when the parent stops
+ * rendering it at all (`started` flipping back to false), which today
+ * only happens by leaving the game page entirely.
+ *
+ * Four paths all call `onClose()`, which the parent wires to hiding
+ * (`setActive(false)`), not unmounting:
  *   1. Our own "Exit" button (left control column) — calls onClose()
  *      directly.
  *   2. The embedded game itself, IF it opts into our exit convention by
  *      posting `{ type: "mofigames:exit" }` (or a bare `"exit"` string) to
  *      the parent window — see the message listener below. Best-effort:
- *      most embeds won't send this, which is exactly why (1) exists.
+ *      most embeds won't send this, which is exactly why (1) exists. Only
+ *      honored while the overlay is actually visible.
  *   3. Hardware / browser Back (Android gesture, iOS edge-swipe, browser
  *      chrome ← button) — intercepted via a synthetic `history.pushState`
- *      + `popstate` listener so Back closes the overlay first instead of
- *      navigating off the game page.
+ *      + `popstate` listener so Back closes/minimizes the overlay first
+ *      instead of navigating off the game page. The history entry is
+ *      pushed fresh each time the overlay becomes visible, and popped
+ *      again (via `history.back()`) whenever it's minimized any other
+ *      way, so Back always has exactly one overlay-entry to consume.
  *   4. Keyboard Escape — developer convenience on desktop.
  *
  * ── Mute ──────────────────────────────────────────────────────────────────
@@ -144,9 +160,20 @@ interface MobileLandscapePlayerProps {
   /**
    * Called when the on-screen Exit button is tapped, the hardware/browser
    * Back button is pressed, Escape is hit, or the embedded game opts into
-   * our exit postMessage convention.
+   * our exit postMessage convention. The parent should treat this as
+   * "minimize" (hide, keep mounted) — see the file-level comment above.
    */
   onClose: () => void;
+  /**
+   * Whether the overlay should currently be shown full-screen. The
+   * component stays mounted (iframe intact, game state alive) the entire
+   * time its parent renders it at all — this prop only toggles whether
+   * it's actually on-screen right now. Fullscreen/orientation-lock/wake-
+   * lock/body-scroll-lock and the Back-button history entry are all
+   * (re)acquired whenever this flips true and released whenever it flips
+   * false, instead of only on mount/unmount.
+   */
+  visible: boolean;
   /**
    * Game slug. Kept on the prop type for API stability with callers; no
    * longer read inside this component now that the strip only shows
@@ -224,6 +251,7 @@ export function MobileLandscapePlayer({
   title,
   orientation = "landscape",
   onClose,
+  visible,
 }: MobileLandscapePlayerProps) {
   // SSR-safe guard — createPortal needs document.body to exist.
   const [mounted, setMounted] = useState(false);
@@ -369,6 +397,10 @@ export function MobileLandscapePlayer({
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
+    // Only hold the screen on while actually on-screen — release it (and
+    // let the phone sleep normally) while minimized.
+    if (!visible) return;
+
     let cancelled = false;
 
     async function acquireWakeLock() {
@@ -399,7 +431,7 @@ export function MobileLandscapePlayer({
       wakeLockRef.current?.release().catch(() => {});
       wakeLockRef.current = null;
     };
-  }, []);
+  }, [visible]);
 
   // ── Media Session cleanup ─────────────────────────────────────────────────
   // This overlay only exists while `playing` is true (see MobileGamePage),
@@ -411,7 +443,13 @@ export function MobileLandscapePlayer({
   useMediaSessionCleanup();
 
   // ── Native fullscreen + orientation lock (Layer 1) ───────────────────────
+  // Gated on `visible`: (re)acquired every time the overlay is shown, and
+  // released (via the cleanup below) every time it's minimized — not just
+  // on final unmount — so exiting fullscreen/portrait-unlocking happens on
+  // Exit too, even though the component itself stays mounted.
   useEffect(() => {
+    if (!visible) return;
+
     const el = document.documentElement;
 
     const fsPromise: Promise<void> =
@@ -445,10 +483,14 @@ export function MobileLandscapePlayer({
           .webkitExitFullscreen?.();
       }
     };
-  }, [orientation]);
+  }, [orientation, visible]);
 
   // ── Body scroll lock ─────────────────────────────────────────────────────
+  // Only lock the underlying page's scroll while the overlay is actually
+  // covering it — restored the moment it's minimized.
   useEffect(() => {
+    if (!visible) return;
+
     const { overflow, position, width } = document.body.style;
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed"; // iOS bounce-scroll guard
@@ -458,25 +500,34 @@ export function MobileLandscapePlayer({
       document.body.style.position = position;
       document.body.style.width = width;
     };
-  }, []);
+  }, [visible]);
 
   // ── Escape key closes the overlay (developer convenience) ────────────────
   useEffect(() => {
+    if (!visible) return;
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, visible]);
 
   // ── Hardware / browser Back button closes the overlay ───────────────────
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+  // Mirrors `visible` into a ref so the always-attached message listener
+  // below can read the latest value without needing to re-subscribe every
+  // time visibility flips.
+  const visibleRef = useRef(visible);
+  useEffect(() => { visibleRef.current = visible; }, [visible]);
+
   // Listen for the embedded game opting into our exit convention (see
   // file-level "How the player is closed", path 2). Purely additive: our
   // own Exit button (in the control column below) is the guaranteed path
-  // regardless of whether any given game sends this.
+  // regardless of whether any given game sends this. Ignored while
+  // minimized — a hidden/background game has no overlay to close.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
+      if (!visibleRef.current) return;
       const data = e.data;
       const isExit =
         data === "exit" ||
@@ -488,7 +539,14 @@ export function MobileLandscapePlayer({
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // Pushes a synthetic history entry each time the overlay becomes visible,
+  // and pops it again whenever visibility drops for any other reason —
+  // Exit button, embedded-game postMessage, Escape — so Back always has
+  // exactly one overlay-entry to consume no matter how many times the
+  // player plays/minimizes/continues in the same page view.
   useEffect(() => {
+    if (!visible) return;
+
     window.history.pushState({ mobileGameOverlay: true }, "");
     let poppedByBack = false;
 
@@ -502,8 +560,7 @@ export function MobileLandscapePlayer({
       window.removeEventListener("popstate", handlePopState);
       if (!poppedByBack) window.history.back();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [visible]);
 
   // ── CSS container dimensions (Layer 2) ───────────────────────────────────
   //
@@ -546,12 +603,19 @@ export function MobileLandscapePlayer({
     <div
       role="dialog"
       aria-modal="true"
+      aria-hidden={!visible}
       aria-label={`Playing ${title}`}
       // z-[10060] beats the header (10000) and mobile drawer (10050).
       // touchAction:none prevents the browser from stealing swipe events
       // while the game is running (e.g. pull-to-refresh, overscroll glow).
+      //
+      // display:none (not unmounting) is the whole trick: it takes the
+      // overlay fully off-screen and out of the tab order while minimized,
+      // but leaves the iframe's DOM node — and everything the embedded
+      // game is holding in memory — completely untouched, so nothing
+      // reloads when the player taps "Continue".
       className="fixed inset-0 z-[10060] bg-black"
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "none", ...(visible ? {} : { display: "none" }) }}
     >
       {/* ── Rotatable game container (Layers 2 & 3) ───────────────────── */}
       <div style={gameContainerStyle}>

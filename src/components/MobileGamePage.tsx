@@ -57,7 +57,24 @@ export function MobileGamePage({
   // persist them, so they're UI feedback rather than a real vote system.
   // Favorite and recently-played are real, though — both are backed by
   // localStorage via lib/game-library.ts (see /favorites and /recently-played).
-  const [playing, setPlaying] = useState(false);
+  //
+  // ── Play / Exit-as-minimize ────────────────────────────────────────────
+  // `started`  — the game session has begun (the overlay + its iframe have
+  //              been created) and stays true for the rest of this page
+  //              view, even after Exit. The iframe is created ONCE per
+  //              page view and is never unmounted/recreated just because
+  //              the player exits, which is what keeps the embedded
+  //              game's own in-memory state (progress, level, score…)
+  //              alive across an exit.
+  // `active`   — whether the fullscreen overlay is currently showing "on
+  //              top" right now. True while actually playing; false once
+  //              the user taps Exit (or Back) — at that point the overlay
+  //              is merely hidden, not destroyed, so tapping the Play
+  //              button (now labeled "Continue") just shows it again,
+  //              exactly where the player left off — the same exit-as-
+  //              minimize behavior CrazyGames uses.
+  const [started, setStarted] = useState(false);
+  const [active, setActive] = useState(false);
   const [vote, setVote] = useState<"up" | "down" | null>(null);
 
   // 16:9 cover — same source PlayFrame uses on the PC game page
@@ -70,8 +87,10 @@ export function MobileGamePage({
   const hasHeroVideo = Boolean(game.previewVideoUrl?.trim()) && !heroVideoError;
 
   // Real playtime tracking — see lib/game-library.ts. Streams actual
-  // elapsed seconds to the signed-in account while `playing` is true.
-  usePlayTimeTracking(playing);
+  // elapsed seconds to the signed-in account while the overlay is
+  // actually on-screen (`active`) — paused while minimized, resumed on
+  // Continue.
+  usePlayTimeTracking(active);
 
 
   const favorited = useIsFavorited(game.slug);
@@ -85,12 +104,21 @@ export function MobileGamePage({
   const orientationLabel = game.orientation === "portrait" ? "Portrait" : "Landscape";
 
   function handlePlay() {
-    setPlaying(true);
+    setStarted(true);
+    setActive(true);
     recordPlayed(game.slug);
   }
 
+  // Continue = re-show the still-mounted overlay. No `recordPlayed` here —
+  // this isn't a new play, it's resuming the one already in progress.
+  function handleContinue() {
+    setActive(true);
+  }
+
+  // Exit = minimize, not stop. The overlay/iframe stay mounted (see
+  // `started` above) — only visibility toggles off — so nothing reloads.
   function handleClose() {
-    setPlaying(false);
+    setActive(false);
   }
 
   async function handleShare() {
@@ -124,10 +152,14 @@ export function MobileGamePage({
        *      fills the screen in landscape without requiring physical rotation.
        *      → works on iOS Safari and any browser that blocks Layer 1.
        * Closed by tapping ✕, pressing Escape, or the hardware/browser Back
-       * button (intercepted via history/popstate) — every path unmounts this
-       * overlay, which locks the orientation back to portrait automatically.
+       * button (intercepted via history/popstate) — every path only HIDES
+       * this overlay (locking the orientation back to portrait
+       * automatically), it does not unmount it: once `started` flips true
+       * the overlay stays mounted, iframe and all, for the rest of this
+       * page view, so re-opening it (via the "Continue" button) never
+       * reloads the game — same exit-as-minimize behavior as CrazyGames.
        */}
-      {playing && (
+      {started && (
         <MobileLandscapePlayer
           playUrl={game.playUrl}
           title={game.title}
@@ -135,6 +167,7 @@ export function MobileGamePage({
           onClose={handleClose}
           gameId={game.slug}
           basePlays={game.plays}
+          visible={active}
         />
       )}
 
@@ -227,7 +260,7 @@ export function MobileGamePage({
         />
 
         {/* Centred thumbnail card */}
-        {!playing && (
+        {!active && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="relative w-56 overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/15">
               {heroCoverUrl ? (
@@ -284,11 +317,16 @@ export function MobileGamePage({
             pill below it, squared-off corners (rounded-xl, not rounded-full)
             and the site's shared CTA blue (--color-cta-blue — same token as
             "Back to Game" / pagination) instead of white, so it reads as a
-            big, wide, CrazyGames-style play button rather than a slim pill. */}
+            big, wide, CrazyGames-style play button rather than a slim pill.
+
+            Once a session has `started`, both CTAs relabel to "Continue"
+            and resume the still-mounted overlay (handleContinue) instead
+            of starting a fresh one (handlePlay) — same game, same iframe,
+            same progress, right where the player exited. */}
         <div className="flex flex-col gap-2.5">
           <button
             type="button"
-            onClick={handlePlay}
+            onClick={started ? handleContinue : handlePlay}
             className="-mx-2 flex items-center justify-center gap-2 rounded-xl py-4 text-base font-bold text-white shadow-lg transition-transform active:scale-[0.98]"
             style={{
               background: "var(--color-cta-blue)",
@@ -297,16 +335,16 @@ export function MobileGamePage({
             }}
           >
             <Play size={18} className="fill-white" />
-            Play now
+            {started ? "Continue" : "Play now"}
           </button>
           {game.multiplayer ? (
             <button
               type="button"
-              onClick={handlePlay}
+              onClick={started ? handleContinue : handlePlay}
               className="glass-strong flex items-center justify-center gap-2 rounded-full py-3 text-sm font-bold text-white transition-transform active:scale-[0.98]"
             >
               <Users size={16} />
-              Play with friends
+              {started ? "Continue" : "Play with friends"}
             </button>
           ) : (
             <div
