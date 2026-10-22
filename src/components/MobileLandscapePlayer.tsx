@@ -137,7 +137,7 @@
  * to the foreground (the OS releases it automatically on tab-hide).
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { RotateCcw, LogOut, Share2 } from "lucide-react";
 import { useMediaSessionCleanup } from "@/lib/use-media-session-cleanup";
@@ -186,6 +186,17 @@ interface MobileLandscapePlayerProps {
    * Exit / Invite.
    */
   basePlays: number;
+  /**
+   * Optional per-game loading-screen artwork (Admin → Edit Game → "Loading
+   * screen image"). Shown, dimmed, behind the loader while the game loads.
+   */
+  loadingScreenUrl?: string | null;
+  /**
+   * Optional per-game estimate (Admin → Edit Game → "Estimated loading time").
+   * Shown to the player, and used to stretch the "slow"/"stuck" thresholds
+   * so a game that legitimately needs 30 s isn't flagged as broken at 15 s.
+   */
+  estimatedLoadingSeconds?: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -226,6 +237,11 @@ const RAIL_BUTTON_THICKNESS = 34;
  */
 const CONTROL_STRIP_HEIGHT = 44;
 
+/** After this long without the iframe's `load` event, reassure the player. */
+const SLOW_AFTER_MS = 6000;
+/** After this long, offer Retry / Open-in-new-tab instead of just waiting. */
+const STUCK_AFTER_MS = 15000;
+
 /** True when the current viewport is taller than it is wide (portrait). */
 function detectPortrait(): boolean {
   if (typeof window === "undefined") return true;
@@ -244,6 +260,19 @@ function physicalScreenDims() {
   return { w: Math.max(sw, sh), h: Math.min(sw, sh) };
 }
 
+// Connectivity as an external store — avoids setState-in-effect and stays
+// correct across SSR (server snapshot = online).
+function subscribeOnline(cb: () => void) {
+  window.addEventListener("online", cb);
+  window.addEventListener("offline", cb);
+  return () => {
+    window.removeEventListener("online", cb);
+    window.removeEventListener("offline", cb);
+  };
+}
+const getOnline = () => navigator.onLine;
+const getOnlineServer = () => true;
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MobileLandscapePlayer({
@@ -252,6 +281,8 @@ export function MobileLandscapePlayer({
   orientation = "landscape",
   onClose,
   visible,
+  loadingScreenUrl,
+  estimatedLoadingSeconds,
 }: MobileLandscapePlayerProps) {
   // SSR-safe guard — createPortal needs document.body to exist.
   const [mounted, setMounted] = useState(false);
@@ -275,26 +306,31 @@ export function MobileLandscapePlayer({
   // finishes so the CSS transform doesn't snap mid-rotation.
   const [isRotating, setIsRotating] = useState(false);
   const rotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref mirror of isRotating so the resize handler never reads a stale value.
+  const isRotatingRef = useRef(false);
 
   useEffect(() => {
     function onOrientationChange() {
       if (rotTimerRef.current) clearTimeout(rotTimerRef.current);
+      isRotatingRef.current = true;
       setIsRotating(true);
       rotTimerRef.current = setTimeout(() => {
+        isRotatingRef.current = false;
         setIsPortrait(detectPortrait());
         setIsRotating(false);
       }, 500);
     }
+    function onResize() {
+      if (!isRotatingRef.current) setIsPortrait(detectPortrait());
+    }
     // orientationchange fires on mobile; resize catches desktop & fallback.
     window.addEventListener("orientationchange", onOrientationChange, { passive: true });
-    window.addEventListener("resize", () => {
-      if (!isRotating) setIsPortrait(detectPortrait());
-    }, { passive: true });
+    window.addEventListener("resize", onResize, { passive: true });
     return () => {
       window.removeEventListener("orientationchange", onOrientationChange);
+      window.removeEventListener("resize", onResize);
       if (rotTimerRef.current) clearTimeout(rotTimerRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Only CSS-rotate landscape games when the device is physically portrait.
@@ -374,6 +410,58 @@ export function MobileLandscapePlayer({
       };
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // ── Load / buffering state ────────────────────────────────────────────────
+  // The embedded game is a third-party page we can't see into, so the only
+  // honest signal we have is the iframe's `load` event. Until it fires the
+  // player used to stare at a black rectangle with no feedback — which reads
+  // as "frozen" and makes people leave. We now show a loader immediately,
+  // reassure after SLOW_AFTER_MS, and offer a real way out after
+  // STUCK_AFTER_MS. The game itself is never touched or reloaded by this.
+  const [loaded, setLoaded] = useState(false);
+  const [loadPhase, setLoadPhase] = useState<"loading" | "slow" | "stuck">("loading");
+  const [attempt, setAttempt] = useState(0); // bump = remount iframe (Retry)
+  const online = useSyncExternalStore(subscribeOnline, getOnline, getOnlineServer);
+  // Wall-clock start of the current load attempt, so minimizing/continuing
+  // doesn't restart the "slow" clock from zero.
+  const loadStartRef = useRef<number | null>(null);
+  const loadedRef = useRef(false);
+
+  // A game that the admin says needs ~30 s must not be flagged "stuck" at 15 s.
+  const estMs =
+    estimatedLoadingSeconds && estimatedLoadingSeconds > 0
+      ? estimatedLoadingSeconds * 1000
+      : 0;
+  const slowAfter = Math.max(SLOW_AFTER_MS, estMs * 1.25);
+  const stuckAfter = Math.max(STUCK_AFTER_MS, estMs * 2.5);
+
+  useEffect(() => {
+    if (!visible || loaded || !playUrl) return;
+    if (loadStartRef.current === null) loadStartRef.current = Date.now();
+    const elapsed = Date.now() - loadStartRef.current;
+    const slowT = setTimeout(
+      () => setLoadPhase((p) => (p === "stuck" ? p : "slow")),
+      Math.max(0, slowAfter - elapsed),
+    );
+    const stuckT = setTimeout(
+      () => setLoadPhase("stuck"),
+      Math.max(0, stuckAfter - elapsed),
+    );
+    return () => { clearTimeout(slowT); clearTimeout(stuckT); };
+  }, [visible, loaded, playUrl, attempt, slowAfter, stuckAfter]);
+
+  function handleIframeLoad() {
+    loadedRef.current = true;
+    setLoaded(true);
+  }
+
+  function handleRetry() {
+    loadStartRef.current = null;
+    loadedRef.current = false;
+    setLoaded(false);
+    setLoadPhase("loading");
+    setAttempt((a) => a + 1);
+  }
 
   /**
    * Invite — we have no visibility into the embedded game's session/room
@@ -520,6 +608,19 @@ export function MobileLandscapePlayer({
   const visibleRef = useRef(visible);
   useEffect(() => { visibleRef.current = visible; }, [visible]);
 
+  // Connection came back while the game still hasn't loaded → the request
+  // almost certainly died with the network, so retry once automatically
+  // instead of leaving the player staring at a stalled loader.
+  useEffect(() => {
+    function onOnline() {
+      if (!loadedRef.current && visibleRef.current) handleRetry();
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // handleRetry only uses stable setters + refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Listen for the embedded game opting into our exit convention (see
   // file-level "How the player is closed", path 2). Purely additive: our
   // own Exit button (in the control column below) is the guaranteed path
@@ -637,8 +738,11 @@ export function MobileLandscapePlayer({
         >
           {playUrl ? (
             <iframe
+              key={attempt}
               ref={iframeRef}
               src={playUrl}
+              loading="eager"
+              onLoad={handleIframeLoad}
               title={title}
               className="h-full w-full border-0"
               // NOTE on Media Session: "media session" is not a
@@ -656,6 +760,69 @@ export function MobileLandscapePlayer({
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/60">
               <p className="text-sm">No game URL configured.</p>
+            </div>
+          )}
+
+          {/* ── Loading / buffering overlay ─────────────────────────────
+           * Sits above the iframe until its `load` event fires. Indeterminate
+           * on purpose: we cannot know real download progress of a
+           * cross-origin game, and a fake percentage that stalls at 90% is
+           * exactly what makes people panic. */}
+          {playUrl && !loaded && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="absolute inset-0 z-10 overflow-hidden bg-black"
+            >
+              <style>{"@keyframes mofi-indeterminate{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}"}</style>
+              {loadingScreenUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={loadingScreenUrl}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-40"
+                />
+              )}
+              <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
+                <p className="text-sm font-semibold text-white">Loading {title}…</p>
+                <div className="relative h-1 w-44 overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className="absolute inset-y-0 left-0 w-1/3 rounded-full bg-white"
+                    style={{ animation: "mofi-indeterminate 1.3s ease-in-out infinite" }}
+                  />
+                </div>
+                <p className="max-w-xs text-xs text-white/70">
+                  {!online
+                    ? "You're offline. We'll reconnect and retry automatically."
+                    : loadPhase === "loading"
+                    ? estMs
+                      ? `Usually takes about ${Math.round(estMs / 1000)} seconds.`
+                      : "Getting your game ready…"
+                    : loadPhase === "slow"
+                    ? "Still loading — bigger games can take a little longer on slower connections. Nothing is wrong."
+                    : "This is taking longer than usual."}
+                </p>
+                {loadPhase === "stuck" && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="rounded-md bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-black"
+                    >
+                      Retry
+                    </button>
+                    <a
+                      href={playUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md border border-white/25 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+                    >
+                      Open in new tab
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

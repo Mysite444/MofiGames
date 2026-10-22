@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Play,
@@ -103,6 +103,26 @@ export function MobileGamePage({
     : null;
   const orientationLabel = game.orientation === "portrait" ? "Portrait" : "Landscape";
 
+  // Warm up the connection to the game's host (DNS + TCP + TLS) while the
+  // player is still reading the page. On mobile networks this handshake alone
+  // can be several hundred ms to seconds, and it otherwise only starts after
+  // "Play now" is tapped. Skipped for same-origin games.
+  useEffect(() => {
+    if (!game.playUrl) return;
+    let origin: string;
+    try {
+      origin = new URL(game.playUrl, window.location.href).origin;
+    } catch {
+      return;
+    }
+    if (origin === window.location.origin) return;
+    const link = document.createElement("link");
+    link.rel = "preconnect";
+    link.href = origin;
+    document.head.appendChild(link);
+    return () => { link.remove(); };
+  }, [game.playUrl]);
+
   function handlePlay() {
     setStarted(true);
     setActive(true);
@@ -168,6 +188,8 @@ export function MobileGamePage({
           gameId={game.slug}
           basePlays={game.plays}
           visible={active}
+          loadingScreenUrl={game.loadingScreenUrl}
+          estimatedLoadingSeconds={game.estimatedLoadingSeconds}
         />
       )}
 
@@ -242,7 +264,11 @@ export function MobileGamePage({
          * the clip errors out, onError flips hasHeroVideo off and the
          * cover underneath is what's left visible.
          */}
-        {hasHeroVideo && (
+        {/* Not rendered once a session has started: the overlay covers it
+            anyway, and a looping video would keep downloading/decoding and
+            fight the game's own load for bandwidth, CPU and memory — the
+            main reason starting a game felt slow. */}
+        {hasHeroVideo && !started && (
           <HoverPreviewVideo
             src={game.previewVideoUrl!}
             active
