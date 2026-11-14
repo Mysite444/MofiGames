@@ -41,8 +41,22 @@ type Phase = "idle" | "loading" | "finishing";
  *   - `popstate`, i.e. the browser Back / Forward buttons (the previous
  *     version ignored these entirely, so history navigation had no feedback).
  *
- * What stops it: the route actually changing (pathname / search params), or
- * the safety timeout.
+ * What stops it: the route actually changing (pathname / search params), the
+ * safety timeout, or the page being hidden / restored (see below).
+ *
+ * Back/forward cache (bfcache) — why `pagehide` / `pageshow` are handled:
+ *   When a click turns into a real document navigation (prerender activation,
+ *   an RSC fetch that falls back to a full page load, …), mobile Chrome and
+ *   Safari freeze the page we are leaving into the bfcache exactly as it is —
+ *   DOM, React state and half-run timers included. Pressing Back later thaws
+ *   that frozen page, no route change happens (nothing for the effect below
+ *   to react to), and the indicator that was up at freeze time is simply
+ *   still there, now waiting out whatever is left of the safety timeout. (With
+ *   the previous full-page dimming overlay and its 10 s ceiling, that showed
+ *   up as a dimmed, spinner-covered homepage for several seconds after Back.)
+ *   So a page that is going away is always put back to idle before it is
+ *   frozen, and a page that comes back from the bfcache is reset again on
+ *   `pageshow`.
  *
  * Self-contained (no context/provider). Mounted once in the root layout
  * inside a <Suspense> boundary (required for useSearchParams).
@@ -51,6 +65,7 @@ export function NavigationLoadingOverlay() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [phase, setPhase] = useState<Phase>("idle");
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const phaseRef = useRef<Phase>("idle");
   const shownAtRef = useRef(0);
@@ -131,6 +146,28 @@ export function NavigationLoadingOverlay() {
       safetyTimerRef.current = setTimeout(finish, SAFETY_TIMEOUT_MS);
     }
 
+    // Hard reset to idle, with no fade — for a page that is about to be frozen
+    // into (or has just been thawed from) the bfcache. Unlike finish() this
+    // does not wait for MIN_VISIBLE_MS or FINISH_MS: those timers cannot be
+    // trusted across a freeze, and there is nothing left to animate.
+    //
+    // The idle phase is written to the DOM directly as well as to state. A
+    // `pagehide` handler gets no guarantee that React commits a render before
+    // the browser snapshots the page, and the snapshot is precisely what the
+    // user sees again on Back. React's next render of the same value is a
+    // no-op, so the two never disagree.
+    function reset() {
+      activeRef.current = false;
+      clearTimers();
+      phaseRef.current = "idle";
+      const root = rootRef.current;
+      if (root) {
+        root.setAttribute("data-phase", "idle");
+        root.setAttribute("aria-hidden", "true");
+      }
+      setPhase("idle");
+    }
+
     startRef.current = start;
     finishRef.current = finish;
 
@@ -177,11 +214,27 @@ export function NavigationLoadingOverlay() {
       start();
     }
 
+    // Leaving the page (possibly into the bfcache): never freeze it mid-load.
+    function handlePageHide() {
+      reset();
+    }
+
+    // Coming back from the bfcache: the same page instance is resurrected, so
+    // no route change fires. Reset again in case the freeze captured a state
+    // (older browsers, or a pagehide that never ran) with the indicator up.
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) reset();
+    }
+
     document.addEventListener("click", handleClick, true);
     window.addEventListener("popstate", handlePopState);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
     return () => {
       document.removeEventListener("click", handleClick, true);
       window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
       clearTimers();
       activeRef.current = false;
     };
@@ -195,6 +248,7 @@ export function NavigationLoadingOverlay() {
 
   return (
     <div
+      ref={rootRef}
       aria-hidden={phase === "idle"}
       role="status"
       aria-live="polite"
