@@ -288,26 +288,51 @@ body {
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* CrazyGames-style page navigation loading: darkens the REAL page content
-   behind the spinner (a CSS filter on the actual page, not a translucent
-   panel layered on top of it) and makes it briefly inert so nothing
-   underneath can be clicked/tapped while a navigation is pending. Toggled
-   by NavigationLoadingOverlay.tsx adding/removing "nav-loading" on <html>
-   — see that component for the show/hide timing. The spinner itself lives
-   in that same component and is unaffected (rendered on top, not inside
-   anything this dims).
-   Deliberately scoped to #top (AppShell's <main>), NOT body/html — applying
-   `filter` to an ancestor of position:fixed elements (Header, Sidebar,
-   MobileDrawer) makes the browser treat that ancestor as their positioning
-   container instead of the viewport, so they'd stop staying pinned during
-   scroll for as long as the filter is active. Scoping to just the content
-   area avoids that bug entirely; the header/nav staying interactive during
-   the brief loading window is also just more usable (a misclick elsewhere
-   doesn't get trapped). */
-html.nav-loading #top {
-  filter: brightness(0.45);
-  transition: filter 200ms ease;
+/* Navigation progress bar (NavigationLoadingOverlay.tsx).
+   A slim bar pinned to the top of the viewport. It never dims or blocks the
+   page — the route's own loading.tsx skeleton is the real loading UI, this
+   only confirms the click / Back press registered. Only transform and
+   opacity are animated, so it stays on the compositor and costs no layout
+   or repaint of page content. Driven by data-phase on .nav-progress:
+     idle       — hidden
+     loading    — creeps toward ~90% and waits for the route to land
+     finishing  — snaps to 100% and fades out */
+.nav-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  z-index: 10100;
   pointer-events: none;
+  opacity: 0;
+}
+.nav-progress__bar {
+  height: 100%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: var(--color-cta-blue, #2563eb);
+  box-shadow: 0 0 8px rgba(var(--color-cta-blue-rgb, 37, 99, 235), 0.7);
+}
+.nav-progress[data-phase="loading"] {
+  opacity: 1;
+}
+.nav-progress[data-phase="loading"] .nav-progress__bar {
+  transform: scaleX(0.9);
+  transition: transform 4s cubic-bezier(0.1, 0.6, 0.2, 1);
+}
+.nav-progress[data-phase="finishing"] {
+  opacity: 0;
+  transition: opacity 200ms ease 60ms;
+}
+.nav-progress[data-phase="finishing"] .nav-progress__bar {
+  transform: scaleX(1);
+  transition: transform 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress[data-phase="loading"] .nav-progress__bar {
+    transform: scaleX(0.6);
+    transition: none;
+  }
 }
 
 /* Real touchscreens try to resolve :hover on the first tap before firing

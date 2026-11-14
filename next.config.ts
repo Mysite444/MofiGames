@@ -84,6 +84,20 @@ const nextConfig: NextConfig = {
   // visitor (and every scanner) which framework and, indirectly, which
   // version fingerprint to go looking for known CVEs against.
   poweredByHeader: false,
+  // Client-side Router Cache lifetimes. The `static` default (5 min) is
+  // restated so the intent is visible; `dynamic` defaults to 0 in Next 15+,
+  // which means any route that isn't fully prefetched (search/filter
+  // pages, uncached tag/CMS slugs) hits the server on EVERY visit — even
+  // a hop to a page the visitor viewed seconds ago. 30 s lets quick
+  // there-and-back navigation reuse the payload instead of buffering
+  // again, while keeping content fresh. Back/forward is unaffected by
+  // these values (the router always restores the cached page for it).
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
+    },
+  },
   // Complete Site Migration (Admin → Backup & Migration) reads the
   // project's own source files from disk at runtime (to zip them into
   // the downloadable migration package) rather than `import`ing them.
