@@ -836,7 +836,7 @@ export function PostsAdminClient() {
                   <Field label="Excerpt">
                     <textarea value={form.excerpt} onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))} rows={2} className="admin-input resize-none" />
                   </Field>
-                  <Field label="Content">
+                  <Field label="Content" block>
                     <RichTextEditor value={form.content} onChange={(content) => setForm((f) => ({ ...f, content }))} placeholder="Write the post…" />
                   </Field>
                   <Field label="Cover image">
@@ -1018,12 +1018,16 @@ export function PostsAdminClient() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, block = false }: { label: string; children: React.ReactNode; block?: boolean }) {
+  // `block` renders a <div> instead of a <label>. Use it for rich editors
+  // (contentEditable + toolbar buttons): inside a <label>, clicking the
+  // editor body forwards focus to the first toolbar button.
+  const Wrapper = block ? "div" : "label";
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
+    <Wrapper className="flex flex-col gap-1.5 text-sm">
       <span className="text-xs font-semibold text-text-muted">{label}</span>
       {children}
-    </label>
+    </Wrapper>
   );
 }
 

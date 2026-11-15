@@ -425,8 +425,28 @@ export function RichTextEditor({
 
   const closeDialog = useCallback(() => setDialog({ type: null }), []);
 
+  // If this editor is rendered inside a <label> (the admin `Field` wrapper
+  // does exactly that), the browser treats a click on any non-interactive
+  // descendant — including our contentEditable body — as a click on the
+  // label and forwards focus to the label's FIRST labelable descendant,
+  // which is the "Paragraph" button in the toolbar. That steals focus from
+  // the editor right after mousedown placed the caret, so the caret never
+  // shows and typing does nothing. Cancelling the click's default action
+  // stops that label activation. Caret placement happens on mousedown, so
+  // this does not affect normal editing. Real controls (buttons, inputs,
+  // the dialog's own <label>s, links) are left alone.
+  function blockLabelActivation(e: React.MouseEvent<HTMLElement>) {
+    const t = e.target as Element;
+    if (editorRef.current?.contains(t)) { e.preventDefault(); return; }
+    if (t.closest("input, select, textarea, button, label, a")) return;
+    e.preventDefault();
+  }
+
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-[var(--color-surface-2)]">
+    <div
+      onClick={blockLabelActivation}
+      className="overflow-hidden rounded-lg border border-white/10 bg-[var(--color-surface-2)]"
+    >
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-px border-b border-white/10 bg-black/20 p-1.5">
@@ -615,6 +635,10 @@ export function RichTextEditor({
           ref={editorRef}
           contentEditable
           suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          aria-label={placeholder ?? "Rich text editor"}
+          spellCheck
           onInput={handleInput}
           style={{ minHeight }}
           className={[

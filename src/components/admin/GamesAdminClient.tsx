@@ -1473,7 +1473,7 @@ export function GamesAdminClient() {
                 />
               </Field>
 
-              <Field label="Content">
+              <Field label="Content" block>
                 <p className="mb-1.5 -mt-1 text-[11px] text-text-faint">
                   The full arranged article shown below the game info — How to Play, Tips, Features,
                   FAQ, and so on. Use Heading/Subheading for section titles and bullet lists for tips
@@ -2370,12 +2370,16 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, block = false }: { label: string; children: React.ReactNode; block?: boolean }) {
+  // `block` renders a <div> instead of a <label>. Use it for rich editors
+  // (contentEditable + toolbar buttons): inside a <label>, clicking the
+  // editor body forwards focus to the first toolbar button.
+  const Wrapper = block ? "div" : "label";
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
+    <Wrapper className="flex flex-col gap-1.5 text-sm">
       <span className="text-xs font-semibold text-text-muted">{label}</span>
       {children}
-    </label>
+    </Wrapper>
   );
 }
 
